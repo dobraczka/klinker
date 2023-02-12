@@ -1,0 +1,64 @@
+site_name: klinker
+site_description: klinker, blocking methods for entity resolution in python
+theme:
+  name: material
+  font:
+    text: Inconsolata
+  palette:
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  features:
+    - navigation.instant
+    - navigation.tracking
+
+repo_name: dobraczka/klinker
+repo_url: https://github.com/dobraczka/klinker
+
+nav:
+  - home: index.md
+  - reference: reference/
+
+plugins:
+  - search:
+      lang: en
+  - gen-files:
+      scripts:
+      - docs/gen_ref_pages.py
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - section-index
+  - mkdocstrings:
+      handlers:
+        python:
+          selection:
+            docstring_style: google
+
+extra:
+  social:
+    - icon: fontawesome/brands/github-alt
+      link: https://github.com/dobraczka/klinker
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/dobraczka
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/dobraczka
+
+markdown_extensions:
+  - pymdownx.superfences
+  - admonition
+  - codehilite
+
+extra_css:
+  - css/extra.css

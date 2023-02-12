@@ -1,0 +1,61 @@
+:root {
+    --color-h-0: 220; /* black */
+    --color-h-1: 0; /* red */
+    --color-h-2: 66; /* green */
+    --color-h-3: 24; /* yellow */
+    --color-h-4: 207; /* blue */
+    --color-h-5: 284; /* magenta */
+    --color-h-6: 172; /* cyan */
+    --color-h-7: 216; /* white */
+  --md-code-bg-color: #f5f5f5;
+  --md-primary-bg-color: #232628;
+}
+[data-md-color-scheme="default"] {
+  --md-code-fg-color: #282a2e;
+  --md-code-bg-color: #f5f5f5;
+  --md-primary-fg-color:        #7c8e9d;
+  --md-accent-fg-color: #7bc8c1;
+  --md-code-sat: 60%;
+  --md-code-light: 30%;
+  --md-code-green: hsl(var(--color-h-1), var(--md-code-sat), var(--md-code-light));
+  --md-code-yellow: hsl(var(--color-h-3), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-function-color: hsl(var(--color-h-5), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-number-color:         hsl(var(--color-h-4), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-string-color:         hsl(var(--color-h-6), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-color:                hsl(172, 25%, 0.15);
+  --md-code-hl-special-color:        hsl(var(--color-h-1), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-constant-color:       hsl(var(--color-h-1), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-keyword-color:        hsl(var(--color-h-6), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-name-color:           hsl(var(--color-h-7), var(--md-code-sat), 100);
+  --md-code-hl-operator-color:       var(--md-default-fg-color--light);
+  --md-code-hl-punctuation-color:    var(--md-default-fg-color--light);
+  --md-code-hl-comment-color:        var(--md-default-fg-color--light);
+  --md-code-hl-generic-color:        var(--md-default-fg-color--light);
+  --md-code-hl-variable-color:       var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #7c8e9d;
+  /* --md-primary-bg-color:        #232628; */
+  --md-hue: 198; 
+  --md-code-sat: 45%;
+  --md-code-light: 70%;
+  --md-code-fg-color: #f5f5f5;
+  --md-code-bg-color: #282a2e;
+  --md-accent-fg-color: #7bc8c1;
+  --md-code-green: hsl(var(--color-h-2), var(--md-code-sat), var(--md-code-light));
+  --md-code-yellow: hsl(var(--color-h-3), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-function-color: hsl(var(--color-h-5), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-number-color:         hsl(var(--color-h-4), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-string-color:         hsl(var(--color-h-6), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-color:                hsl(172, 25%, 0.15);
+  --md-code-hl-special-color:        hsl(var(--color-h-1), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-constant-color:       hsl(var(--color-h-1), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-keyword-color:        hsl(var(--color-h-6), var(--md-code-sat), var(--md-code-light));
+  --md-code-hl-name-color:           hsl(var(--color-h-7), var(--md-code-sat), 100);
+  --md-code-hl-operator-color:       var(--md-default-fg-color--light);
+  --md-code-hl-punctuation-color:    var(--md-default-fg-color--light);
+  --md-code-hl-comment-color:        var(--md-default-fg-color--light);
+  --md-code-hl-generic-color:        var(--md-default-fg-color--light);
+  --md-code-hl-variable-color:       var(--md-default-fg-color--light);
+}

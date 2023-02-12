@@ -1,0 +1,98 @@
+[tool.poetry]
+name = "klinker"
+version = "0.1.0"
+description = "blocking methods for entity resolution"
+authors = ["Daniel Obraczka <obraczka@informatik.uni-leipzig.de>"]
+license = "MIT"
+readme = "README.md"
+keywords = []
+classifiers = ["Development Status :: 4 - Beta", "Programming Language :: Python", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3 :: Only"]
+repository = "https://github.com/dobraczka/klinker"
+packages = [
+  {include = "klinker", from = "src"},
+  {include = "klinker/py.typed", from = "src"},
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/dobraczka/klinker/issues"
+"Source" = "https://github.com/dobraczka/klinker"
+"Documentation" = "https://klinker.readthedocs.io"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+mkdocs = {version = "^1.4.2", optional = true}
+mkdocs-material = {version = "^9.0.9", optional = true}
+mkdocstrings = {extras = ["python"], version = "^0.20.0", optional = true}
+mkdocs-literate-nav = {version = "^0.6.0", optional = true}
+mkdocs-gen-files = {version = "^0.4.0", optional = true}
+mkdocs-section-index = {version = "^0.3.5", optional = true}
+pandas = "^1.5.3"
+numpy = "^1.24.2"
+
+
+[tool.poetry.group.dev.dependencies]
+ipdb = "^0.13.9"
+mypy = "^0.960"
+pytest = "^7.1.2"
+pytest-cov = "^3.0.0"
+pyproject-flake8 = "^0.0.1a4"
+flake8-eradicate = "^1.2.1"
+flake8-isort = "^4.1.1"
+flake8-debugger = "^4.1.2"
+flake8-comprehensions = "^3.10.0"
+flake8-print = "^5.0.0"
+nox-poetry = "^1.0.0"
+black = "^22.3.0"
+pytest-mock = "^3.7.0"
+pyroma = "^4.1"
+xdoctest = "^1.1.0"
+pydocstyle = "^6.1.1"
+flake8-bugbear = "^22.7.1"
+darglint = "^1.8.1"
+toml = "^0.10.2"
+
+[tool.poetry.extras]
+docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.flake8]
+ignore = "E203, E266, E501, W503, F403, F401, C408, D107"
+max-line-length = 88
+max-complexity = 18
+count = "true"
+show-source = "true"
+statistics = "true"
+strictness = "short"
+docstring_style = "google"
+per-file-ignores = "tests/*: DAR002"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+reverse_relative = true
+
+[tool.cruft]
+skip = ["src/klinker/__init__.py", "tests/", "README.md", "docs/"]
