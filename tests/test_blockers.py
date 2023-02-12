@@ -66,7 +66,7 @@ def example_tables() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     ],
 )
 def test_assign_schema_aware_binary(cls, key, expected, example_tables):
-    ta, tb,_ = example_tables
+    ta, tb, _ = example_tables
     block = StandardBlocker(blocking_key=key).assign([ta, tb])
     assert expected == block.to_dict()
 
@@ -80,7 +80,7 @@ def test_assign_schema_aware_binary(cls, key, expected, example_tables):
             {
                 "A": {"Bulgaria": [3], "China": [5], "USA": [1, 2], "Germany": np.nan},
                 "B": {"Bulgaria": [3], "China": [5], "USA": [2], "Germany": [1]},
-                "C": {"Bulgaria": np.nan, "China": [3], "USA": np.nan, "Germany":[1]},
+                "C": {"Bulgaria": np.nan, "China": [3], "USA": np.nan, "Germany": [1]},
             },
         )
     ],

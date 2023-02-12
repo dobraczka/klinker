@@ -11,7 +11,9 @@ class KlinkerAccessor:
 
     def _validate(self, obj):
         if obj.index.name != self._id_col:
-            raise AttributeError(f"Must use {self._id_col} as index, but uses {obj.index.name}")
+            raise AttributeError(
+                f"Must use {self._id_col} as index, but uses {obj.index.name}"
+            )
 
     @property
     def id_col(self):

@@ -1,4 +1,4 @@
-from typing import Iterable, List, Union, Optional
+from typing import Iterable, List, Optional, Union
 
 import pandas as pd
 
@@ -7,6 +7,7 @@ from .base import Blocker
 
 class StandardBlocker(Blocker):
     """Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210."""
+
     def __init__(self, blocking_key: Union[str, List[str]]):
         self.blocking_key = blocking_key
 
@@ -28,7 +29,7 @@ class StandardBlocker(Blocker):
             else:
                 res = res.join(self._inner_assign(tab), how="outer")
 
-        assert res is not None # for mypy
+        assert res is not None  # for mypy
         # remove blocks with only one entry
         max_number_nans = len(res.columns) - 1
         return res[~(res.isnull().sum(axis=1) == max_number_nans)]
