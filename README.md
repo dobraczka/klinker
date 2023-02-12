@@ -1,3 +1,6 @@
+<p align="center">
+<img src="https://github.com/dobraczka/klinker/raw/main/docs/assets/logo.png" alt="klinker logo", width=200/>
+</p>
 <h2 align="center"> klinker</h2>
 
 <p align="center">
