@@ -42,7 +42,7 @@ def style_checking(session: Session) -> None:
 
 @session()
 def pyroma(session: Session) -> None:
-    session.install("poetry>=1.0.0")
+    session.install("poetry-core>=1.0.0")
     session.install("pyroma")
     session.run("pyroma", "--min", "10", ".")
 
