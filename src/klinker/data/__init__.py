@@ -1,3 +1,3 @@
-from .enhanced_df import klinkerfy
+from .enhanced_df import KlinkerFrame
 
-__all__ = ["klinkerfy"]
+__all__ = ["KlinkerFrame"]

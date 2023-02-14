@@ -3,6 +3,7 @@ from typing import Iterable, List, Optional, Union
 import pandas as pd
 
 from .base import Blocker
+from klinker.data import KlinkerFrame
 
 
 class StandardBlocker(Blocker):
@@ -11,25 +12,21 @@ class StandardBlocker(Blocker):
     def __init__(self, blocking_key: Union[str, List[str]]):
         self.blocking_key = blocking_key
 
-    def _inner_assign(self, df: pd.DataFrame) -> pd.DataFrame:
-        id_col = df.klinker.id_col
-        name = df.klinker.name
+    def _inner_assign(self, kf: KlinkerFrame) -> pd.DataFrame:
+        id_col = kf.id_col
+        name = kf.name
         blocked = (
-            df.reset_index()[[id_col, self.blocking_key]]
+            kf.df[[id_col, self.blocking_key]]
             .groupby(self.blocking_key)
             .agg(list)
         )
         return blocked.rename(columns={id_col: name})
 
-    def assign(self, tables: Iterable[pd.DataFrame]) -> pd.DataFrame:
+    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
         res: Optional[pd.DataFrame] = None
         for tab in tables:
             if res is None:
                 res = self._inner_assign(tab)
             else:
                 res = res.join(self._inner_assign(tab), how="outer")
-
-        assert res is not None  # for mypy
-        # remove blocks with only one entry
-        max_number_nans = len(res.columns) - 1
-        return res[~(res.isnull().sum(axis=1) == max_number_nans)]
+        return res

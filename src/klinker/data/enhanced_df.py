@@ -1,5 +1,13 @@
 import numpy as np
 import pandas as pd
+from dataclasses import dataclass
+
+@dataclass
+class KlinkerFrame:
+    df: pd.DataFrame
+    name: str
+    id_col: str = "id"
+
 
 
 @pd.api.extensions.register_dataframe_accessor("klinker")
@@ -29,6 +37,8 @@ class KlinkerAccessor:
 
     @property
     def name(self):
+        if not hasattr(self,"_name"):
+            raise AttributeError(f"Please enhance your DataFrame via `klinker.data.klinkerfy` to add a `name` property")
         return self._name
 
     @name.setter
