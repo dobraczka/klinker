@@ -7,6 +7,7 @@ from klinker.data import KlinkerFrame
 
 from .standard import StandardBlocker
 
+
 class QgramsBlocker(StandardBlocker):
     def __init__(self, blocking_key: str, q: int = 3):
         super().__init__(blocking_key=blocking_key)

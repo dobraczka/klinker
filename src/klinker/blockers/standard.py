@@ -2,8 +2,9 @@ from typing import Iterable, List, Optional, Union
 
 import pandas as pd
 
-from .base import Blocker
 from klinker.data import KlinkerFrame
+
+from .base import Blocker
 
 
 class StandardBlocker(Blocker):
@@ -16,9 +17,7 @@ class StandardBlocker(Blocker):
         id_col = kf.id_col
         name = kf.name
         blocked = (
-            kf.df[[id_col, self.blocking_key]]
-            .groupby(self.blocking_key)
-            .agg(list)
+            kf.df[[id_col, self.blocking_key]].groupby(self.blocking_key).agg(list)
         )
         return blocked.rename(columns={id_col: name})
 

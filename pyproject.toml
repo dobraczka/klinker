@@ -5,7 +5,7 @@ description = "blocking methods for entity resolution"
 authors = ["Daniel Obraczka <obraczka@informatik.uni-leipzig.de>"]
 license = "MIT"
 readme = "README.md"
-keywords = []
+keywords = ["entity resolution", "blocking", "filtering", "data integration", "entity alignment"]
 classifiers = ["Development Status :: 4 - Beta", "Programming Language :: Python", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3 :: Only"]
 repository = "https://github.com/dobraczka/klinker"
 packages = [
@@ -45,12 +45,13 @@ flake8-print = "^5.0.0"
 nox-poetry = "^1.0.0"
 black = "^22.3.0"
 pytest-mock = "^3.7.0"
-pyroma = "^4.1"
 xdoctest = "^1.1.0"
 pydocstyle = "^6.1.1"
 flake8-bugbear = "^22.7.1"
 darglint = "^1.8.1"
 toml = "^0.10.2"
+pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-517-approach"}
+
 
 [tool.poetry.extras]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
