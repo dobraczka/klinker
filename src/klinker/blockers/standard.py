@@ -13,7 +13,7 @@ class StandardBlocker(Blocker):
     def __init__(self, blocking_key: Union[str, List[str]]):
         self.blocking_key = blocking_key
 
-    def _inner_assign(self, kf: KlinkerFrame) -> KlinkerFrame:
+    def _inner_assign(self, kf: KlinkerFrame) -> pd.DataFrame:
         id_col = kf.id_col
         name = kf.name
         blocked = (
@@ -21,7 +21,7 @@ class StandardBlocker(Blocker):
         )
         return blocked.rename(columns={id_col: name})
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> KlinkerFrame:
+    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
         res: Optional[KlinkerFrame] = None
         for tab in tables:
             if res is None:

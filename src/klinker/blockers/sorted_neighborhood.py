@@ -11,7 +11,7 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         self.blocking_key = blocking_key
         self.window_size = window_size
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> KlinkerFrame:
+    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
         name_id_tuple_col = "name_id_tuple"
         for tab in tables:
             tab[name_id_tuple_col] = tab[tab.id_col].apply(
@@ -33,5 +33,4 @@ class SortedNeighborhoodBlocker(StandardBlocker):
                         res[entry_ds_name][w_id].append(entry_id)
                     else:
                         res[entry_ds_name][w_id] = [entry_id]
-        print(pd.DataFrame(res).to_dict())
         return pd.DataFrame(res)

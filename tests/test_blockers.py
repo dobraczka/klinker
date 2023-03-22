@@ -4,7 +4,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from klinker.blockers import QgramsBlocker, SortedNeighborhoodBlocker, StandardBlocker
+from klinker.blockers import (
+    MinHashLSHBlocker,
+    QgramsBlocker,
+    SortedNeighborhoodBlocker,
+    StandardBlocker,
+    TokenBlocker,
+)
 from klinker.data import KlinkerFrame
 
 
@@ -211,4 +217,52 @@ def test_assign_schema_aware_binary(cls, key, expected, example_tables):
 def test_assign_schema_aware_multi(cls, key, expected, example_tables):
     ta, tb, tc = example_tables
     block = cls(blocking_key=key).assign([ta, tb, tc])
+    assert expected == block.to_dict()
+
+
+@pytest.mark.parametrize(
+    "cls, expected",
+    [
+        (
+            TokenBlocker,
+            {
+                "A": {
+                    "02-02-1983": [1],
+                    "04-12-1990": [2],
+                    "11-12-1973": [0],
+                    "Bulgaria": [2],
+                    "John": [0],
+                    "Maggie": [1],
+                    "McExample": [0],
+                    "None": [3],
+                    "Nushi": [3],
+                    "Rebecca": [2],
+                    "Smith": [1, 2],
+                    "USA": [0, 1],
+                },
+                "B": {
+                    "02-02-1983": [1],
+                    "04-12-1990": [2, 3],
+                    "11-12-1973": [0],
+                    "Bulgaria": [2],
+                    "John": [0],
+                    "Maggie": [1],
+                    "McExample": [0],
+                    "None": [0],
+                    "Nushi": [4],
+                    "Rebecca": [2],
+                    "Smith": [1, 2],
+                    "USA": [1],
+                },
+            },
+        ),
+        (
+            MinHashLSHBlocker,
+            {"A": {1: [1], 2: [2], 3: [3]}, "B": {1: [1], 2: [2], 3: [3]}},
+        ),
+    ],
+)
+def test_assign_schema_agnostic_binary(cls, expected, example_tables):
+    ta, tb, _ = example_tables
+    block = cls().assign([ta, tb])
     assert expected == block.to_dict()

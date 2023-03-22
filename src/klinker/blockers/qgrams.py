@@ -1,5 +1,6 @@
 from typing import Iterable
 
+import pandas as pd
 from nltk.util import ngrams
 
 from klinker.data import KlinkerFrame
@@ -18,7 +19,7 @@ class QgramsBlocker(StandardBlocker):
         else:
             return ["".join(tok) for tok in ngrams(x, self.q)]
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> KlinkerFrame:
+    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
 
         qgramed = []
         for tab in tables:
@@ -29,7 +30,7 @@ class QgramsBlocker(StandardBlocker):
                 .to_frame()
                 .reset_index()
                 .rename(columns={tab.name: self.blocking_key})
-                )
+            )
             kf = KlinkerFrame(
                 data=data,
                 name=tab.name,

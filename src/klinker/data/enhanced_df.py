@@ -43,3 +43,25 @@ class KlinkerFrame(pd.DataFrame):
 
     def __repr__(self) -> str:
         return super().__repr__() + f"\nTable Name: {self.name}, id_col: {self.id_col}"
+
+
+@pd.api.extensions.register_dataframe_accessor("klinker_block")
+class BlockAccessor:
+    def __init__(self, pandas_obj):
+        self._validate(pandas_obj)
+        self._obj = pandas_obj
+
+    @staticmethod
+    def _validate(obj):
+        pass
+
+    @property
+    def block_sizes(self):
+        return self._obj.apply(
+            lambda x: sum((len(v) if isinstance(v, list) else 0 for k, v in x.items())),
+            axis=1,
+        )
+
+    @property
+    def mean_block_size(self):
+        return self.block_sizes.mean()
