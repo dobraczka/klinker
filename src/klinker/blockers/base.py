@@ -13,9 +13,9 @@ class Blocker(abc.ABC):
         return blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
 
     @abc.abstractmethod
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
+    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         raise NotImplementedError
 
-    def assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
-        res = self._assign(tables)
+    def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+        res = self._assign(left=left,right=right)
         return self._postprocess(res)

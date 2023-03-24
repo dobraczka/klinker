@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import pandas as pd
 from datasketch import MinHash, MinHashLSH
@@ -15,7 +15,7 @@ class MinHashLSHBlocker(Blocker):
         blocking_key: Optional[Union[str, List[str]]] = None,
         tokenize_fn: Callable = word_tokenize,
         threshold: float = 0.5,
-        num_perm: int = 128
+        num_perm: int = 128,
     ):
         self.blocking_key = blocking_key
         self.tokenize_fn = tokenize_fn
@@ -33,25 +33,26 @@ class MinHashLSHBlocker(Blocker):
             return res
         return self._inner_encode(str(row))
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
-        tables = list(tables)
-        assert len(tables) == 2, "Only binary case supported!"
-        hashed = {tables[0].name: {}, tables[1].name: {}}
+    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+        hashed: Dict[str, Dict] = {left.name: {}, right.name: {}}
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
-        for number, tab in enumerate(tables):
+        for number, tab in enumerate([left, right]):
             if self.blocking_key is None:
                 key = [c for c in tab.columns if not c == tab.id_col]
             else:
                 key = self.blocking_key
             tok = tab[key].apply(self._encode, axis=1).tolist()
 
-            for minhash, row_id in zip(MinHash.generator(tab.apply(self._encode, axis=1).tolist()), tab[tab.id_col]):
-                pref_id = f"{tab.name}_{row_id}"
+            for minhash, row_id in zip(
+                MinHash.generator(tab.apply(self._encode, axis=1).tolist()),
+                tab[tab.id_col],
+            ):
+                f"{tab.name}_{row_id}"
                 if number == 0:
                     lsh.insert(row_id, minhash)
                 else:
                     res = lsh.query(minhash)
                     if len(res) > 0:
-                        hashed[tables[0].name][row_id] = res
-                        hashed[tables[1].name][row_id] = [row_id]
-        return pd.DataFrame(hashed, columns=[tables[0].name, tables[1].name])
+                        hashed[left.name][row_id] = res
+                        hashed[right.name][row_id] = [row_id]
+        return pd.DataFrame(hashed, columns=[left.name, right.name])

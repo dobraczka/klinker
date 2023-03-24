@@ -18,11 +18,11 @@ class TokenBlocker(Blocker):
             res.append(self.tokenize_fn(str(value)))
         return res
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
+    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         tmp_blocking_key = "_tmp_blocking_key"
 
         tok_list = []
-        for tab in tables:
+        for tab in [left, right]:
             non_id_columns = [c for c in tab.columns if not c == tab.id_col]
             tok = (
                 tab[non_id_columns]
@@ -38,7 +38,6 @@ class TokenBlocker(Blocker):
                     data=tok,
                     name=tab.name,
                     id_col="index",
-                    strict_checks=False,
                 )
             )
-        return StandardBlocker(blocking_key=tmp_blocking_key)._assign(tok_list)
+        return StandardBlocker(blocking_key=tmp_blocking_key)._assign(tok_list[0], tok_list[1])

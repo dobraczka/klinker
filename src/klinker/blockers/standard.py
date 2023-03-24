@@ -21,12 +21,7 @@ class StandardBlocker(Blocker):
         )
         return blocked.rename(columns={id_col: name})
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
-        res: Optional[KlinkerFrame] = None
-        for tab in tables:
-            if res is None:
-                res = self._inner_assign(tab)
-            else:
-                res = res.join(self._inner_assign(tab), how="outer")
-        assert res is not None
-        return res
+    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+        left_assign = self._inner_assign(left)
+        right_assign = self._inner_assign(right)
+        return left_assign.join(right_assign, how="outer")

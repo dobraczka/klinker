@@ -1,4 +1,5 @@
 from typing import Optional
+import itertools
 
 import pandas as pd
 from pandas._typing import Axes, Dtype
@@ -17,18 +18,10 @@ class KlinkerFrame(pd.DataFrame):
         copy: Optional[bool] = None,
         name: str = None,
         id_col: Optional[str] = "id",
-        strict_checks: bool = True,
     ) -> None:
         super().__init__(
             data=data, index=index, columns=columns, dtype=dtype, copy=copy
         )
-        if strict_checks and not isinstance(data, DataManager):
-            if name is None:
-                raise ValueError("Must provide `name` attribute!")
-            if id_col not in self.columns:
-                raise AttributeError(f"`id_col`={id_col} not in columns!")
-            if len(self) != len(self[id_col].unique()):
-                raise ValueError(f"Entries in `id_col`={id_col} must be unique!")
         self.name = name
         self.id_col = id_col
 
@@ -65,3 +58,8 @@ class BlockAccessor:
     @property
     def mean_block_size(self):
         return self.block_sizes.mean()
+
+    def to_pairs(self):
+        columns = self._obj.columns
+        tmp = self._obj.apply(lambda row: list(itertools.product(*row.tolist())), axis=1).explode()
+        return pd.DataFrame(tmp.tolist(), index=tmp.index, columns=columns)

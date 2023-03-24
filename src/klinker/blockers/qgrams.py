@@ -19,10 +19,9 @@ class QgramsBlocker(StandardBlocker):
         else:
             return ["".join(tok) for tok in ngrams(x, self.q)]
 
-    def _assign(self, tables: Iterable[KlinkerFrame]) -> pd.DataFrame:
-
+    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         qgramed = []
-        for tab in tables:
+        for tab in [left,right]:
             data = (
                 tab[self.blocking_key]
                 .apply(self.qgram_tokenize)
@@ -35,7 +34,6 @@ class QgramsBlocker(StandardBlocker):
                 data=data,
                 name=tab.name,
                 id_col="index",
-                strict_checks=False,
             )
             qgramed.append(kf)
-        return super()._assign(qgramed)
+        return super()._assign(left=qgramed[0], right=qgramed[1])
