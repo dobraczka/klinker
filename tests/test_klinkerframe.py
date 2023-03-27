@@ -14,7 +14,9 @@ def example() -> Dict:
 
 
 @pytest.fixture
-def block_example() -> Tuple[pd.DataFrame, pd.DataFrame, float]:
+def block_example() -> Tuple[
+    pd.DataFrame, Dict[int, int], float, Dict[str, Dict[int, int]]
+]:
     return (
         pd.DataFrame(
             {

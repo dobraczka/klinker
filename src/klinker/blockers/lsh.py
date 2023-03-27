@@ -34,9 +34,17 @@ class MinHashLSHBlocker(Blocker):
         return self._inner_encode(str(row))
 
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        hashed: Dict[str, Dict] = {left.name: {}, right.name: {}}
+        left_name = left.name
+        right_name = right.name
+        # for mypy
+        assert left_name
+        assert right_name
+
+        hashed: Dict[str, Dict] = {left_name: {}, right_name: {}}
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
         for number, tab in enumerate([left, right]):
+
+            key: Union[str, List[str]]
             if self.blocking_key is None:
                 key = [c for c in tab.columns if not c == tab.id_col]
             else:
@@ -53,6 +61,6 @@ class MinHashLSHBlocker(Blocker):
                 else:
                     res = lsh.query(minhash)
                     if len(res) > 0:
-                        hashed[left.name][row_id] = res
-                        hashed[right.name][row_id] = [row_id]
+                        hashed[left_name][row_id] = res
+                        hashed[right_name][row_id] = [row_id]
         return pd.DataFrame(hashed, columns=[left.name, right.name])
