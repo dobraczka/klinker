@@ -63,6 +63,7 @@ def test_klinkerframe(example):
     # check prefixed
     assert kf.prefixed_ids.to_list() == [name + "_" + str(i) for i in range(len(kf))]
 
+
 def test_block_statistics(block_example):
     block, expected_sizes, mean_size, _ = block_example
     assert expected_sizes == block.klinker_block.block_sizes.to_dict()

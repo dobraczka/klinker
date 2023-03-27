@@ -17,5 +17,5 @@ class Blocker(abc.ABC):
         raise NotImplementedError
 
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        res = self._assign(left=left,right=right)
+        res = self._assign(left=left, right=right)
         return self._postprocess(res)

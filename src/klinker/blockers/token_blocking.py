@@ -40,4 +40,6 @@ class TokenBlocker(Blocker):
                     id_col="index",
                 )
             )
-        return StandardBlocker(blocking_key=tmp_blocking_key)._assign(tok_list[0], tok_list[1])
+        return StandardBlocker(blocking_key=tmp_blocking_key)._assign(
+            tok_list[0], tok_list[1]
+        )

@@ -99,6 +99,7 @@ def test_assign_schema_aware(cls, key, expected, example_tables):
     block = cls(blocking_key=key).assign(ta, tb)
     assert expected == block.to_dict()
 
+
 @pytest.mark.parametrize(
     "cls, expected",
     [

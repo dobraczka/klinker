@@ -51,8 +51,8 @@ pydocstyle = "^6.1.1"
 flake8-bugbear = "^22.7.1"
 darglint = "^1.8.1"
 toml = "^0.10.2"
-pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-517-approach"}
 strawman = "^0.1.2"
+pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-517-approach"}
 
 
 [tool.poetry.extras]

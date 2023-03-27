@@ -1,10 +1,18 @@
 import pandas as pd
 
+
 def harmonic_mean(a: float, b: float) -> float:
-    return 2*((a*b)/(a+b))
+    return 2 * ((a * b) / (a + b))
+
 
 class Evaluation:
-    def __init__(self, blocks: pd.DataFrame, gold: pd.DataFrame, left_data_len: int, right_data_len: int):
+    def __init__(
+        self,
+        blocks: pd.DataFrame,
+        gold: pd.DataFrame,
+        left_data_len: int,
+        right_data_len: int,
+    ):
         self._check_consistency(blocks, gold)
 
         block_pairs = blocks.klinker_block.to_pairs()
@@ -26,31 +34,30 @@ class Evaluation:
         if not len(blocks.columns) == 2 or not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
         if not set(blocks.columns) == set(gold.columns):
-            raise ValueError("Blocks and gold standard frame need to have the same columns!")
+            raise ValueError(
+                "Blocks and gold standard frame need to have the same columns!"
+            )
 
     @property
     def recall(self) -> float:
-        return self.true_positive/(self.true_positive + self.false_negative)
+        return self.true_positive / (self.true_positive + self.false_negative)
 
     @property
     def precision(self) -> float:
-        return self.true_positive/(self.true_positive + self.false_positive)
-
+        return self.true_positive / (self.true_positive + self.false_positive)
 
     @property
     def f_measure(self) -> float:
         rec = self.recall
         prec = self.precision
-        return harmonic_mean(a=rec,b=prec)
+        return harmonic_mean(a=rec, b=prec)
 
     @property
     def reduction_ratio(self) -> float:
-        return 1- (self.comp_with_blocking/self.comp_without_blocking)
+        return 1 - (self.comp_with_blocking / self.comp_without_blocking)
 
     @property
     def h3r(self) -> float:
         rr = self.reduction_ratio
         rec = self.recall
-        return harmonic_mean(a=rr,b=rec)
-
-
+        return harmonic_mean(a=rr, b=rec)

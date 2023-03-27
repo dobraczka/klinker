@@ -21,7 +21,7 @@ class QgramsBlocker(StandardBlocker):
 
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         qgramed = []
-        for tab in [left,right]:
+        for tab in [left, right]:
             data = (
                 tab[self.blocking_key]
                 .apply(self.qgram_tokenize)

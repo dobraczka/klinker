@@ -1,5 +1,5 @@
-from typing import Optional
 import itertools
+from typing import Optional
 
 import pandas as pd
 from pandas._typing import Axes, Dtype
@@ -61,5 +61,7 @@ class BlockAccessor:
 
     def to_pairs(self):
         columns = self._obj.columns
-        tmp = self._obj.apply(lambda row: list(itertools.product(*row.tolist())), axis=1).explode()
+        tmp = self._obj.apply(
+            lambda row: list(itertools.product(*row.tolist())), axis=1
+        ).explode()
         return pd.DataFrame(tmp.tolist(), index=tmp.index, columns=columns)

@@ -44,7 +44,7 @@ class MinHashLSHBlocker(Blocker):
             tok = tab[key].apply(self._encode, axis=1).tolist()
 
             for minhash, row_id in zip(
-                MinHash.generator(tab.apply(self._encode, axis=1).tolist()),
+                MinHash.generator(tok),
                 tab[tab.id_col],
             ):
                 f"{tab.name}_{row_id}"
