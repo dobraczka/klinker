@@ -30,6 +30,8 @@ pandas = "^1.5.3"
 numpy = "^1.24.2"
 nltk = "^3.8.1"
 datasketch = "^1.5.9"
+kiez = {extras = ["all"], version = "^0.4.2"}
+sylloge = "^0.1.1"
 
 
 [tool.poetry.group.dev.dependencies]

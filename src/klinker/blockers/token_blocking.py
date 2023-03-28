@@ -1,16 +1,23 @@
-from typing import Callable, Iterable
+from typing import Callable, Union, List, Tuple
 
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
 from klinker.blockers import StandardBlocker
-from klinker.blockers.base import Blocker
+from klinker.blockers.base import SchemaAgnosticBlocker
 from klinker.data import KlinkerFrame
 
 
-class TokenBlocker(Blocker):
-    def __init__(self, tokenize_fn: Callable = word_tokenize):
+class TokenBlocker(SchemaAgnosticBlocker):
+    def __init__(
+        self,
+        tokenize_fn: Callable = word_tokenize,
+        wanted_cols: Union[
+            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
+        ] = None,
+    ):
         self.tokenize_fn = tokenize_fn
+        super().__init__(wanted_cols=wanted_cols)
 
     def tokenize(self, x):
         res = []
@@ -22,10 +29,9 @@ class TokenBlocker(Blocker):
         tmp_blocking_key = "_tmp_blocking_key"
 
         tok_list = []
-        for tab in [left, right]:
-            non_id_columns = [c for c in tab.columns if not c == tab.id_col]
+        for number, tab in enumerate([left, right]):
             tok = (
-                tab[non_id_columns]
+                tab[self._actual_wanted_cols[number]]
                 .apply(self.tokenize, axis=1)  # returns list of lists
                 .explode()  # that's why we need
                 .explode()  # 2 explodes

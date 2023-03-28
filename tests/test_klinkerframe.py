@@ -2,15 +2,20 @@ from typing import Dict, Tuple
 
 import pandas as pd
 import pytest
-from strawman import dummy_df
+from strawman import dummy_df, dummy_triples
 
-from klinker.data import KlinkerFrame
+from klinker.data import KlinkerFrame, KlinkerTripleFrame
 
 
 @pytest.fixture
 def example() -> Dict:
     df = dummy_df((10, 3), columns=["colA", "colB", "colC"])
     return df.reset_index().to_dict()
+
+@pytest.fixture
+def triple_example() -> Dict:
+    return dummy_triples(10, relation_triples=False).to_dict()
+
 
 
 @pytest.fixture
@@ -64,6 +69,17 @@ def test_klinkerframe(example):
 
     # check prefixed
     assert kf.prefixed_ids.to_list() == [name + "_" + str(i) for i in range(len(kf))]
+
+    # check non-id-columns
+    assert kf.non_id_columns == ["colA", "colB", "colC"]
+
+def test_klinker_triple_frame(triple_example):
+    name = "A"
+    id_col = "head"
+    ktf = KlinkerTripleFrame(data=triple_example, name=name, id_col=id_col)
+    assert ktf.non_id_columns == ["tail"]
+    concated = ktf.concat_values()
+    assert len(concated[concated.id_col].unique()) == len(concated)
 
 
 def test_block_statistics(block_example):

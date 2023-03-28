@@ -1,9 +1,8 @@
 import itertools
-from typing import Optional
+from typing import List, Optional
 
 import pandas as pd
 from pandas._typing import Axes, Dtype
-from pandas.core.internals.base import DataManager
 
 
 class KlinkerFrame(pd.DataFrame):
@@ -34,8 +33,37 @@ class KlinkerFrame(pd.DataFrame):
         assert self.name
         return self.name + "_" + self[self.id_col].astype(str)
 
+    @property
+    def non_id_columns(self) -> List[str]:
+        return [c for c in self.columns if not c == self.id_col]
+
+    @classmethod
+    def from_df(
+        cls, df: pd.DataFrame, name: str, id_col: Optional[str] = "id"
+    ) -> "KlinkerFrame":
+        return cls(data=df, name=name, id_col=id_col)
+
     def __repr__(self) -> str:
         return super().__repr__() + f"\nTable Name: {self.name}, id_col: {self.id_col}"
+
+
+class KlinkerTripleFrame(KlinkerFrame):
+    @property
+    def non_id_columns(self) -> List[str]:
+        return [self.columns[2]]
+
+    def concat_values(self) -> KlinkerFrame:
+        assert self.name
+        new_id_col = "id"
+        head_with_tail = [self.id_col, self.columns[2]]
+        df = (
+            self[head_with_tail]
+            .groupby(self.id_col)
+            .agg(lambda row: " ".join(row.astype(str).values))
+            .reset_index()
+            .rename(columns={self.name: new_id_col})
+        )
+        return KlinkerFrame.from_df(df, name=self.name, id_col=new_id_col)
 
 
 @pd.api.extensions.register_dataframe_accessor("klinker_block")
