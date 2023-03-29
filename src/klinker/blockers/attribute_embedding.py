@@ -1,10 +1,10 @@
 import abc
-from typing import Iterable, List, Union, Optional
+from typing import Iterable, List, Optional, Union
 
 import pandas as pd
 
-from klinker.data import KlinkerFrame
 from klinker.blockers.base import Blocker
+from klinker.data import KlinkerFrame
 
 
 class AttributeEmbeddingBlocker(Blocker):

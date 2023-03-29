@@ -1,4 +1,4 @@
-from typing import Callable, Union, List, Tuple
+from typing import Callable, List, Tuple, Union
 
 import pandas as pd
 from nltk.tokenize import word_tokenize

@@ -12,10 +12,10 @@ def example() -> Dict:
     df = dummy_df((10, 3), columns=["colA", "colB", "colC"])
     return df.reset_index().to_dict()
 
+
 @pytest.fixture
 def triple_example() -> Dict:
     return dummy_triples(10, relation_triples=False).to_dict()
-
 
 
 @pytest.fixture
@@ -72,6 +72,7 @@ def test_klinkerframe(example):
 
     # check non-id-columns
     assert kf.non_id_columns == ["colA", "colB", "colC"]
+
 
 def test_klinker_triple_frame(triple_example):
     name = "A"

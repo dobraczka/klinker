@@ -38,7 +38,6 @@ class SchemaAgnosticBlocker(Blocker):
     ) -> None:
         self.wanted_cols = wanted_cols
 
-
     def _invalid_cols(
         self,
         kf: KlinkerFrame,
@@ -56,7 +55,9 @@ class SchemaAgnosticBlocker(Blocker):
                 return True
         return False
 
-    def _get_legit_wanted_cols(self, left: KlinkerFrame, right: KlinkerFrame) -> Tuple[Union[str, List[str]], Union[str, List[str]]]:
+    def _get_legit_wanted_cols(
+        self, left: KlinkerFrame, right: KlinkerFrame
+    ) -> Tuple[Union[str, List[str]], Union[str, List[str]]]:
         error_msg = f"Wanted column(s) {self.wanted_cols} must be in both tables!"
         if self.wanted_cols is None:
             return (left.non_id_columns, right.non_id_columns)
@@ -66,7 +67,9 @@ class SchemaAgnosticBlocker(Blocker):
             return (self.wanted_cols, self.wanted_cols)
         elif isinstance(self.wanted_cols, tuple):
             if len(self.wanted_cols) != 2:
-                raise ValueError(f"Wanted cols tuple has to have exactly two entries, but was {self.wanted_cols}!")
+                raise ValueError(
+                    f"Wanted cols tuple has to have exactly two entries, but was {self.wanted_cols}!"
+                )
             if self._invalid_cols(
                 left.columns, self.wanted_cols[0]
             ) or self._invalid_cols(right.columns, self.wanted_cols[1]):

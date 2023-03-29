@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Union, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from datasketch import MinHash, MinHashLSH
@@ -45,7 +45,11 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         hashed: Dict[str, Dict] = {left_name: {}, right_name: {}}
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
         for number, tab in enumerate([left, right]):
-            tok = tab[self._actual_wanted_cols[number]].apply(self._encode, axis=1).tolist()
+            tok = (
+                tab[self._actual_wanted_cols[number]]
+                .apply(self._encode, axis=1)
+                .tolist()
+            )
 
             for minhash, row_id in zip(
                 MinHash.generator(tok),
