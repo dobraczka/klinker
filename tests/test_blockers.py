@@ -2,6 +2,7 @@ from typing import Tuple
 
 import pandas as pd
 import pytest
+from util import compare_blocks
 
 from klinker.blockers import (
     EmbeddingBlocker,
@@ -13,13 +14,6 @@ from klinker.blockers import (
 )
 from klinker.blockers.base import postprocess
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
-
-
-def compare_blocks(a: pd.DataFrame, b: pd.DataFrame):
-    assert all(
-        a.klinker_block.to_pairs().sort_index()
-        == b.klinker_block.to_pairs().sort_index()
-    )
 
 
 @pytest.fixture

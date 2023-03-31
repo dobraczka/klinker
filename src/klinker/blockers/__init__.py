@@ -1,4 +1,4 @@
-from .attribute_embedding import EmbeddingBlocker
+from .embedding.blocker import EmbeddingBlocker
 from .lsh import MinHashLSHBlocker
 from .qgrams import QgramsBlocker
 from .sorted_neighborhood import SortedNeighborhoodBlocker

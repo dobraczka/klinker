@@ -38,6 +38,7 @@ pykeen = "^1.10.1"
 faiss-cpu = {version = "^1.7.3", optional = true}
 autofaiss = {version = "^2.15.5", optional = true}
 faiss-gpu = {version = "^1.7.2", optional = true}
+hdbscan = "^0.8.29"
 
 
 [tool.poetry.group.dev.dependencies]
