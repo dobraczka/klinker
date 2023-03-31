@@ -93,10 +93,11 @@ def test_block_to_pairs(block_example):
     block, _, _, pairs = block_example
     assert pairs == block.klinker_block.to_pairs().to_dict()
 
+
 def test_validate_klinker_block():
     with pytest.raises(ValueError):
         # only lists allowed
-        pd.DataFrame({"A":{1:1, 2: [1]}, "B":{1:[1],2:[1]}}).klinker_block
+        pd.DataFrame({"A": {1: 1, 2: [1]}, "B": {1: [1], 2: [1]}}).klinker_block
     with pytest.raises(ValueError):
         # no nans
-        pd.DataFrame({"A":{4:[1], 2: [1]}, "B":{1:[1],2:[1]}}).klinker_block
+        pd.DataFrame({"A": {4: [1], 2: [1]}, "B": {1: [1], 2: [1]}}).klinker_block

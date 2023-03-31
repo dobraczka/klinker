@@ -11,11 +11,18 @@ __all__ = [
     "EmbeddingBlockBuilder",
     "NearestNeighborEmbeddingBlockBuilder",
     "KiezEmbeddingBlockBuilder",
-    "FrameEncoder", "TransformerTextFrameEncoder"
+    "FrameEncoder",
+    "TransformerTextFrameEncoder",
 ]
 
 block_builder_resolver = ClassResolver(
-    [KiezEmbeddingBlockBuilder], base=EmbeddingBlockBuilder, default=KiezEmbeddingBlockBuilder
+    [KiezEmbeddingBlockBuilder],
+    base=EmbeddingBlockBuilder,
+    default=KiezEmbeddingBlockBuilder,
 )
 
-frame_encoder_resolver = ClassResolver([TransformerTextFrameEncoder], base=FrameEncoder, default=TransformerTextFrameEncoder)
+frame_encoder_resolver = ClassResolver(
+    [TransformerTextFrameEncoder],
+    base=FrameEncoder,
+    default=TransformerTextFrameEncoder,
+)

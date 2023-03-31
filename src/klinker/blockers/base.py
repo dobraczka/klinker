@@ -4,13 +4,14 @@ from typing import List, Optional, Tuple, Union
 import pandas as pd
 
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
-from klinker.typing import SingleOrDualColumnSpecifier, DualColumnSpecifier
+from klinker.typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
 
 
 def transform_triple_frames_if_needed(kf: KlinkerFrame) -> KlinkerFrame:
     if isinstance(kf, KlinkerTripleFrame):
         return kf.concat_values()
     return kf
+
 
 def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
     # remove blocks with only one entry
@@ -73,9 +74,11 @@ class SchemaAgnosticBlocker(Blocker):
             ) or self._invalid_cols(right.columns, self.wanted_cols[1]):
                 raise ValueError(error_msg)
             # TODO don't know how to make mypy find out the type correctly here
-            return self.wanted_cols # type: ignore
+            return self.wanted_cols  # type: ignore
         else:
-            raise ValueError(f"Unknown format for wanted_cols: {type(self.wanted_cols)}")
+            raise ValueError(
+                f"Unknown format for wanted_cols: {type(self.wanted_cols)}"
+            )
         return self.wanted_cols
 
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:

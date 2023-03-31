@@ -4,7 +4,12 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
 from klinker.blockers.base import SchemaAgnosticBlocker
-from klinker.blockers.embedding import EmbeddingBlockBuilder, block_builder_resolver, FrameEncoder, frame_encoder_resolver
+from klinker.blockers.embedding import (
+    EmbeddingBlockBuilder,
+    FrameEncoder,
+    block_builder_resolver,
+    frame_encoder_resolver,
+)
 from klinker.data import KlinkerFrame
 
 

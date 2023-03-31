@@ -76,11 +76,10 @@ class BlockAccessor:
     def _validate(obj):
         err_msg = "Only list of ids are allowed as block entries!"
         try:
-            if not obj.applymap(lambda x: isinstance(x,list)).all().all():
+            if not obj.applymap(lambda x: isinstance(x, list)).all().all():
                 raise ValueError(err_msg)
         except:
-                raise ValueError(err_msg)
-
+            raise ValueError(err_msg)
 
     @property
     def block_sizes(self):

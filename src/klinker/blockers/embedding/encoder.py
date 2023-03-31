@@ -1,4 +1,5 @@
 from typing import Tuple
+
 import pandas as pd
 from pykeen.nn.text import TransformerTextEncoder
 
