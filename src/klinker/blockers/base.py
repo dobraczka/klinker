@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Union
 import pandas as pd
 
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from klinker.typing import SingleOrDualColumnSpecifier, DualColumnSpecifier
 
 
 def transform_triple_frames_if_needed(kf: KlinkerFrame) -> KlinkerFrame:
@@ -11,39 +12,36 @@ def transform_triple_frames_if_needed(kf: KlinkerFrame) -> KlinkerFrame:
         return kf.concat_values()
     return kf
 
+def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
+    # remove blocks with only one entry
+    max_number_nans = len(blocks.columns) - 1
+    blocks = blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
+    return blocks.applymap(lambda x: [x] if not isinstance(x, list) else x)
+
 
 class Blocker(abc.ABC):
-    def _postprocess(self, blocks: pd.DataFrame) -> pd.DataFrame:
-        # remove blocks with only one entry
-        max_number_nans = len(blocks.columns) - 1
-        return blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
-
     @abc.abstractmethod
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         raise NotImplementedError
 
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         res = self._assign(left=left, right=right)
-        return self._postprocess(res)
+        return postprocess(res)
 
 
 class SchemaAgnosticBlocker(Blocker):
-    _actual_wanted_cols: Tuple[Union[str, List[str]], Union[str, List[str]]]
+    _actual_wanted_cols: DualColumnSpecifier
 
     def __init__(
         self,
-        wanted_cols: Union[
-            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
-        ] = None,
+        wanted_cols: Optional[SingleOrDualColumnSpecifier] = None,
     ) -> None:
         self.wanted_cols = wanted_cols
 
     def _invalid_cols(
         self,
         kf: KlinkerFrame,
-        cols: Optional[
-            Union[str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]]
-        ] = None,
+        cols: Optional[SingleOrDualColumnSpecifier] = None,
     ):
         if cols is None:
             cols = self.wanted_cols
@@ -57,7 +55,7 @@ class SchemaAgnosticBlocker(Blocker):
 
     def _get_legit_wanted_cols(
         self, left: KlinkerFrame, right: KlinkerFrame
-    ) -> Tuple[Union[str, List[str]], Union[str, List[str]]]:
+    ) -> DualColumnSpecifier:
         error_msg = f"Wanted column(s) {self.wanted_cols} must be in both tables!"
         if self.wanted_cols is None:
             return (left.non_id_columns, right.non_id_columns)
@@ -74,7 +72,10 @@ class SchemaAgnosticBlocker(Blocker):
                 left.columns, self.wanted_cols[0]
             ) or self._invalid_cols(right.columns, self.wanted_cols[1]):
                 raise ValueError(error_msg)
-            return self.wanted_cols
+            # TODO don't know how to make mypy find out the type correctly here
+            return self.wanted_cols # type: ignore
+        else:
+            raise ValueError(f"Unknown format for wanted_cols: {type(self.wanted_cols)}")
         return self.wanted_cols
 
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:

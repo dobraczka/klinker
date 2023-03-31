@@ -4,12 +4,14 @@ import pandas as pd
 import pytest
 
 from klinker.blockers import (
+    EmbeddingBlocker,
     MinHashLSHBlocker,
     QgramsBlocker,
     SortedNeighborhoodBlocker,
     StandardBlocker,
     TokenBlocker,
 )
+from klinker.blockers.base import postprocess
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
 
 
@@ -69,6 +71,15 @@ def example_triples(example_tables) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     table_A, table_B = example_tables
     return triplify(table_A), triplify(table_B)
+
+
+@pytest.fixture
+def example_prepostprocess() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    return [
+        pd.DataFrame({"A": {1: [2], 2: [1]}, "B": {1: [2]}}),
+        pd.DataFrame({"A": {1: 2, 2: 1}, "B": {1: [2]}}),
+        pd.DataFrame({"A": {1: 2}, "B": {1: [2]}}),
+    ], pd.DataFrame({"A": {1: [2]}, "B": {1: [2]}})
 
 
 @pytest.mark.parametrize(
@@ -197,3 +208,29 @@ def test_assign_schema_agnostic(tables, cls, expected, request):
     ta, tb = request.getfixturevalue(tables)
     block = cls().assign(ta, tb)
     compare_blocks(expected, block)
+
+
+@pytest.mark.parametrize("tables", ["example_tables", "example_triples"])
+@pytest.mark.parametrize(
+    "expected",
+    [
+        pd.DataFrame(
+            {
+                "A": {0: [1], 1: [2], 2: [3], 3: [4], 4: [5]},
+                "B": {0: [1, 2], 1: [2, 1], 2: [3, 2], 3: [4, 3], 4: [5, 3]},
+            }
+        ),
+    ],
+)
+def test_assign_embedding_blocker(tables, expected, request):
+    ta, tb = request.getfixturevalue(tables)
+    block = EmbeddingBlocker(embedding_block_builder_kwargs=dict(n_neighbors=2)).assign(
+        ta, tb
+    )
+    compare_blocks(expected, block)
+
+
+def test_postprocess(example_prepostprocess):
+    prepost, expected = example_prepostprocess
+    for pp in prepost:
+        assert postprocess(pp).equals(expected)
