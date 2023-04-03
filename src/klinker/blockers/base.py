@@ -7,10 +7,10 @@ from klinker.data import KlinkerFrame, KlinkerTripleFrame
 from klinker.typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
 
 
-def transform_triple_frames_if_needed(kf: KlinkerFrame) -> KlinkerFrame:
+def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame]:
     if isinstance(kf, KlinkerTripleFrame):
         return kf.concat_values()
-    return kf
+    return None
 
 
 def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
@@ -32,6 +32,7 @@ class Blocker(abc.ABC):
 
 class SchemaAgnosticBlocker(Blocker):
     _actual_wanted_cols: DualColumnSpecifier
+    _merge_col_name = "_merged_text"
 
     def __init__(
         self,
@@ -81,8 +82,10 @@ class SchemaAgnosticBlocker(Blocker):
             )
         return self.wanted_cols
 
+    def _preprocess(self, left: KlinkerFrame, right: KlinkerFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        actual_wanted_cols = self._get_legit_wanted_cols(left=left, right=right)
+        return left.concat_values(actual_wanted_cols[0]), right.concat_values(actual_wanted_cols[1])
+
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        left = transform_triple_frames_if_needed(left)
-        right = transform_triple_frames_if_needed(right)
-        self._actual_wanted_cols = self._get_legit_wanted_cols(left=left, right=right)
-        return super().assign(left=left, right=right)
+        left_reduced, right_reduced = self._preprocess(left, right)
+        return super().assign(left=left_reduced, right=right_reduced)

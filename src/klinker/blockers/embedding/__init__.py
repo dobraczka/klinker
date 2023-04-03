@@ -6,6 +6,7 @@ from .blockbuilder import (
     NearestNeighborEmbeddingBlockBuilder,
 )
 from .encoder import FrameEncoder, TransformerTextFrameEncoder
+from .word_embedding import AverageEmbeddingFrameEncoder, SIFEmbeddingFrameEncoder
 
 __all__ = [
     "EmbeddingBlockBuilder",
@@ -22,7 +23,7 @@ block_builder_resolver = ClassResolver(
 )
 
 frame_encoder_resolver = ClassResolver(
-    [TransformerTextFrameEncoder],
+    [TransformerTextFrameEncoder, AverageEmbeddingFrameEncoder, SIFEmbeddingFrameEncoder],
     base=FrameEncoder,
     default=TransformerTextFrameEncoder,
 )

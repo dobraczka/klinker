@@ -46,7 +46,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
         for number, tab in enumerate([left, right]):
             tok = (
-                tab[self._actual_wanted_cols[number]]
+                tab[tab.non_id_columns]
                 .apply(self._encode, axis=1)
                 .tolist()
             )
@@ -55,7 +55,6 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                 MinHash.generator(tok),
                 tab[tab.id_col],
             ):
-                f"{tab.name}_{row_id}"
                 if number == 0:
                     lsh.insert(row_id, minhash)
                 else:

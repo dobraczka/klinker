@@ -11,9 +11,11 @@ from klinker.blockers import (
     SortedNeighborhoodBlocker,
     StandardBlocker,
     TokenBlocker,
+    DeepBlocker,
 )
 from klinker.blockers.base import postprocess
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from mocks import MockGensimDownloader
 
 
 @pytest.fixture
@@ -65,6 +67,12 @@ def example_triples(example_tables) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     table_A, table_B = example_tables
     return triplify(table_A), triplify(table_B)
+
+@pytest.fixture
+def example_both(request):
+    ta, _ = request.getfixturevalue("example_tables")
+    _, tb = request.getfixturevalue("example_triples")
+    return ta, tb
 
 
 @pytest.fixture
@@ -151,7 +159,7 @@ def test_assign_schema_aware(cls, key, expected, example_tables):
     compare_blocks(expected, block)
 
 
-@pytest.mark.parametrize("tables", ["example_tables", "example_triples"])
+@pytest.mark.parametrize("tables", ["example_tables", "example_triples", "example_both"])
 @pytest.mark.parametrize(
     "cls, expected",
     [
@@ -204,7 +212,7 @@ def test_assign_schema_agnostic(tables, cls, expected, request):
     compare_blocks(expected, block)
 
 
-@pytest.mark.parametrize("tables", ["example_tables", "example_triples"])
+@pytest.mark.parametrize("tables", ["example_tables", "example_triples", "example_both"])
 @pytest.mark.parametrize(
     "expected",
     [
@@ -228,3 +236,12 @@ def test_postprocess(example_prepostprocess):
     prepost, expected = example_prepostprocess
     for pp in prepost:
         assert postprocess(pp).equals(expected)
+
+def test_deep_blocker(example_tables, mocker):
+    dimension = 3
+    mocker.patch(
+        "klinker.blockers.embedding.word_embedding.gensim_downloader",
+        MockGensimDownloader(dimension=dimension),
+    )
+    ta, tb = example_tables
+    block = DeepBlocker().assign(ta,tb)
