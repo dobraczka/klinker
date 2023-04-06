@@ -1,156 +1,250 @@
-#TODO refactor copy-pasted code
+import os
+from abc import ABC, abstractmethod
+from typing import IO, BinaryIO, Generic, Tuple, Type, TypeVar, Union
 
-#This file contains a bunch of DL network definitions that are used by the tuple embedding models
-
+import numpy as np
 import torch
-from torch import nn
-from torch.utils.data import Dataset, DataLoader
+from class_resolver import HintOrType, OptionalKwargs
+from class_resolver.contrib.torch import optimizer_resolver
 from pykeen.utils import resolve_device
+from torch import nn
+from torch.nn.modules.loss import _Loss
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-#This is a simple dataset for loading numpy matrices
-class NumPy_Dataset(Dataset):
-    def __init__(self, embedding_matrix):
-        self.embedding_matrix = embedding_matrix
+FeatureType = TypeVar("FeatureType")
 
-    def __getitem__(self, index):
-        return torch.tensor(self.embedding_matrix[index, :]).float()
+class FeatureDataset(Dataset[torch.Tensor]):
+    def __init__(self, features: torch.Tensor):
+        self.features = features
 
-    def __len__(self):
-        return len(self.embedding_matrix)
-
-#This is used for CTT and Hybrid where you want to load L_e, R_e and y_e
-# where L_e and R_e are the numpy matrices for tuple pairs
-# that are either a perturbation of each other as denoted by y_e
-class NumPy_Triplet_Dataset(Dataset):
-    def __init__(self, left_embedding_matrix, right_embedding_matrix, labels):
-        self.left_embedding_matrix = left_embedding_matrix
-        self.right_embedding_matrix = right_embedding_matrix
-        self.labels = labels
-        if (len(left_embedding_matrix) != len(right_embedding_matrix)) \
-            or (len(right_embedding_matrix) != len(labels)):
-            raise Exception("The dimensions of left and right embedding matrix and labels do not match")
-
-    def __getitem__(self, index):
-        left = torch.tensor(self.left_embedding_matrix[index, :]).float()
-        right = torch.tensor(self.right_embedding_matrix[index, :]).float()
-        label = torch.tensor(self.labels[index]).float()
-        return left, right, label
+    def __getitem__(self, index) -> torch.Tensor:
+        return self.features[index].float()
 
     def __len__(self):
-        return len(self.left_embedding_matrix)
+        return len(self.features)
 
-class AutoEncoder(nn.Module):
-    #This model is assumed to be layered
-    def __init__(self, input_dimension, hidden_dimensions):
-        super(AutoEncoder, self).__init__()
+class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
+    def __init__(self, left: torch.Tensor, right: torch.Tensor, labels: torch.Tensor):
+        assert all(left.size(0) == tensor.size(0) for tensor in [right, labels]), "Size mismatch between tensors"
+        self.left = left.float()
+        self.right = right.float()
+        self.labels = labels.float()
+
+    def __getitem__(self, index):
+        return self.left[index], self.right[index], self.labels[index]
+
+    def __len__(self):
+        return self.left.size(0)
+
+
+class DeepBlockerModel(nn.Module):
+    def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
+        self.input_dimension = input_dimension
+        self.hidden_dimensions = hidden_dimensions
+
+    def encode_side(self, x: torch.Tensor) -> np.ndarray:
+        raise NotImplementedError
+
+
+class AutoEncoderDeepBlockerModel(DeepBlockerModel):
+    def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
+        super().__init__(
+            input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
+        )
         self.encoder = nn.Sequential(
-            nn.Linear(input_dimension, hidden_dimensions[0]),
+            nn.Linear(self.input_dimension, self.hidden_dimensions[0]),
             nn.ReLU(True),
-            nn.Linear(hidden_dimensions[0], hidden_dimensions[1])
-            )
+            nn.Linear(self.hidden_dimensions[0], self.hidden_dimensions[1]),
+        )
         self.decoder = nn.Sequential(
-            nn.Linear(hidden_dimensions[1], hidden_dimensions[0]),
+            nn.Linear(self.hidden_dimensions[1], self.hidden_dimensions[0]),
             nn.ReLU(True),
-            nn.Linear(hidden_dimensions[0], input_dimension)
-            )
+            nn.Linear(self.hidden_dimensions[0], self.input_dimension),
+        )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.encoder(x)
         x = self.decoder(x)
         return x
 
-    def get_tuple_embedding(self, t1):
+    def encode_side(self, x: torch.Tensor) -> np.ndarray:
         with torch.no_grad():
-            return self.encoder(t1).detach().numpy()
+            return self.encoder(x).detach().numpy()
 
 
-class AutoEncoderTrainer:
-    def __init__(self, input_dimension, hidden_dimensions):
-        super(AutoEncoderTrainer, self).__init__()
+class CTTDeepBlockerModel(DeepBlockerModel):
+    def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
+        super().__init__(
+            input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
+        )
+        self.siamese_summarizer = nn.Sequential(
+            nn.Linear(self.input_dimension, self.hidden_dimensions[0]),
+            nn.ReLU(True),
+            nn.Linear(self.hidden_dimensions[0], self.hidden_dimensions[1]),
+            nn.ReLU(True),
+        )
+        self.classifier = nn.Linear(self.hidden_dimensions[1], 1)
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        x1 = self.siamese_summarizer(x1)
+        x2 = self.siamese_summarizer(x2)
+        pred = self.classifier(torch.abs(x1 - x2))
+        return torch.sigmoid(pred)
+
+    def encode_side(self, x: torch.Tensor) -> np.ndarray:
+        with torch.no_grad():
+            return self.siamese_summarizer(x).detach().numpy()
+
+
+class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
+    def __init__(
+        self,
+        input_dimension: int,
+        hidden_dimensions: Tuple[int, int],
+        learning_rate: float,
+        loss_function: _Loss,
+        optimizer: HintOrType[Optimizer],
+        optimizer_kwargs: OptionalKwargs = None,
+    ):
         self.input_dimension = input_dimension
         self.hidden_dimensions = hidden_dimensions
+        self.learning_rate = learning_rate
+        self.loss_function = loss_function
+        self.model = self.model_cls(
+            input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
+        )
+        optimizer_kwargs = (
+            {"lr": self.learning_rate} if optimizer_kwargs is None else optimizer_kwargs
+        )
+        self.optimizer = optimizer_resolver.make(
+            optimizer, optimizer_kwargs, params=self.model.parameters()
+        )
 
-    def train(self, embedding_matrix, num_epochs, batch_size):
-        self.model = AutoEncoder(self.input_dimension, self.hidden_dimensions)
+    @property
+    @abstractmethod
+    def model_cls(self) -> Type[DeepBlockerModel]:
+        pass
+
+    @abstractmethod
+    def create_dataloader(self, features: FeatureType, batch_size: int) -> DataLoader[FeatureType]:
+        pass
+
+    @abstractmethod
+    def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
+        pass
+
+    def train(
+        self,
+        features: FeatureType,
+        num_epochs: int,
+        batch_size: int,
+        loss_function: _Loss,
+        optimizer: HintOrType[Optimizer],
+        optimizer_kwargs: OptionalKwargs = None,
+    ) -> DeepBlockerModel:
         self.device = resolve_device()
         self.model.to(self.device)
-        num_tuples = len(embedding_matrix)
 
-        train_dataloader = DataLoader(dataset=NumPy_Dataset(embedding_matrix), batch_size=batch_size, shuffle=True)
-
-        loss_function = nn.MSELoss()
-        optimizer = torch.optim.Adam(self.model.parameters(), lr = LEARNING_RATE)
+        train_dataloader = self.create_dataloader(
+            features=features, batch_size=batch_size
+        )
 
         self.model.train()
+        self.run_training_loop(train_dataloader=train_dataloader, num_epochs=num_epochs)
+        self.model.eval()
+        return self.model
 
+    def save_model(
+        self, output_file_name: Union[str, os.PathLike, BinaryIO, IO[bytes]], **kwargs
+    ):
+        torch.save(self.model.state_dict(), output_file_name, **kwargs)
+
+    def load_model(
+        self, input_file_name: Union[str, os.PathLike, BinaryIO, IO[bytes]], **kwargs
+    ):
+        self.model = self.model_cls(self.input_dimension, self.hidden_dimensions)
+        self.model.load_state_dict(torch.load(input_file_name, **kwargs))
+        self.model.eval()
+
+
+class AutoEncoderTrainer(DeepBlockerModelTrainer):
+    def __init__(
+        self,
+        input_dimension: int,
+        hidden_dimensions: Tuple[int, int],
+        learning_rate: float,
+        loss_function: _Loss = None,
+        optimizer: HintOrType[Optimizer] = None,
+        optimizer_kwargs: OptionalKwargs = None,
+    ):
+        loss_function = nn.MSELoss() if loss_function is None else loss_function
+        optimizer = "adam" if optimizer is None else optimizer
+        super().__init__(
+            input_dimension=input_dimension,
+            hidden_dimensions=hidden_dimensions,
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+        )
+
+    def create_dataloader(self, features: torch.Tensor, batch_size: int) -> DataLoader[torch.Tensor]:
+        return DataLoader(dataset=FeatureDataset(features), batch_size=batch_size, shuffle=True)
+
+    @property
+    def model_cls(self) -> Type[DeepBlockerModel]:
+        return AutoEncoderDeepBlockerModel
+
+    def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
         for epoch in range(num_epochs):
             train_loss = 0
             for batch_idx, data in enumerate(train_dataloader):
                 data = data.to(self.device)
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 output = self.model(data)
-                loss = loss_function(output, data)
+                loss = self.loss_function(output, data)
                 loss.backward()
                 train_loss += loss.item()
-                optimizer.step()
-            #print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss / num_tuples))
-
-        self.model.eval()
-
-        return self.model
-
-    def save_model(self, output_file_name):
-        torch.save(self.model.state_dict(), output_file_name)
-
-    def load_model(self, input_file_name):
-        self.model = AutoEncoder(self.input_dimension, self.hidden_dimensions)
-        self.model.load_state_dict(torch.load(input_file_name))
-        self.model.eval()
-
-class CTTModel(nn.Module):
-    #This model is assumed to be layered
-    def __init__(self, input_dimension, hidden_dimensions):
-        super(CTTModel, self).__init__()
-        self.siamese_summarizer = nn.Sequential(
-            nn.Linear(input_dimension, hidden_dimensions[0]),
-            nn.ReLU(True),
-            nn.Linear(hidden_dimensions[0], hidden_dimensions[1]),
-            nn.ReLU(True)
-            )
-        #Simple Binary classifier
-        self.classifier = nn.Linear(hidden_dimensions[1], 1)
+                self.optimizer.step()
 
 
-    def forward(self, t1, t2):
-        t1 = self.siamese_summarizer(t1)
-        t2 = self.siamese_summarizer(t2)
-        pred = self.classifier(torch.abs(t1 - t2))
-        return torch.sigmoid(pred)
+class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
+    def __init__(
+        self,
+        input_dimension: int,
+        hidden_dimensions: Tuple[int, int],
+        learning_rate: float,
+        loss_function: _Loss = None,
+        optimizer: HintOrType[Optimizer] = None,
+        optimizer_kwargs: OptionalKwargs = None,
+    ):
+        loss_function = nn.BCELoss() if loss_function is None else loss_function
+        optimizer = "adam" if optimizer is None else optimizer
+        super().__init__(
+            input_dimension=input_dimension,
+            hidden_dimensions=hidden_dimensions,
+            learning_rate=learning_rate,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+        )
 
-    def get_tuple_embedding(self, t1):
-        with torch.no_grad():
-            return self.siamese_summarizer(t1).detach().numpy()
+    def create_dataloader(
+        self, features: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], batch_size: int
+    ) -> DataLoader:
+        left, right, label = features
+        return DataLoader(
+            dataset=TripletDataset(left, right, label),
+            batch_size=batch_size,
+            shuffle=True,
+        )
 
-class CTTModelTrainer:
-    def __init__(self, input_dimension, hidden_dimensions):
-        super(CTTModelTrainer, self).__init__()
-        self.input_dimension = input_dimension
-        self.hidden_dimensions = hidden_dimensions
+    @property
+    def model_cls(self) -> Type[DeepBlockerModel]:
+        return CTTDeepBlockerModel
 
-    def train(self, left_embedding_matrix, right_embedding_matrix, labels, num_epochs, batch_size):
-        self.model = CTTModel(self.input_dimension, self.hidden_dimensions)
-        self.device = resolve_device()
-        self.model.to(self.device)
-        num_tuples = len(left_embedding_matrix)
-
-        dataset = NumPy_Triplet_Dataset(left_embedding_matrix, right_embedding_matrix, labels)
-        train_dataloader = DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-
-        loss_function = nn.BCELoss()
-        optimizer = torch.optim.Adam(self.model.parameters(), lr = LEARNING_RATE)
-
-        self.model.train()
-
+    def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
         for epoch in range(num_epochs):
             train_loss = 0
             for batch_idx, (left, right, label) in enumerate(train_dataloader):
@@ -158,22 +252,9 @@ class CTTModelTrainer:
                 right = right.to(self.device)
                 label = label.unsqueeze(-1)
                 label = label.to(self.device)
-                optimizer.zero_grad()
+                self.optimizer.zero_grad()
                 output = self.model(left, right)
-                loss = loss_function(output, label)
+                loss = self.loss_function(output, label)
                 loss.backward()
                 train_loss += loss.item()
-                optimizer.step()
-            #print('====> Epoch: {} Average loss: {:.4f}'.format(epoch, train_loss / num_tuples))
-
-        self.model.eval()
-
-        return self.model
-
-    def save_model(self, output_file_name):
-        torch.save(self.model.state_dict(), output_file_name)
-
-    def load_model(self, input_file_name):
-        self.model = CTTModel(self.input_dimension, self.hidden_dimensions)
-        self.model.load_state_dict(torch.load(input_file_name))
-        self.model.eval()
+                self.optimizer.step()
