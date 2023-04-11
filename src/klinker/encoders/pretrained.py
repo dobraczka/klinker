@@ -1,9 +1,8 @@
 import logging
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from nltk.tokenize import word_tokenize
@@ -11,9 +10,34 @@ from sklearn.decomposition import TruncatedSVD
 
 from klinker.typing import GeneralVector
 
-from .encoder import FrameEncoder
+from .base import TokenizedFrameEncoder, FrameEncoder
 
 logger = logging.getLogger(__name__)
+
+
+from pykeen.nn.text import TransformerTextEncoder
+
+class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
+    def __init__(
+        self,
+        pretrained_model_name_or_path: str = "bert-base-cased",
+        max_length: int = 512,
+    ):
+        self.encoder = TransformerTextEncoder(
+            pretrained_model_name_or_path=pretrained_model_name_or_path,
+            max_length=max_length,
+        )
+
+    @property
+    def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        return self.encoder.tokenizer.tokenize
+
+    def _encode(
+        self, left: pd.DataFrame, right: pd.DataFrame
+    ) -> Tuple[GeneralVector, GeneralVector]:
+        return self.encoder.encode_all(left.values), self.encoder.encode_all(
+            left.values
+        )
 
 
 class TokenizedWordEmbedder:
@@ -57,8 +81,9 @@ tokenized_word_embedder_resolver = ClassResolver(
     [TokenizedWordEmbedder], base=TokenizedWordEmbedder, default=TokenizedWordEmbedder
 )
 
-
-class AverageEmbeddingFrameEncoder(FrameEncoder):
+# TODO refactor both classes into TokenEmbeddingAggregator and create AggregatedTokenizedFrameEncoder class
+# with tokenized_word_embedder and token_embedding_aggregator
+class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def __init__(
         self,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
@@ -67,6 +92,10 @@ class AverageEmbeddingFrameEncoder(FrameEncoder):
         self.tokenized_word_embedder = tokenized_word_embedder_resolver.make(
             tokenized_word_embedder, tokenized_word_embedder_kwargs
         )
+
+    @property
+    def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        return self.tokenized_word_embedder.tokenizer_fn
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         return np.array(
@@ -88,7 +117,7 @@ class AverageEmbeddingFrameEncoder(FrameEncoder):
         )
 
 
-class SIFEmbeddingFrameEncoder(FrameEncoder):
+class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def __init__(
         self,
         sif_weighting_param=1e-3,
@@ -104,8 +133,13 @@ class SIFEmbeddingFrameEncoder(FrameEncoder):
         self.sif_weighting_param = sif_weighting_param
         self.remove_pc = remove_pc
         self.min_freq = min_freq
+        self.token_weight_dict: Optional[Dict[str, float]] = None
 
-    def _preprocess(self, left: pd.DataFrame, right: pd.DataFrame) -> Dict[str, float]:
+    @property
+    def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        return self.tokenized_word_embedder.tokenizer_fn
+
+    def prepare(self, left: pd.DataFrame, right: pd.DataFrame):
         # use this instead of pd.concat in case columns have different
         # names, we already validated both dfs only have 1 column
         merged_col = "merged"
@@ -129,15 +163,15 @@ class SIFEmbeddingFrameEncoder(FrameEncoder):
                 token_weight_dict[word] = a / (a + frequency / total_tokens)
             else:
                 token_weight_dict[word] = 1.0
-        return token_weight_dict
+        self.token_weight_dict = token_weight_dict
 
-    def _encode_side(
-        self, df: pd.DataFrame, token_weight_dict: Dict[str, float]
-    ) -> GeneralVector:
+    def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         embeddings = np.array(
             [
                 np.mean(
-                    self.tokenized_word_embedder.weighted_embed(val, token_weight_dict),
+                    self.tokenized_word_embedder.weighted_embed(
+                        val, self.token_weight_dict
+                    ),
                     axis=0,
                 )
                 for val in df[df.columns[0]].values
@@ -159,8 +193,20 @@ class SIFEmbeddingFrameEncoder(FrameEncoder):
     def _encode(
         self, left: pd.DataFrame, right: pd.DataFrame
     ) -> Tuple[GeneralVector, GeneralVector]:
-        token_weight_dict = self._preprocess(left, right)
+        if self.token_weight_dict is None:
+            self.prepare(left, right)
 
-        return self._encode_side(left, token_weight_dict), self._encode_side(
-            right, token_weight_dict
-        )
+        return self._encode_side(left), self._encode_side(right)
+
+
+frame_encoder_resolver = ClassResolver(
+    [TransformerTokenizedFrameEncoder, AverageEmbeddingTokenizedFrameEncoder, SIFEmbeddingTokenizedFrameEncoder],
+    base=FrameEncoder,
+    default=SIFEmbeddingTokenizedFrameEncoder,
+)
+
+tokenized_frame_encoder_resolver = ClassResolver(
+    [TransformerTokenizedFrameEncoder, AverageEmbeddingTokenizedFrameEncoder, SIFEmbeddingTokenizedFrameEncoder],
+    base=TokenizedFrameEncoder,
+    default=SIFEmbeddingTokenizedFrameEncoder,
+)

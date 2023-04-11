@@ -5,9 +5,9 @@ import pytest
 from mocks import MockGensimDownloader
 from strawman import dummy_df
 
-from klinker.blockers.embedding.word_embedding import (
-    AverageEmbeddingFrameEncoder,
-    SIFEmbeddingFrameEncoder,
+from klinker.encoders import (
+    AverageEmbeddingTokenizedFrameEncoder,
+    SIFEmbeddingTokenizedFrameEncoder,
 )
 
 
@@ -23,12 +23,12 @@ def example() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 @pytest.mark.parametrize(
-    "cls", [AverageEmbeddingFrameEncoder, SIFEmbeddingFrameEncoder]
+    "cls", [AverageEmbeddingTokenizedFrameEncoder, SIFEmbeddingTokenizedFrameEncoder]
 )
 def test_word_embedding(cls, example, mocker):
     dimension = 3
     mocker.patch(
-        "klinker.blockers.embedding.word_embedding.gensim_downloader",
+        "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
     left, right = example

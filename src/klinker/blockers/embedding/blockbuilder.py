@@ -1,5 +1,7 @@
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
+from class_resolver import ClassResolver
+
 import numpy as np
 import pandas as pd
 import torch
@@ -145,3 +147,9 @@ class HDBSCANBlockBuilder(ClusteringBlockBuilder):
     ) -> Tuple[np.ndarray, np.ndarray]:
         cluster_labels = self.clusterer.fit_predict(np.concatenate([left, right]))
         return cluster_labels[:len(left)], cluster_labels[len(left):]
+
+block_builder_resolver = ClassResolver(
+    [KiezEmbeddingBlockBuilder],
+    base=EmbeddingBlockBuilder,
+    default=KiezEmbeddingBlockBuilder,
+)

@@ -224,7 +224,12 @@ def test_assign_schema_agnostic(tables, cls, expected, request):
         ),
     ],
 )
-def test_assign_embedding_blocker(tables, expected, request):
+def test_assign_embedding_blocker(tables, expected, request, mocker):
+    dimension = 3
+    mocker.patch(
+        "klinker.encoders.pretrained.gensim_downloader",
+        MockGensimDownloader(dimension=dimension),
+    )
     ta, tb = request.getfixturevalue(tables)
     block = EmbeddingBlocker(embedding_block_builder_kwargs=dict(n_neighbors=2)).assign(
         ta, tb
@@ -237,11 +242,12 @@ def test_postprocess(example_prepostprocess):
     for pp in prepost:
         assert postprocess(pp).equals(expected)
 
-def test_deep_blocker(example_tables, mocker):
+@pytest.mark.parametrize("encoder", ["AutoEncoder", "CrossTupleTraining", "Hybrid"])
+def test_deep_blocker(encoder, example_tables, mocker):
     dimension = 3
     mocker.patch(
-        "klinker.blockers.embedding.word_embedding.gensim_downloader",
+        "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
     ta, tb = example_tables
-    block = DeepBlocker().assign(ta,tb)
+    block = DeepBlocker(frame_encoder=encoder, frame_encoder_kwargs=dict(num_epochs=1)).assign(ta,tb)

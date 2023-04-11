@@ -40,6 +40,7 @@ class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
 
 class DeepBlockerModel(nn.Module):
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
+        super().__init__()
         self.input_dimension = input_dimension
         self.hidden_dimensions = hidden_dimensions
 
@@ -168,7 +169,7 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         self.model.eval()
 
 
-class AutoEncoderTrainer(DeepBlockerModelTrainer):
+class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
     def __init__(
         self,
         input_dimension: int,
@@ -207,6 +208,18 @@ class AutoEncoderTrainer(DeepBlockerModelTrainer):
                 loss.backward()
                 train_loss += loss.item()
                 self.optimizer.step()
+
+    def train(
+        self,
+        features: FeatureType,
+        num_epochs: int,
+        batch_size: int,
+        loss_function: _Loss = None,
+        optimizer: HintOrType[Optimizer] = "adam",
+        optimizer_kwargs: OptionalKwargs = None,
+    ) -> DeepBlockerModel:
+        loss_fn = nn.MSELoss() if loss_function is None else loss_function
+        return super().train(features=features, num_epochs=num_epochs, batch_size=batch_size, loss_function=loss_fn, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs)
 
 
 class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
@@ -258,3 +271,15 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
                 loss.backward()
                 train_loss += loss.item()
                 self.optimizer.step()
+
+    def train(
+        self,
+        features: FeatureType,
+        num_epochs: int,
+        batch_size: int,
+        loss_function: _Loss = None,
+        optimizer: HintOrType[Optimizer] = "adam",
+        optimizer_kwargs: OptionalKwargs = None,
+    ) -> DeepBlockerModel:
+        loss_fn = nn.BCELoss() if loss_function is None else loss_function
+        return super().train(features=features, num_epochs=num_epochs, batch_size=batch_size, loss_function=loss_fn, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs)

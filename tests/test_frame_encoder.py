@@ -1,4 +1,4 @@
-from klinker.blockers.embedding.encoder import FrameEncoder
+from klinker.encoders import FrameEncoder
 import pytest
 import pandas as pd
 

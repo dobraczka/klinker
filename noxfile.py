@@ -51,6 +51,7 @@ def pyroma(session: Session) -> None:
 @session()
 def type_checking(session: Session) -> None:
     args = session.posargs or locations
+    session.install(".[all]")
     session.install("mypy")
     session.run(
         "mypy",
