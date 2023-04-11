@@ -94,7 +94,7 @@ class BlockAccessor:
         try:
             if not obj.applymap(lambda x: isinstance(x, list)).all().all():
                 raise ValueError(err_msg)
-        except:
+        except AttributeError:
             raise ValueError(err_msg)
 
     @property

@@ -3,7 +3,6 @@ from typing import List, Tuple, Union
 import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
-from klinker.blockers.base import SchemaAgnosticBlocker
 from klinker.data import KlinkerFrame
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
@@ -11,9 +10,11 @@ from klinker.encoders.deepblocker import (
 )
 
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
+from .blocker import EmbeddingBlocker
+from ..base import SchemaAgnosticBlocker
 
 
-class DeepBlocker(SchemaAgnosticBlocker):
+class DeepBlocker(EmbeddingBlocker):
     def __init__(
         self,
         wanted_cols: Union[
@@ -30,12 +31,4 @@ class DeepBlocker(SchemaAgnosticBlocker):
         )
         self.embedding_block_builder = block_builder_resolver.make(
             embedding_block_builder, embedding_block_builder_kwargs
-        )
-
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        left_emb, right_emb = self.frame_encoder.encode(
-            left=left[left.non_id_columns], right=right[right.non_id_columns]
-        )
-        return self.embedding_block_builder.build_blocks(
-            left=left_emb, right=right_emb, left_data=left, right_data=right
         )

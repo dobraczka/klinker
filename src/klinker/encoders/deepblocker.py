@@ -1,5 +1,5 @@
 import random
-from typing import Callable, Generic, List, Sequence, Tuple, Type, TypeVar
+from typing import Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ from klinker.models.deepblocker import (
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from klinker.typing import GeneralVector
+from klinker.typing import GeneralVector, TorchVectorLiteral
 
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
@@ -96,7 +96,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
     def create_features(
         self, left: pd.DataFrame, right: pd.DataFrame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        left_enc, right_enc = self.inner_encoder.encode(left, right)
+        left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
         left_enc = left_enc.float()
         right_enc = right_enc.float()
 
@@ -169,7 +169,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
             )
 
             # Create num_positives_per_tuple tuple pairs with positive label
-            for temp_index in range(num_positives_per_tuple):
+            for _ in range(num_positives_per_tuple):
                 tokenized_tuple_copy = tokenized_tuple[:]
 
                 # If the tuple has 10 words and max_tokens_to_remove is 0.5, then we can remove at most 5 words
@@ -187,18 +187,20 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
                 label_list[training_data_index] = 1
                 training_data_index += 1
 
-            for temp_index in range(num_negatives_per_tuple):
+            for _ in range(num_negatives_per_tuple):
                 left_tuple_list[training_data_index] = list_of_tuples[index]
                 right_tuple_list[training_data_index] = random.choice(list_of_tuples)
                 label_list[training_data_index] = 0
                 training_data_index += 1
 
         left_train_enc, right_train_enc = self.inner_encoder.encode(
-            pd.DataFrame(left_tuple_list), pd.DataFrame(right_tuple_list)
+            pd.DataFrame(left_tuple_list),
+            pd.DataFrame(right_tuple_list),
+            return_type="pt",
         )
         self.input_dimension = left_train_enc.shape[1]
 
-        left_enc, right_enc = self.inner_encoder.encode(left, right)
+        left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
         return (
             (left_train_enc.float(), right_train_enc.float(), torch.tensor(label_list)),
             left_enc.float(),

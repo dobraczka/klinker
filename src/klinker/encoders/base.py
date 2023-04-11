@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple, overload
+from typing import Callable, List, Literal, Optional, Tuple, overload
 
 import numpy as np
 import pandas as pd
@@ -30,10 +30,7 @@ class FrameEncoder:
 
     @overload
     def encode(
-        self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        return_type: NumpyVectorLiteral,
+        self, left: pd.DataFrame, right: pd.DataFrame, return_type: Literal["np"]
     ) -> Tuple[np.ndarray, np.ndarray]:
         ...
 
@@ -42,7 +39,7 @@ class FrameEncoder:
         self,
         left: pd.DataFrame,
         right: pd.DataFrame,
-        return_type: TorchVectorLiteral,
+        return_type: Literal["pt"],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         ...
 

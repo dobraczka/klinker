@@ -29,7 +29,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
         tmp_blocking_key = "_tmp_blocking_key"
 
         tok_list = []
-        for number, tab in enumerate([left, right]):
+        for tab in [left, right]:
             tok = (
                 tab[tab.non_id_columns]
                 .apply(self.tokenize, axis=1)  # returns list of lists

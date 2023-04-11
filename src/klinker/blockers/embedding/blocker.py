@@ -31,9 +31,13 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         )
 
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+        left_reduced = left[left.non_id_columns]
+        right_reduced = right[right.non_id_columns]
+        # TODO fix typing issue
         left_emb, right_emb = self.frame_encoder.encode(
-            left=left[left.non_id_columns], right=right[right.non_id_columns]
-        )
+            left=left_reduced,
+            right=right_reduced,
+        )  # type: ignore
         return self.embedding_block_builder.build_blocks(
             left=left_emb, right=right_emb, left_data=left, right_data=right
         )

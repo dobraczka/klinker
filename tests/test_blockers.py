@@ -249,13 +249,21 @@ def test_postprocess(example_prepostprocess):
 
 
 @pytest.mark.parametrize("encoder", ["AutoEncoder", "CrossTupleTraining", "Hybrid"])
-def test_deep_blocker(encoder, example_tables, mocker):
+def test_assign_deep_blocker(encoder, example_tables, mocker):
     dimension = 3
     mocker.patch(
         "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
+
     ta, tb = example_tables
+    n_neighbors = 2
     block = DeepBlocker(
-        frame_encoder=encoder, frame_encoder_kwargs=dict(num_epochs=1)
+        frame_encoder=encoder,
+        frame_encoder_kwargs=dict(num_epochs=1),
+        embedding_block_builder_kwargs=dict(n_neighbors=n_neighbors),
     ).assign(ta, tb)
+    assert block.columns.tolist() == [ta.name, tb.name]
+    assert len(block) == len(ta)
+    assert all(len(val) == 1 for val in block[ta.name].values)
+    assert all(len(val) == n_neighbors for val in block[tb.name].values)

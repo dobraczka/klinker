@@ -10,7 +10,7 @@ from pykeen.utils import resolve_device
 from torch import nn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data import DataLoader, Dataset
 
 FeatureType = TypeVar("FeatureType")
 
@@ -208,9 +208,9 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         return AutoEncoderDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
-        for epoch in range(num_epochs):
+        for _ in range(num_epochs):
             train_loss = 0
-            for batch_idx, data in enumerate(train_dataloader):
+            for _, data in enumerate(train_dataloader):
                 data = data.to(self.device)
                 self.optimizer.zero_grad()
                 output = self.model(data)
@@ -275,9 +275,9 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         return CTTDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
-        for epoch in range(num_epochs):
+        for _ in range(num_epochs):
             train_loss = 0
-            for batch_idx, (left, right, label) in enumerate(train_dataloader):
+            for _, (left, right, label) in enumerate(train_dataloader):
                 left = left.to(self.device)
                 right = right.to(self.device)
                 label = label.unsqueeze(-1)

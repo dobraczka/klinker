@@ -6,6 +6,7 @@ import pandas as pd
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from nltk.tokenize import word_tokenize
+from pykeen.nn.text import TransformerTextEncoder
 from sklearn.decomposition import TruncatedSVD
 
 from klinker.typing import GeneralVector
@@ -13,9 +14,6 @@ from klinker.typing import GeneralVector
 from .base import FrameEncoder, TokenizedFrameEncoder
 
 logger = logging.getLogger(__name__)
-
-
-from pykeen.nn.text import TransformerTextEncoder
 
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
@@ -81,6 +79,7 @@ class TokenizedWordEmbedder:
 tokenized_word_embedder_resolver = ClassResolver(
     [TokenizedWordEmbedder], base=TokenizedWordEmbedder, default=TokenizedWordEmbedder
 )
+
 
 # TODO refactor both classes into TokenEmbeddingAggregator and create AggregatedTokenizedFrameEncoder class
 # with tokenized_word_embedder and token_embedding_aggregator
@@ -167,6 +166,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.token_weight_dict = token_weight_dict
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
+        assert self.token_weight_dict is not None
         embeddings = np.array(
             [
                 np.mean(

@@ -1,4 +1,4 @@
-from typing import overload
+from typing import Literal, overload
 
 import numpy as np
 import torch
@@ -13,21 +13,22 @@ from klinker.typing import (
 
 @overload
 def cast_general_vector(
-    vector: GeneralVector, return_type: NumpyVectorLiteral
+    vector: GeneralVector, return_type: Literal["np"]
 ) -> np.ndarray:
     ...
 
 
 @overload
 def cast_general_vector(
-    vector: GeneralVector, return_type: TorchVectorLiteral
+    vector: GeneralVector,
+    return_type: Literal["pt"],
 ) -> torch.Tensor:
     ...
 
 
 def cast_general_vector(
     vector: GeneralVector,
-    return_type: str,
+    return_type: GeneralVectorLiteral,
 ) -> GeneralVector:
     if return_type == TorchVectorLiteral:
         return torch.tensor(vector) if not isinstance(vector, torch.Tensor) else vector

@@ -125,7 +125,7 @@ def test_validate_klinker_block():
 def test_concat(concat_example):
     kf, wanted_cols, expected = concat_example
     concat_kf = kf.concat_values(wanted_cols)
-    concat_kf.id_col == kf.id_col
-    concat_kf.name == kf.name
+    assert concat_kf.id_col == kf.id_col
+    assert concat_kf.name == kf.name
     assert len(concat_kf.columns) == 2
     assert concat_kf[concat_kf.non_id_columns].values.tolist() == expected
