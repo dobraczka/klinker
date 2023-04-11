@@ -1,13 +1,19 @@
-from typing import Tuple, List, Union
+from typing import List, Tuple, Union
+
 import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
-from klinker.data import KlinkerFrame
+
 from klinker.blockers.base import SchemaAgnosticBlocker
-from klinker.encoders.deepblocker import deep_blocker_encoder_resolver, DeepBlockerFrameEncoder
-from .blockbuilder import block_builder_resolver, EmbeddingBlockBuilder
+from klinker.data import KlinkerFrame
+from klinker.encoders.deepblocker import (
+    DeepBlockerFrameEncoder,
+    deep_blocker_encoder_resolver,
+)
+
+from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
+
 
 class DeepBlocker(SchemaAgnosticBlocker):
-
     def __init__(
         self,
         wanted_cols: Union[
@@ -33,5 +39,3 @@ class DeepBlocker(SchemaAgnosticBlocker):
         return self.embedding_block_builder.build_blocks(
             left=left_emb, right=right_emb, left_data=left, right_data=right
         )
-
-

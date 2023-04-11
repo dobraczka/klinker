@@ -1,4 +1,5 @@
 from class_resolver import ClassResolver
+
 from .base import FrameEncoder, TokenizedFrameEncoder
 from .deepblocker import (
     AutoEncoderDeepBlockerFrameEncoder,

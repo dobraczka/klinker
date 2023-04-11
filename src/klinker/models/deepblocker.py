@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 FeatureType = TypeVar("FeatureType")
 
+
 class FeatureDataset(Dataset[torch.Tensor]):
     def __init__(self, features: torch.Tensor):
         self.features = features
@@ -24,9 +25,12 @@ class FeatureDataset(Dataset[torch.Tensor]):
     def __len__(self):
         return len(self.features)
 
+
 class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
     def __init__(self, left: torch.Tensor, right: torch.Tensor, labels: torch.Tensor):
-        assert all(left.size(0) == tensor.size(0) for tensor in [right, labels]), "Size mismatch between tensors"
+        assert all(
+            left.size(0) == tensor.size(0) for tensor in [right, labels]
+        ), "Size mismatch between tensors"
         self.left = left.float()
         self.right = right.float()
         self.labels = labels.float()
@@ -128,7 +132,9 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         pass
 
     @abstractmethod
-    def create_dataloader(self, features: FeatureType, batch_size: int) -> DataLoader[FeatureType]:
+    def create_dataloader(
+        self, features: FeatureType, batch_size: int
+    ) -> DataLoader[FeatureType]:
         pass
 
     @abstractmethod
@@ -190,8 +196,12 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
             optimizer_kwargs=optimizer_kwargs,
         )
 
-    def create_dataloader(self, features: torch.Tensor, batch_size: int) -> DataLoader[torch.Tensor]:
-        return DataLoader(dataset=FeatureDataset(features), batch_size=batch_size, shuffle=True)
+    def create_dataloader(
+        self, features: torch.Tensor, batch_size: int
+    ) -> DataLoader[torch.Tensor]:
+        return DataLoader(
+            dataset=FeatureDataset(features), batch_size=batch_size, shuffle=True
+        )
 
     @property
     def model_cls(self) -> Type[DeepBlockerModel]:
@@ -219,7 +229,14 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         optimizer_kwargs: OptionalKwargs = None,
     ) -> DeepBlockerModel:
         loss_fn = nn.MSELoss() if loss_function is None else loss_function
-        return super().train(features=features, num_epochs=num_epochs, batch_size=batch_size, loss_function=loss_fn, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs)
+        return super().train(
+            features=features,
+            num_epochs=num_epochs,
+            batch_size=batch_size,
+            loss_function=loss_fn,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+        )
 
 
 class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
@@ -282,4 +299,11 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         optimizer_kwargs: OptionalKwargs = None,
     ) -> DeepBlockerModel:
         loss_fn = nn.BCELoss() if loss_function is None else loss_function
-        return super().train(features=features, num_epochs=num_epochs, batch_size=batch_size, loss_function=loss_fn, optimizer=optimizer, optimizer_kwargs=optimizer_kwargs)
+        return super().train(
+            features=features,
+            num_epochs=num_epochs,
+            batch_size=batch_size,
+            loss_function=loss_fn,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
+        )

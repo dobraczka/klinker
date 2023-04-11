@@ -11,7 +11,7 @@ from klinker.data import KlinkerFrame
 class TokenBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
-        tokenize_fn: Callable[[str],List[str]] = word_tokenize,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         wanted_cols: Union[
             str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
         ] = None,

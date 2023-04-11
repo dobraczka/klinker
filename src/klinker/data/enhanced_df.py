@@ -1,9 +1,10 @@
 import itertools
-from klinker.typing import ColumnSpecifier
 from typing import List, Optional
 
 import pandas as pd
 from pandas._typing import Axes, Dtype
+
+from klinker.typing import ColumnSpecifier
 
 
 class KlinkerFrame(pd.DataFrame):
@@ -44,14 +45,16 @@ class KlinkerFrame(pd.DataFrame):
     ) -> "KlinkerFrame":
         return cls(data=df, name=name, id_col=id_col)
 
-    def concat_values(self, columns: ColumnSpecifier = None, new_column_name: str = "_merged_text") -> "KlinkerFrame":
+    def concat_values(
+        self, columns: ColumnSpecifier = None, new_column_name: str = "_merged_text"
+    ) -> "KlinkerFrame":
         if columns is None:
             columns = self.non_id_columns
         wanted = self[columns]
         if isinstance(wanted, pd.Series):
             wanted = wanted.to_frame(name=columns)
         wanted = wanted.astype(str)
-        self[new_column_name] = wanted.agg(' '.join, axis=1)
+        self[new_column_name] = wanted.agg(" ".join, axis=1)
         return self[[self.id_col, new_column_name]]
 
     def __repr__(self) -> str:
@@ -63,7 +66,9 @@ class KlinkerTripleFrame(KlinkerFrame):
     def non_id_columns(self) -> List[str]:
         return [self.columns[2]]
 
-    def concat_values(self, columns: ColumnSpecifier = None, new_column_name: str = "_merged_text") -> KlinkerFrame:
+    def concat_values(
+        self, columns: ColumnSpecifier = None, new_column_name: str = "_merged_text"
+    ) -> KlinkerFrame:
         assert self.name
         new_id_col = "id"
         head_with_tail = [self.id_col, self.columns[2]]

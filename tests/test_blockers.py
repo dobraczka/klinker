@@ -2,20 +2,20 @@ from typing import Tuple
 
 import pandas as pd
 import pytest
+from mocks import MockGensimDownloader
 from util import compare_blocks
 
 from klinker.blockers import (
+    DeepBlocker,
     EmbeddingBlocker,
     MinHashLSHBlocker,
     QgramsBlocker,
     SortedNeighborhoodBlocker,
     StandardBlocker,
     TokenBlocker,
-    DeepBlocker,
 )
 from klinker.blockers.base import postprocess
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
-from mocks import MockGensimDownloader
 
 
 @pytest.fixture
@@ -67,6 +67,7 @@ def example_triples(example_tables) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     table_A, table_B = example_tables
     return triplify(table_A), triplify(table_B)
+
 
 @pytest.fixture
 def example_both(request):
@@ -159,7 +160,9 @@ def test_assign_schema_aware(cls, key, expected, example_tables):
     compare_blocks(expected, block)
 
 
-@pytest.mark.parametrize("tables", ["example_tables", "example_triples", "example_both"])
+@pytest.mark.parametrize(
+    "tables", ["example_tables", "example_triples", "example_both"]
+)
 @pytest.mark.parametrize(
     "cls, expected",
     [
@@ -212,7 +215,9 @@ def test_assign_schema_agnostic(tables, cls, expected, request):
     compare_blocks(expected, block)
 
 
-@pytest.mark.parametrize("tables", ["example_tables", "example_triples", "example_both"])
+@pytest.mark.parametrize(
+    "tables", ["example_tables", "example_triples", "example_both"]
+)
 @pytest.mark.parametrize(
     "expected",
     [
@@ -242,6 +247,7 @@ def test_postprocess(example_prepostprocess):
     for pp in prepost:
         assert postprocess(pp).equals(expected)
 
+
 @pytest.mark.parametrize("encoder", ["AutoEncoder", "CrossTupleTraining", "Hybrid"])
 def test_deep_blocker(encoder, example_tables, mocker):
     dimension = 3
@@ -250,4 +256,6 @@ def test_deep_blocker(encoder, example_tables, mocker):
         MockGensimDownloader(dimension=dimension),
     )
     ta, tb = example_tables
-    block = DeepBlocker(frame_encoder=encoder, frame_encoder_kwargs=dict(num_epochs=1)).assign(ta,tb)
+    block = DeepBlocker(
+        frame_encoder=encoder, frame_encoder_kwargs=dict(num_epochs=1)
+    ).assign(ta, tb)

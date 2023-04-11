@@ -1,16 +1,16 @@
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
-from class_resolver import ClassResolver
-
 import numpy as np
 import pandas as pd
 import torch
+from class_resolver import ClassResolver
 from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
 from klinker.data import KlinkerFrame
 from klinker.typing import GeneralVector
+
 try:
     from cuml.cluster import HDBSCAN
 except ImportError:
@@ -146,7 +146,8 @@ class HDBSCANBlockBuilder(ClusteringBlockBuilder):
         right: GeneralVector,
     ) -> Tuple[np.ndarray, np.ndarray]:
         cluster_labels = self.clusterer.fit_predict(np.concatenate([left, right]))
-        return cluster_labels[:len(left)], cluster_labels[len(left):]
+        return cluster_labels[: len(left)], cluster_labels[len(left) :]
+
 
 block_builder_resolver = ClassResolver(
     [KiezEmbeddingBlockBuilder],

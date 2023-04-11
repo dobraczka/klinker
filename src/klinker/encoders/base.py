@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, overload, Optional
+from typing import Callable, List, Optional, Tuple, overload
 
 import numpy as np
 import pandas as pd
@@ -55,7 +55,9 @@ class FrameEncoder:
         self.validate(left, right)
         self.prepare(left, right)
         left_enc, right_enc = self._encode(left, right)
-        return cast_general_vector(left_enc, return_type=return_type), cast_general_vector(right_enc, return_type=return_type)
+        return cast_general_vector(
+            left_enc, return_type=return_type
+        ), cast_general_vector(right_enc, return_type=return_type)
 
 
 class TokenizedFrameEncoder(FrameEncoder):

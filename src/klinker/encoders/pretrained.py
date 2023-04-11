@@ -10,12 +10,13 @@ from sklearn.decomposition import TruncatedSVD
 
 from klinker.typing import GeneralVector
 
-from .base import TokenizedFrameEncoder, FrameEncoder
+from .base import FrameEncoder, TokenizedFrameEncoder
 
 logger = logging.getLogger(__name__)
 
 
 from pykeen.nn.text import TransformerTextEncoder
+
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     def __init__(
@@ -200,13 +201,21 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
 
 frame_encoder_resolver = ClassResolver(
-    [TransformerTokenizedFrameEncoder, AverageEmbeddingTokenizedFrameEncoder, SIFEmbeddingTokenizedFrameEncoder],
+    [
+        TransformerTokenizedFrameEncoder,
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
+    ],
     base=FrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
 )
 
 tokenized_frame_encoder_resolver = ClassResolver(
-    [TransformerTokenizedFrameEncoder, AverageEmbeddingTokenizedFrameEncoder, SIFEmbeddingTokenizedFrameEncoder],
+    [
+        TransformerTokenizedFrameEncoder,
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
+    ],
     base=TokenizedFrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
 )

@@ -45,11 +45,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         hashed: Dict[str, Dict] = {left_name: {}, right_name: {}}
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
         for number, tab in enumerate([left, right]):
-            tok = (
-                tab[tab.non_id_columns]
-                .apply(self._encode, axis=1)
-                .tolist()
-            )
+            tok = tab[tab.non_id_columns].apply(self._encode, axis=1).tolist()
 
             for minhash, row_id in zip(
                 MinHash.generator(tok),

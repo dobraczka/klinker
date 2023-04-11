@@ -24,6 +24,7 @@ def cast_general_vector(
 ) -> torch.Tensor:
     ...
 
+
 def cast_general_vector(
     vector: GeneralVector,
     return_type: str,

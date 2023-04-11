@@ -82,9 +82,13 @@ class SchemaAgnosticBlocker(Blocker):
             )
         return self.wanted_cols
 
-    def _preprocess(self, left: KlinkerFrame, right: KlinkerFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def _preprocess(
+        self, left: KlinkerFrame, right: KlinkerFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         actual_wanted_cols = self._get_legit_wanted_cols(left=left, right=right)
-        return left.concat_values(actual_wanted_cols[0]), right.concat_values(actual_wanted_cols[1])
+        return left.concat_values(actual_wanted_cols[0]), right.concat_values(
+            actual_wanted_cols[1]
+        )
 
     def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         left_reduced, right_reduced = self._preprocess(left, right)

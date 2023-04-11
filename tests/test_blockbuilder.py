@@ -1,14 +1,14 @@
 from typing import Tuple
-import pandas as pd
 
 import numpy as np
+import pandas as pd
 import pytest
 from strawman import dummy_triples
+from util import compare_blocks
 
+from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder
 from klinker.data import KlinkerFrame
 from klinker.typing import GeneralVector
-from util import compare_blocks
-from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder
 
 
 def create_dummy_data(
@@ -57,9 +57,10 @@ def expected() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "A": {0: ["a0", "a2", "a3"], 1: ["a4", "a5"], 2: ["a1"]},
-            "B": {0: ["b2"], 1: [ "b1"], 2: ["b0", "b3"]},
+            "B": {0: ["b2"], 1: ["b1"], 2: ["b0", "b3"]},
         }
     )
+
 
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANBlockBuilder(min_cluster_size=2).build_blocks(*example)
