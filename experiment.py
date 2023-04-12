@@ -17,9 +17,9 @@ from klinker.eval_metrics import Evaluation
 
 
 @click.group(chain=True)
-@click.option("--clean", is_flag=True, default=False)
-@click.option("--wandb", is_flag=True, default=False)
-def cli(wandb: bool):
+@click.option("--clean/--no-clean", default=False)
+@click.option("--wandb/--no-wandb", is_flag=True, default=False)
+def cli(clean: bool, wandb: bool):
     pass
 
 
