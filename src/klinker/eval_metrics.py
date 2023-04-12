@@ -4,6 +4,8 @@ import pandas as pd
 
 
 def harmonic_mean(a: float, b: float) -> float:
+    if a + b == 0:
+        return 0
     return 2 * ((a * b) / (a + b))
 
 
