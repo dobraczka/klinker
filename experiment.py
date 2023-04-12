@@ -46,6 +46,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         left["tail"] = left["tail"].str.split(pat="\^\^",expand=True)[0]
         right["tail"] = right["tail"].str.split(pat="\^\^",expand=True)[0]
     params = {**ds_params, **bl_params}
+
     tracker: ResultTracker
     if wandb:
         tracker = WANDBResultTracker(

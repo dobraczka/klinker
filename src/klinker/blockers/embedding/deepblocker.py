@@ -1,17 +1,14 @@
 from typing import List, Tuple, Union
 
-import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
-from klinker.data import KlinkerFrame
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
     deep_blocker_encoder_resolver,
 )
 
-from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
+from .blockbuilder import EmbeddingBlockBuilder
 from .blocker import EmbeddingBlocker
-from ..base import SchemaAgnosticBlocker
 
 
 class DeepBlocker(EmbeddingBlocker):
@@ -25,10 +22,12 @@ class DeepBlocker(EmbeddingBlocker):
         embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         embedding_block_builder_kwargs: OptionalKwargs = None,
     ):
-        super().__init__(wanted_cols=wanted_cols)
-        self.frame_encoder = deep_blocker_encoder_resolver.make(
+        frame_encoder = deep_blocker_encoder_resolver.make(
             frame_encoder, frame_encoder_kwargs
         )
-        self.embedding_block_builder = block_builder_resolver.make(
-            embedding_block_builder, embedding_block_builder_kwargs
+        super().__init__(
+            wanted_cols=wanted_cols,
+            frame_encoder=frame_encoder,
+            embedding_block_builder=embedding_block_builder,
+            embedding_block_builder_kwargs=embedding_block_builder_kwargs,
         )
