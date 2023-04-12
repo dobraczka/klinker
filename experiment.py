@@ -96,7 +96,7 @@ def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
 
 @cli.command()
 @deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
-@tokenized_frame_encoder_resolver.get_option("--inner-encoder", default="SIFEmbedding")
+@tokenized_frame_encoder_resolver.get_option("--inner-encoder", default="TransformerTokenizedFrameEncoder")
 @click.option("--num_epochs", type=int, default=50)
 @click.option("--batch_size", type=int, default=256)
 @click.option("--learning_rate", type=float, default=1e-3)
@@ -118,7 +118,7 @@ def deepblocker(
     n_neighbors: int,
 ) -> Tuple[Blocker, Dict]:
     encoder_kwargs = {
-        "inner_encoder": inner_encoder,
+        "frame_encoder": inner_encoder,
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
