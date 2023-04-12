@@ -1,3 +1,5 @@
+from typing import Dict
+
 import pandas as pd
 
 
@@ -61,3 +63,15 @@ class Evaluation:
         rr = self.reduction_ratio
         rec = self.recall
         return harmonic_mean(a=rr, b=rec)
+
+    def __repr__(self) -> str:
+        return f"Evaluation: {self.to_dict()}"
+
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            "recall": self.recall,
+            "precision": self.precision,
+            "f_measure": self.f_measure,
+            "reduction_ratio": self.reduction_ratio,
+            "h3r": self.h3r,
+        }
