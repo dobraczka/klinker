@@ -150,7 +150,7 @@ class HDBSCANBlockBuilder(ClusteringBlockBuilder):
 
 
 block_builder_resolver = ClassResolver(
-    [KiezEmbeddingBlockBuilder],
+    [KiezEmbeddingBlockBuilder, HDBSCANBlockBuilder],
     base=EmbeddingBlockBuilder,
     default=KiezEmbeddingBlockBuilder,
 )

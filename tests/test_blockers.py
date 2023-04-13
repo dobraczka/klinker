@@ -1,4 +1,5 @@
-from typing import Tuple
+import itertools
+from typing import List, Optional, Tuple, Type
 
 import pandas as pd
 import pytest
@@ -14,12 +15,30 @@ from klinker.blockers import (
     StandardBlocker,
     TokenBlocker,
 )
-from klinker.blockers.base import postprocess
+from klinker.blockers.base import Blocker, postprocess
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
 
 
+def stringify_example_id(
+    ta: KlinkerFrame, tb: KlinkerFrame
+) -> Tuple[KlinkerFrame, KlinkerFrame]:
+    ta["id"] = "a" + ta["id"].astype(str)
+    tb["id"] = "b" + tb["id"].astype(str)
+    return ta, tb
+
+
+def stringify_expected_id(
+    expected: pd.DataFrame, index_prefix: Optional[str] = None
+) -> pd.DataFrame:
+    expected["A"] = expected["A"].apply(lambda x: ["a" + str(xi) for xi in x])
+    expected["B"] = expected["B"].apply(lambda x: ["b" + str(xi) for xi in x])
+    if index_prefix is not None:
+        expected.index = index_prefix + expected.index.astype(str)
+    return expected
+
+
 @pytest.fixture
-def example_tables() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def example_tables() -> Tuple[KlinkerFrame, KlinkerFrame]:
     table_A = KlinkerFrame(
         data=[
             [1, "John McExample", "11-12-1973", "USA", "Engineer"],
@@ -47,7 +66,7 @@ def example_tables() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 @pytest.fixture
-def example_triples(example_tables) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def example_triples(example_tables) -> Tuple[KlinkerFrame, KlinkerFrame]:
     def triplify(df: pd.DataFrame) -> pd.DataFrame:
         new_df = (
             df.set_index("id")
@@ -70,14 +89,14 @@ def example_triples(example_tables) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 @pytest.fixture
-def example_both(request):
-    ta, _ = request.getfixturevalue("example_tables")
-    _, tb = request.getfixturevalue("example_triples")
+def example_both(example_tables, example_triples) -> Tuple[KlinkerFrame, KlinkerFrame]:
+    ta, _ = example_tables
+    _, tb = example_triples
     return ta, tb
 
 
 @pytest.fixture
-def example_prepostprocess() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
     return [
         pd.DataFrame({"A": {1: [2], 2: [1]}, "B": {1: [2]}}),
         pd.DataFrame({"A": {1: 2, 2: 1}, "B": {1: [2]}}),
@@ -85,185 +104,239 @@ def example_prepostprocess() -> Tuple[pd.DataFrame, pd.DataFrame]:
     ], pd.DataFrame({"A": {1: [2]}, "B": {1: [2]}})
 
 
+@pytest.fixture
+def example_with_expected(
+    request,
+) -> Tuple[KlinkerFrame, KlinkerFrame, pd.DataFrame, Type[Blocker]]:
+    example, (expected, cls, index_prefix), stringify = request.param
+    ta, tb = request.getfixturevalue(example)
+    expected = request.getfixturevalue(expected)
+    if stringify:
+        ta, tb = stringify_example_id(ta, tb)
+        expected = stringify_expected_id(expected, index_prefix)
+    return ta, tb, expected, cls
+
+
+@pytest.fixture
+def expected_standard_blocker() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "A": {"Bulgaria": [3], "USA": [1, 2]},
+            "B": {"Bulgaria": [3], "USA": [2]},
+        }
+    )
+
+
+@pytest.fixture
+def expected_qgrams_blocker() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "A": {
+                "Bul": [3],
+                "Ind": [4],
+                "USA": [1, 2],
+                "ari": [3],
+                "gar": [3],
+                "lga": [3],
+                "ria": [3],
+                "ulg": [3],
+            },
+            "B": {
+                "Bul": [3],
+                "Ind": [4],
+                "USA": [2],
+                "ari": [3],
+                "gar": [3],
+                "lga": [3],
+                "ria": [3],
+                "ulg": [3],
+            },
+        }
+    )
+
+
+@pytest.fixture
+def expected_sorted_neighborhood_blocker() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "A": {
+                2: [3],
+                3: [4],
+                4: [4],
+                5: [4, 5],
+                6: [5, 1],
+                8: [1, 2],
+                9: [2],
+            },
+            "B": {
+                2: [3, 5],
+                3: [3, 5],
+                4: [5, 4],
+                5: [4],
+                6: [4],
+                8: [2],
+                9: [2, 1],
+            },
+        }
+    )
+
+
+@pytest.fixture
+def expected_token_blocker() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "A": {
+                "02-02-1983": [2],
+                "04-12-1990": [3],
+                "11-12-1973": [1],
+                "Bulgaria": [3],
+                "John": [1],
+                "Maggie": [2],
+                "McExample": [1],
+                "None": [4],
+                "Nushi": [4],
+                "Rebecca": [3],
+                "Smith": [2, 3],
+                "USA": [1, 2],
+            },
+            "B": {
+                "02-02-1983": [2],
+                "04-12-1990": [3, 4],
+                "11-12-1973": [1],
+                "Bulgaria": [3],
+                "John": [1],
+                "Maggie": [2],
+                "McExample": [1],
+                "None": [1],
+                "Nushi": [5],
+                "Rebecca": [3],
+                "Smith": [2, 3],
+                "USA": [2],
+            },
+        }
+    )
+
+
+@pytest.fixture
+def expected_lsh_blocker() -> pd.DataFrame:
+    return pd.DataFrame({"A": {1: [1], 2: [2], 3: [3]}, "B": {1: [1], 2: [2], 3: [3]}})
+
+
 @pytest.mark.parametrize(
-    "cls, key, expected",
-    [
-        (
-            StandardBlocker,
-            "BirthCountry",
-            pd.DataFrame(
-                {
-                    "A": {"Bulgaria": [3], "USA": [1, 2]},
-                    "B": {"Bulgaria": [3], "USA": [2]},
-                }
-            ),
-        ),
-        (
-            QgramsBlocker,
-            "BirthCountry",
-            pd.DataFrame(
-                {
-                    "A": {
-                        "Bul": [2],
-                        "Ind": [3],
-                        "USA": [0, 1],
-                        "ari": [2],
-                        "gar": [2],
-                        "lga": [2],
-                        "ria": [2],
-                        "ulg": [2],
-                    },
-                    "B": {
-                        "Bul": [2],
-                        "Ind": [3],
-                        "USA": [1],
-                        "ari": [2],
-                        "gar": [2],
-                        "lga": [2],
-                        "ria": [2],
-                        "ulg": [2],
-                    },
-                }
-            ),
-        ),
-        (
-            SortedNeighborhoodBlocker,
-            "BirthCountry",
-            pd.DataFrame(
-                {
-                    "A": {
-                        2: [3],
-                        3: [4],
-                        4: [4],
-                        5: [4, 5],
-                        6: [5, 1],
-                        8: [1, 2],
-                        9: [2],
-                    },
-                    "B": {
-                        2: [3, 5],
-                        3: [3, 5],
-                        4: [5, 4],
-                        5: [4],
-                        6: [4],
-                        8: [2],
-                        9: [2, 1],
-                    },
-                }
-            ),
-        ),
-    ],
+    "example_with_expected",
+    list(
+        itertools.product(
+            ["example_tables"],
+            [
+                ("expected_standard_blocker", StandardBlocker, None),
+                ("expected_qgrams_blocker", QgramsBlocker, None),
+                (
+                    "expected_sorted_neighborhood_blocker",
+                    SortedNeighborhoodBlocker,
+                    None,
+                ),
+            ],
+            [True, False],
+        )
+    ),
+    indirect=True,
 )
-def test_assign_schema_aware(cls, key, expected, example_tables):
-    ta, tb = example_tables
-    block = cls(blocking_key=key).assign(ta, tb)
+def test_assign_schema_aware(example_with_expected):
+    ta, tb, expected, cls = example_with_expected
+    block = cls(blocking_key="BirthCountry").assign(ta, tb)
     compare_blocks(expected, block)
 
 
 @pytest.mark.parametrize(
-    "tables", ["example_tables", "example_triples", "example_both"]
+    "example_with_expected",
+    list(
+        itertools.product(
+            ["example_tables", "example_triples", "example_both"],
+            [
+                ("expected_token_blocker", TokenBlocker, None),
+                ("expected_lsh_blocker", MinHashLSHBlocker, "b"),
+            ],
+            [True, False],
+        )
+    ),
+    indirect=True,
 )
-@pytest.mark.parametrize(
-    "cls, expected",
-    [
-        (
-            TokenBlocker,
-            pd.DataFrame(
-                {
-                    "A": {
-                        "02-02-1983": [1],
-                        "04-12-1990": [2],
-                        "11-12-1973": [0],
-                        "Bulgaria": [2],
-                        "John": [0],
-                        "Maggie": [1],
-                        "McExample": [0],
-                        "None": [3],
-                        "Nushi": [3],
-                        "Rebecca": [2],
-                        "Smith": [1, 2],
-                        "USA": [0, 1],
-                    },
-                    "B": {
-                        "02-02-1983": [1],
-                        "04-12-1990": [2, 3],
-                        "11-12-1973": [0],
-                        "Bulgaria": [2],
-                        "John": [0],
-                        "Maggie": [1],
-                        "McExample": [0],
-                        "None": [0],
-                        "Nushi": [4],
-                        "Rebecca": [2],
-                        "Smith": [1, 2],
-                        "USA": [1],
-                    },
-                }
-            ),
-        ),
-        (
-            MinHashLSHBlocker,
-            pd.DataFrame(
-                {"A": {1: [1], 2: [2], 3: [3]}, "B": {1: [1], 2: [2], 3: [3]}}
-            ),
-        ),
-    ],
-)
-def test_assign_schema_agnostic(tables, cls, expected, request):
-    ta, tb = request.getfixturevalue(tables)
+def test_assign_schema_agnostic(example_with_expected):
+    ta, tb, expected, cls = example_with_expected
     block = cls().assign(ta, tb)
     compare_blocks(expected, block)
 
 
+embedding_based_cases: List[Tuple] = list(
+    itertools.product(
+        [EmbeddingBlocker],
+        ["AverageEmbeddingTokenizedFrameEncoder", "SIFEmbeddingTokenizedFrameEncoder"],
+        [{}],
+        [
+            ("KiezEmbeddingBlockBuilder", {"algorithm": "SklearnNN", "n_neighbors": 2}),
+            ("HDBSCANBlockBuilder", {"min_cluster_size": 2}),
+        ],
+    )
+)
+
+embedding_based_cases.extend(
+    list(
+        itertools.product(
+            [DeepBlocker],
+            ["AutoEncoder", "CrossTupleTraining", "Hybrid"],
+            [{"num_epochs": 1}],
+            [
+                (
+                    "KiezEmbeddingBlockBuilder",
+                    {"algorithm": "SklearnNN", "n_neighbors": 2},
+                ),
+                ("HDBSCANBlockBuilder", {"min_cluster_size": 2}),
+            ],
+        )
+    )
+)
+
+
 @pytest.mark.parametrize(
     "tables", ["example_tables", "example_triples", "example_both"]
 )
 @pytest.mark.parametrize(
-    "expected",
-    [
-        pd.DataFrame(
-            {
-                "A": {0: [1], 1: [2], 2: [3], 3: [4], 4: [5]},
-                "B": {0: [1, 2], 1: [2, 1], 2: [3, 2], 3: [4, 3], 4: [5, 3]},
-            }
-        ),
-    ],
+    "cls, frame_encoder, frame_encoder_kwargs, embedding_block_builder",
+    embedding_based_cases,
 )
-def test_assign_embedding_blocker(tables, expected, request, mocker):
+def test_assign_embedding_blocker(
+    tables,
+    cls,
+    frame_encoder,
+    frame_encoder_kwargs,
+    embedding_block_builder,
+    request,
+    mocker,
+):
     dimension = 3
     mocker.patch(
         "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
     ta, tb = request.getfixturevalue(tables)
-    block = EmbeddingBlocker(embedding_block_builder_kwargs=dict(n_neighbors=2)).assign(
-        ta, tb
-    )
-    compare_blocks(expected, block)
+    eb, eb_kwargs = embedding_block_builder
+    block = cls(
+        frame_encoder=frame_encoder,
+        frame_encoder_kwargs=frame_encoder_kwargs,
+        embedding_block_builder=eb,
+        embedding_block_builder_kwargs=eb_kwargs,
+    ).assign(ta, tb)
+
+    assert block.columns.tolist() == [ta.name, tb.name]
+    if eb != "HDBSCANBlockBuilder":
+        assert len(block) == len(ta.concat_values())  # need unique in case of triples
+        assert all(len(val) == 1 for val in block[ta.name].values)
+        assert all(
+            len(val) == eb_kwargs["n_neighbors"] for val in block[tb.name].values
+        )
 
 
 def test_postprocess(example_prepostprocess):
     prepost, expected = example_prepostprocess
     for pp in prepost:
         assert postprocess(pp).equals(expected)
-
-
-@pytest.mark.parametrize("encoder", ["AutoEncoder", "CrossTupleTraining", "Hybrid"])
-def test_assign_deep_blocker(encoder, example_tables, mocker):
-    dimension = 3
-    mocker.patch(
-        "klinker.encoders.pretrained.gensim_downloader",
-        MockGensimDownloader(dimension=dimension),
-    )
-
-    ta, tb = example_tables
-    n_neighbors = 2
-    block = DeepBlocker(
-        frame_encoder=encoder,
-        frame_encoder_kwargs=dict(num_epochs=1),
-        embedding_block_builder_kwargs=dict(n_neighbors=n_neighbors),
-    ).assign(ta, tb)
-    assert block.columns.tolist() == [ta.name, tb.name]
-    assert len(block) == len(ta)
-    assert all(len(val) == 1 for val in block[ta.name].values)
-    assert all(len(val) == n_neighbors for val in block[tb.name].values)
