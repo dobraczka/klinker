@@ -3,9 +3,8 @@ from typing import Iterable
 import pandas as pd
 from nltk.util import ngrams
 
-from ..data import KlinkerFrame
-
 from .standard import StandardBlocker
+from ..data import KlinkerFrame
 
 
 class QgramsBlocker(StandardBlocker):

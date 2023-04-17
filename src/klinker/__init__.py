@@ -1,5 +1,6 @@
 from importlib.metadata import version  # pragma: no cover
-from .data import KlinkerFrame, KlinkerTripleFrame, KlinkerDataset
+
+from .data import KlinkerDataset, KlinkerFrame, KlinkerTripleFrame
 
 __all__ = ["KlinkerFrame", "KlinkerTripleFrame", "KlinkerDataset"]
 

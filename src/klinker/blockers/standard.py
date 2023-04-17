@@ -2,9 +2,8 @@ from typing import Iterable, List, Optional, Union
 
 import pandas as pd
 
-from ..data import KlinkerFrame
-
 from .base import Blocker
+from ..data import KlinkerFrame
 
 
 class StandardBlocker(Blocker):

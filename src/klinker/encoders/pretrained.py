@@ -9,9 +9,8 @@ from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
 from sklearn.decomposition import TruncatedSVD
 
-from ..typing import GeneralVector
-
 from .base import FrameEncoder, TokenizedFrameEncoder
+from ..typing import GeneralVector
 
 logger = logging.getLogger(__name__)
 

@@ -14,6 +14,7 @@ def example():
     )
     return block, gold
 
+
 @pytest.fixture
 def example_nothing_found():
     block = pd.DataFrame(
@@ -36,6 +37,7 @@ def test_quality(example):
     assert e.f_measure == pytest.approx(0.23529411764705882)
     assert e.reduction_ratio == pytest.approx(0.8214285714285714)
     assert e.h3r == pytest.approx(0.42396313364055294)
+
 
 def test_quality_nothing(example_nothing_found):
     block, gold = example_nothing_found

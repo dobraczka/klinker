@@ -23,7 +23,9 @@ class TokenBlocker(SchemaAgnosticBlocker):
         self.min_token_length = min_token_length
 
     def tokenize(self, x) -> List:
-        return tokenize_row(x, tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length)
+        return tokenize_row(
+            x, tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length
+        )
 
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         tmp_blocking_key = "_tmp_blocking_key"

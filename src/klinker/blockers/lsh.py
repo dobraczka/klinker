@@ -4,9 +4,8 @@ import pandas as pd
 from datasketch import MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
-from ..data import KlinkerFrame
-
 from .base import SchemaAgnosticBlocker
+from ..data import KlinkerFrame
 
 
 class MinHashLSHBlocker(SchemaAgnosticBlocker):

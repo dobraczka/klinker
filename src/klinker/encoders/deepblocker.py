@@ -6,15 +6,14 @@ import pandas as pd
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 
+from .base import TokenizedFrameEncoder
+from .pretrained import tokenized_frame_encoder_resolver
 from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
 from ..typing import GeneralVector, TorchVectorLiteral
-
-from .base import TokenizedFrameEncoder
-from .pretrained import tokenized_frame_encoder_resolver
 
 FeatureType = TypeVar("FeatureType")
 

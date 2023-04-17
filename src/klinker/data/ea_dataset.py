@@ -47,7 +47,9 @@ class KlinkerDataset:
             suffixes=["_left", "_right"],
         )
         gold_merged = gold_merged.apply(tok_statistics, axis=1)
-        return gold_merged[["len_intersection", "len_left", "len_right","dice_coefficient"]]
+        return gold_merged[
+            ["len_intersection", "len_left", "len_right", "dice_coefficient"]
+        ]
 
     @classmethod
     def from_sylloge(cls, dataset: EADataset, clean: bool = False) -> "KlinkerDataset":
@@ -59,16 +61,7 @@ class KlinkerDataset:
         )
         if clean:
             # remove datatype
-            left["tail"] = left["tail"].str.split(pat="\^\^", expand=True)[0]
-            right["tail"] = right["tail"].str.split(pat="\^\^", expand=True)[0]
+            left["tail"] = left["tail"].str.split(pat=r"\^\^", expand=True)[0]
+            right["tail"] = right["tail"].str.split(pat=r"\^\^", expand=True)[0]
+
         return cls(left=left, right=right, gold=dataset.ent_links)
-
-
-if __name__ == "__main__":
-    from sylloge import OpenEA
-
-    kd = KlinkerDataset.from_sylloge(OpenEA(), True)
-    tdc = kd.tokenized_dice_coefficient()
-    import ipdb  # noqa: autoimport
-
-    ipdb.set_trace()  # BREAKPOINT

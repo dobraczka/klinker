@@ -3,7 +3,6 @@ from typing import Callable, List, Literal, overload
 import numpy as np
 import pandas as pd
 import torch
-
 from nltk.tokenize import word_tokenize
 
 from .typing import (
@@ -42,7 +41,9 @@ def cast_general_vector(
 
 
 def tokenize_row(
-    row: pd.Series, tokenize_fn: Callable[[str], List[str]] = word_tokenize, min_token_length: int = 1
+    row: pd.Series,
+    tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+    min_token_length: int = 1,
 ) -> List:
     res = []
     for value in row.values:
