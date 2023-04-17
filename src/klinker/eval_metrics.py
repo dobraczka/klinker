@@ -1,6 +1,7 @@
 from typing import Dict
 
 import pandas as pd
+from . import KlinkerDataset
 
 
 def harmonic_mean(a: float, b: float) -> float:
@@ -41,6 +42,17 @@ class Evaluation:
             raise ValueError(
                 "Blocks and gold standard frame need to have the same columns!"
             )
+
+    @classmethod
+    def from_dataset(
+        cls, blocks: pd.DataFrame, dataset: KlinkerDataset
+    ) -> "Evaluation":
+        return cls(
+            blocks=blocks,
+            gold=dataset.gold,
+            left_data_len=len(dataset.left),
+            right_data_len=len(dataset.right),
+        )
 
     @property
     def recall(self) -> float:

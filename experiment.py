@@ -6,10 +6,10 @@ from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTrac
 from sylloge import MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 
-from klinker.blockers import DeepBlocker, MinHashLSHBlocker
+from klinker.blockers import DeepBlocker, MinHashLSHBlocker, TokenBlocker
 from klinker.blockers.base import Blocker
 from klinker.blockers.embedding.blockbuilder import block_builder_resolver, EmbeddingBlockBuilder
-from klinker.data import KlinkerTripleFrame
+from klinker import KlinkerTripleFrame, KlinkerDataset
 from klinker.encoders.deepblocker import deep_blocker_encoder_resolver, DeepBlockerFrameEncoder
 from klinker.encoders.base import FrameEncoder
 from klinker.encoders.pretrained import tokenized_frame_encoder_resolver, TokenizedFrameEncoder
@@ -35,16 +35,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     dataset_with_params, blocker_with_params = blocker_and_dataset
     dataset, ds_params = dataset_with_params
     blocker, bl_params = blocker_with_params
-    left = KlinkerTripleFrame.from_df(
-        dataset.attr_triples_left, name="left", id_col="head"
-    )
-    right = KlinkerTripleFrame.from_df(
-        dataset.attr_triples_right, name="right", id_col="head"
-    )
-    if clean:
-        # remove datatype
-        left["tail"] = left["tail"].str.split(pat="\^\^",expand=True)[0]
-        right["tail"] = right["tail"].str.split(pat="\^\^",expand=True)[0]
+    klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
 
     tracker: ResultTracker
@@ -56,14 +47,9 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         tracker = ConsoleResultTracker()
     tracker.start_run()
     start = time.time()
-    blocks = blocker.assign(left=left, right=right)
+    blocks = blocker.assign(left=klinker_dataset.left, right=klinker_dataset.right)
     end = time.time()
-    ev = Evaluation(
-        blocks=blocks,
-        gold=dataset.ent_links,
-        left_data_len=len(left),
-        right_data_len=len(right),
-    )
+    ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
     tracker.log_metrics({**ev.to_dict(), "time in s": run_time})
 
@@ -98,8 +84,8 @@ def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
 @cli.command()
 @deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
 @tokenized_frame_encoder_resolver.get_option("--inner-encoder", default="TransformerTokenizedFrameEncoder")
-@click.option("--num_epochs", type=int, default=50)
-@click.option("--batch_size", type=int, default=256)
+@click.option("--num-epochs", type=int, default=50)
+@click.option("--batch-size", type=int, default=256)
 @click.option("--learning_rate", type=float, default=1e-3)
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
@@ -141,6 +127,10 @@ def deepblocker(
         ),
         click.get_current_context().params,
     )
+
+@cli.command()
+def token_blocker():
+    return TokenBlocker(), {}
 
 
 if __name__ == "__main__":

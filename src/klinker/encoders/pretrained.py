@@ -9,7 +9,7 @@ from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
 from sklearn.decomposition import TruncatedSVD
 
-from klinker.typing import GeneralVector
+from ..typing import GeneralVector
 
 from .base import FrameEncoder, TokenizedFrameEncoder
 

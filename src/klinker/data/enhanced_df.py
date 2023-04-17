@@ -4,7 +4,7 @@ from typing import List, Optional
 import pandas as pd
 from pandas._typing import Axes, Dtype
 
-from klinker.typing import ColumnSpecifier
+from ..typing import ColumnSpecifier
 
 
 class KlinkerFrame(pd.DataFrame):

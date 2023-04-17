@@ -1,9 +1,12 @@
-from typing import Literal, overload
+from typing import Callable, List, Literal, overload
 
 import numpy as np
+import pandas as pd
 import torch
 
-from klinker.typing import (
+from nltk.tokenize import word_tokenize
+
+from .typing import (
     GeneralVector,
     GeneralVectorLiteral,
     NumpyVectorLiteral,
@@ -36,3 +39,19 @@ def cast_general_vector(
         return np.array(vector) if not isinstance(vector, np.ndarray) else vector
     else:
         raise ValueError(f"Unknown return_type: {return_type}!")
+
+
+def tokenize_row(
+    row: pd.Series, tokenize_fn: Callable[[str], List[str]] = word_tokenize, min_token_length: int = 1
+) -> List:
+    res = []
+    for value in row.values:
+        res.extend(
+            list(
+                filter(
+                    lambda x: len(x) >= min_token_length,
+                    tokenize_fn(str(value)),
+                )
+            )
+        )
+    return res

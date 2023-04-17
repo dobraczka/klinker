@@ -3,9 +3,10 @@ from typing import Callable, List, Tuple, Union
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
-from klinker.blockers import StandardBlocker
-from klinker.blockers.base import SchemaAgnosticBlocker
-from klinker.data import KlinkerFrame
+from .base import SchemaAgnosticBlocker
+from .standard import StandardBlocker
+from ..data import KlinkerFrame
+from ..utils import tokenize_row
 
 
 class TokenBlocker(SchemaAgnosticBlocker):
@@ -21,18 +22,8 @@ class TokenBlocker(SchemaAgnosticBlocker):
         super().__init__(wanted_cols=wanted_cols)
         self.min_token_length = min_token_length
 
-    def tokenize(self, x):
-        res = []
-        for value in x.values:
-            res.append(
-                list(
-                    filter(
-                        lambda x: len(x) >= self.min_token_length,
-                        self.tokenize_fn(str(value)),
-                    )
-                )
-            )
-        return res
+    def tokenize(self, x) -> List:
+        return tokenize_row(x, tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length)
 
     def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
         tmp_blocking_key = "_tmp_blocking_key"
@@ -41,9 +32,8 @@ class TokenBlocker(SchemaAgnosticBlocker):
         for tab in [left, right]:
             tok = (
                 tab.set_index(tab.id_col)[tab.non_id_columns]
-                .apply(self.tokenize, axis=1)  # returns list of lists
-                .explode()  # that's why we need
-                .explode()  # 2 explodes
+                .apply(self.tokenize, axis=1)
+                .explode()
                 .to_frame()
                 .reset_index()
                 .rename(columns={tab.name: tmp_blocking_key})

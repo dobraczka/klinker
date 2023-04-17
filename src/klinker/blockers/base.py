@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 
-from klinker.data import KlinkerFrame, KlinkerTripleFrame
-from klinker.typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
+from ..data import KlinkerFrame, KlinkerTripleFrame
+from ..typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
 
 
 def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame]:

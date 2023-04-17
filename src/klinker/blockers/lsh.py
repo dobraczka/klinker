@@ -4,7 +4,7 @@ import pandas as pd
 from datasketch import MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
-from klinker.data import KlinkerFrame
+from ..data import KlinkerFrame
 
 from .base import SchemaAgnosticBlocker
 

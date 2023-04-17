@@ -8,8 +8,8 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from klinker.data import KlinkerFrame
-from klinker.typing import GeneralVector
+from ...data import KlinkerFrame
+from ...typing import GeneralVector
 
 try:
     from cuml.cluster import HDBSCAN

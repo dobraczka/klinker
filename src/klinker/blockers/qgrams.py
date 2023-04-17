@@ -3,7 +3,7 @@ from typing import Iterable
 import pandas as pd
 from nltk.util import ngrams
 
-from klinker.data import KlinkerFrame
+from ..data import KlinkerFrame
 
 from .standard import StandardBlocker
 

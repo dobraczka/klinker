@@ -6,12 +6,12 @@ import pandas as pd
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 
-from klinker.models.deepblocker import (
+from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from klinker.typing import GeneralVector, TorchVectorLiteral
+from ..typing import GeneralVector, TorchVectorLiteral
 
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver

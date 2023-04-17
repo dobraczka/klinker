@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 import torch
 
-from klinker.typing import (
+from ..typing import (
     GeneralVector,
     GeneralVectorLiteral,
     NumpyVectorLiteral,
     TorchVectorLiteral,
 )
-from klinker.utils import cast_general_vector
+from ..utils import cast_general_vector
 
 
 class FrameEncoder:
