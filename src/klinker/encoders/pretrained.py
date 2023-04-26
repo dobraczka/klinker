@@ -1,4 +1,5 @@
 import logging
+import torch
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -8,6 +9,7 @@ from gensim import downloader as gensim_downloader
 from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
 from sklearn.decomposition import TruncatedSVD
+import warnings
 
 from .base import FrameEncoder, TokenizedFrameEncoder
 from ..typing import GeneralVector
@@ -31,7 +33,11 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.encoder.tokenizer.tokenize
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         return self.encoder.encode_all(left.values), self.encoder.encode_all(
             left.values
@@ -52,27 +58,50 @@ class TokenizedWordEmbedder:
     ):
         if isinstance(embedding_fn, str):
             if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
-                self.embedding_fn = gensim_downloader.load(
-                    TokenizedWordEmbedder._gensim_mapping_download[embedding_fn]
-                ).__getitem__
+                self.embedding_fn = lambda x: np.random.rand(300,)
+                # self.embedding_fn = gensim_downloader.load(
+                #     TokenizedWordEmbedder._gensim_mapping_download[embedding_fn]
+                # ).__getitem__
             else:
                 self.embedding_fn = gensim_downloader.load(embedding_fn).__getitem__
         else:
             self.embedding_fn = embedding_fn
         self.tokenizer_fn = tokenizer_fn
+        self._embedding_dim = -1
+
+    @property
+    def embedding_dim(self) -> int:
+        if self._embedding_dim == -1:
+            self._embedding_dim = self.embedding_fn("hello").shape[0]
+        return self._embedding_dim
+
 
     def embed(self, values: str) -> np.ndarray:
-        return np.vstack([self.embedding_fn(tok) for tok in self.tokenizer_fn(values)])
+        embedded: List[GeneralVector] = []
+        for tok in self.tokenizer_fn(values):
+            try:
+                tok_emb = self.embedding_fn(tok)
+            except KeyError:
+                warnings.warn(f"Could not find embedding for {tok}")
+                continue
+        if len(embedded) == 0:
+            return np.array(embedded)
+        return np.vstack(embedded)
 
     def weighted_embed(
         self, values: str, weight_mapping: Dict[str, float]
     ) -> np.ndarray:
-        return np.vstack(
-            [
-                self.embedding_fn(tok) * weight_mapping[tok]
-                for tok in self.tokenizer_fn(values)
-            ]
-        )
+        # TODO fix code duplication across embed methods
+        embedded: List[GeneralVector] = []
+        for tok in self.tokenizer_fn(values):
+            try:
+                tok_emb = self.embedding_fn(tok) * weight_mapping[tok]
+            except KeyError:
+                warnings.warn(f"Could not find embedding for {tok}")
+                continue
+        if len(embedded) == 0:
+            return np.array(embedded)
+        return np.vstack(embedded)
 
 
 tokenized_word_embedder_resolver = ClassResolver(
@@ -108,7 +137,11 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         )
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         return (
             self._encode_side(left),
@@ -164,19 +197,17 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
                 token_weight_dict[word] = 1.0
         self.token_weight_dict = token_weight_dict
 
+
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         assert self.token_weight_dict is not None
-        embeddings = np.array(
-            [
-                np.mean(
-                    self.tokenized_word_embedder.weighted_embed(
-                        val, self.token_weight_dict
-                    ),
-                    axis=0,
-                )
-                for val in df[df.columns[0]].values
-            ]
-        )
+        embeddings = torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
+        embeddings = torch.nn.init.xavier_normal_(embeddings).numpy()
+        for idx, val in enumerate(df[df.columns[0]].values):
+            emb = self.tokenized_word_embedder.weighted_embed(
+                val, self.token_weight_dict
+            )
+            if len(emb) > 0:
+                embeddings[idx] = np.mean(emb, axis=0)
 
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
@@ -191,7 +222,11 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return sif_embeddings
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         if self.token_weight_dict is None:
             self.prepare(left, right)

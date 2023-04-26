@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 
@@ -18,7 +18,13 @@ class StandardBlocker(Blocker):
         blocked = kf[[id_col, self.blocking_key]].groupby(self.blocking_key).agg(list)
         return blocked.rename(columns={id_col: name})
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         left_assign = self._inner_assign(left)
         right_assign = self._inner_assign(right)
         return left_assign.join(right_assign, how="outer")

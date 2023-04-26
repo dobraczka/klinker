@@ -4,14 +4,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from ..typing import (
-    GeneralVector,
-    GeneralVectorLiteral,
-    NumpyVectorLiteral,
-    TorchVectorLiteral,
-)
+from ..typing import GeneralVector, GeneralVectorLiteral
 from ..utils import cast_general_vector
-
 
 class FrameEncoder:
     def validate(self, left: pd.DataFrame, right: pd.DataFrame):
@@ -24,13 +18,22 @@ class FrameEncoder:
         pass
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         raise NotImplementedError
 
     @overload
     def encode(
-        self, left: pd.DataFrame, right: pd.DataFrame, return_type: Literal["np"]
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        return_type: Literal["np"],
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
         ...
 
@@ -40,6 +43,8 @@ class FrameEncoder:
         left: pd.DataFrame,
         right: pd.DataFrame,
         return_type: Literal["pt"],
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         ...
 
@@ -48,10 +53,16 @@ class FrameEncoder:
         left: pd.DataFrame,
         right: pd.DataFrame,
         return_type: GeneralVectorLiteral = "pt",
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.validate(left, right)
+        left = left.fillna("")
+        right = right.fillna("")
         self.prepare(left, right)
-        left_enc, right_enc = self._encode(left, right)
+        left_enc, right_enc = self._encode(
+            left=left, right=right, left_rel=left_rel, right_rel=right_rel
+        )
         return cast_general_vector(
             left_enc, return_type=return_type
         ), cast_general_vector(right_enc, return_type=return_type)

@@ -1,5 +1,5 @@
 import abc
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -22,11 +22,25 @@ def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
 
 class Blocker(abc.ABC):
     @abc.abstractmethod
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         raise NotImplementedError
 
-    def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        res = self._assign(left=left, right=right)
+    def assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        res = self._assign(
+            left=left, right=right, left_rel=left_rel, right_rel=right_rel
+        )
         return postprocess(res)
 
 
@@ -90,6 +104,17 @@ class SchemaAgnosticBlocker(Blocker):
             actual_wanted_cols[1]
         )
 
-    def assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         left_reduced, right_reduced = self._preprocess(left, right)
-        return super().assign(left=left_reduced, right=right_reduced)
+        return super().assign(
+            left=left_reduced,
+            right=right_reduced,
+            left_rel=left_rel,
+            right_rel=right_rel,
+        )

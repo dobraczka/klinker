@@ -34,7 +34,13 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
             return res
         return self._inner_encode(str(row))
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         left_name = left.name
         right_name = right.name
         # for mypy

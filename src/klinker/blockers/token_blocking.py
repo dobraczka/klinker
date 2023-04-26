@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Tuple, Union, Optional
 
 import pandas as pd
 from nltk.tokenize import word_tokenize
@@ -27,7 +27,13 @@ class TokenBlocker(SchemaAgnosticBlocker):
             x, tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length
         )
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         tmp_blocking_key = "_tmp_blocking_key"
 
         tok_list = []

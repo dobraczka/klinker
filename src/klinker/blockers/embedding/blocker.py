@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
@@ -30,13 +30,21 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
             embedding_block_builder, embedding_block_builder_kwargs
         )
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
-        left_reduced = left[left.non_id_columns]
-        right_reduced = right[right.non_id_columns]
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        left_reduced = left.set_index(left.id_col)[left.non_id_columns]
+        right_reduced = right.set_index(right.id_col)[right.non_id_columns]
         # TODO fix typing issue
         left_emb, right_emb = self.frame_encoder.encode(
             left=left_reduced,
             right=right_reduced,
+            left_rel=left_rel,
+            right_rel=right_rel,
         )  # type: ignore
         return self.embedding_block_builder.build_blocks(
             left=left_emb, right=right_emb, left_data=left, right_data=right

@@ -25,6 +25,17 @@ class EmbeddingBlockBuilder:
         left_data: KlinkerFrame,
         right_data: KlinkerFrame,
     ) -> pd.DataFrame:
+        """Build blocks from left and right embeddings, using left and right data.
+
+        Note: Index of left and right data should connect indices of embeddings with the respective entries
+        in the id col of the Klinkerframes.
+
+        :param left: embeddings of left dataset
+        :param right: embeddings of right dataset
+        :param left_data: left data with index/id_col of dataframe matching indices of left embedding
+        :param right_data: right data with index/id_col of dataframe matching indices of right embedding
+        :return: blocks as dataframe
+        """
         raise NotImplementedError
 
 
@@ -45,11 +56,14 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     ) -> pd.DataFrame:
         neighbors = self._get_neighbors(left=left, right=right)
         df = pd.DataFrame(neighbors)
+        import ipdb # noqa: autoimport
+        ipdb.set_trace() # BREAKPOINT
+
         df[right_data.name] = df.applymap(
             lambda x, right_data: right_data.iloc[x][right_data.id_col],
             right_data=right_data,
         ).values.tolist()
-        df[left_data.name] = left_data.id.values.tolist()
+        df[left_data.name] = left_data[left_data.id_col].values.tolist()
         return df[[left_data.name, right_data.name]]
 
 

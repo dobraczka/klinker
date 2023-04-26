@@ -3,6 +3,7 @@ from typing import Literal, Sequence, Tuple, Union
 import numpy as np
 import torch
 
+Side = Literal["left","right"]
 GeneralVector = Union[np.ndarray, torch.Tensor]
 GeneralVectorLiteral = Literal["np", "pt"]
 TorchVectorLiteral: GeneralVectorLiteral = "pt"

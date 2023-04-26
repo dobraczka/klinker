@@ -63,6 +63,9 @@ class KlinkerFrame(pd.DataFrame):
 
 class KlinkerTripleFrame(KlinkerFrame):
     @property
+    def _constructor(self):
+        return KlinkerTripleFrame
+    @property
     def non_id_columns(self) -> List[str]:
         return [self.columns[2]]
 

@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, List, Union
+from typing import Dict, List, Union, Optional
 
 import pandas as pd
 
@@ -11,7 +11,13 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         self.blocking_key = blocking_key
         self.window_size = window_size
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         name_id_tuple_col = "name_id_tuple"
         tables = [left, right]
         for tab in tables:

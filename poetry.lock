@@ -5058,18 +5058,22 @@ description = "Small library to simplify collecting and loading of entity alignm
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
-files = [
-    {file = "sylloge-0.1.1-py3-none-any.whl", hash = "sha256:d5c4b8490e3552e29e068e3cd962d650d40ed065d045b596d4265bd47d15f295"},
-    {file = "sylloge-0.1.1.tar.gz", hash = "sha256:cd754f556ad27827be273c656f00a2decea481dea3d536d1f71a5c8ffd65b1f4"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-moviegraphbenchmark = ">=1.0.1,<2.0.0"
-pandas = ">=1.1.5,<2.0.0"
-pystow = ">=0.4.6,<0.5.0"
+moviegraphbenchmark = "^1.0.1"
+pandas = "^1.1.5"
+pystow = "^0.4.6"
 
 [package.extras]
 docs = ["Sphinx (>=5.0.0,<6.0.0)", "insegel (>=1.3.1,<2.0.0)", "sphinx-autodoc-typehints (>=1.19.2,<2.0.0)", "sphinx-automodapi (>=0.14.1,<0.15.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/dobraczka/sylloge"
+reference = "fix-idmapped"
+resolved_reference = "21f4da1427d95ea35afcfa5d83d50c4576cf5f85"
 
 [[package]]
 name = "sympy"
@@ -5894,4 +5898,4 @@ faiss-gpu = ["faiss-gpu", "autofaiss"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<4.0"
-content-hash = "fb3a4eafacd022346d267010d8337612d922470c5f6643e13faea7a2664317ab"
+content-hash = "77528ff025dd9363e221746ab7867b9b248ac831eff45aa5e081f6b3d5003c09"

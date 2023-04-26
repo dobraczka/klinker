@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Optional
 
 import pandas as pd
 from nltk.util import ngrams
@@ -18,7 +18,13 @@ class QgramsBlocker(StandardBlocker):
         else:
             return ["".join(tok) for tok in ngrams(x, self.q)]
 
-    def _assign(self, left: KlinkerFrame, right: KlinkerFrame) -> pd.DataFrame:
+    def _assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
         qgramed = []
         for tab in [left, right]:
             data = (
