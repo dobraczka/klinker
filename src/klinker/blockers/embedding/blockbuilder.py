@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union, List
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from ...data import KlinkerFrame
+from ...data import KlinkerFrame, NamedVector
 from ...typing import GeneralVector
 
 try:
@@ -20,22 +20,11 @@ except ImportError:
 class EmbeddingBlockBuilder:
     def build_blocks(
         self,
-        left: GeneralVector,
-        right: GeneralVector,
-        left_data: KlinkerFrame,
-        right_data: KlinkerFrame,
+        left: NamedVector,
+        right: NamedVector,
+        left_name: str,
+        right_name: str,
     ) -> pd.DataFrame:
-        """Build blocks from left and right embeddings, using left and right data.
-
-        Note: Index of left and right data should connect indices of embeddings with the respective entries
-        in the id col of the Klinkerframes.
-
-        :param left: embeddings of left dataset
-        :param right: embeddings of right dataset
-        :param left_data: left data with index/id_col of dataframe matching indices of left embedding
-        :param right_data: right data with index/id_col of dataframe matching indices of right embedding
-        :return: blocks as dataframe
-        """
         raise NotImplementedError
 
 
@@ -49,22 +38,19 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
 
     def build_blocks(
         self,
-        left: GeneralVector,
-        right: GeneralVector,
-        left_data: KlinkerFrame,
-        right_data: KlinkerFrame,
+        left: NamedVector,
+        right: NamedVector,
+        left_name: str,
+        right_name: str,
     ) -> pd.DataFrame:
-        neighbors = self._get_neighbors(left=left, right=right)
+        neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         df = pd.DataFrame(neighbors)
-        import ipdb # noqa: autoimport
-        ipdb.set_trace() # BREAKPOINT
-
-        df[right_data.name] = df.applymap(
-            lambda x, right_data: right_data.iloc[x][right_data.id_col],
-            right_data=right_data,
+        df[right_name] = df.applymap(
+            lambda x, right: right.names[x],
+            right=right,
         ).values.tolist()
-        df[left_data.name] = left_data[left_data.id_col].values.tolist()
-        return df[[left_data.name, right_data.name]]
+        df[left_name] = left.names
+        return df[[left_name, right_name]]
 
 
 class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
@@ -90,8 +76,8 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         right: GeneralVector,
     ) -> np.ndarray:
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
-            left = left.detach().numpy()
-            right = right.detach().numpy()
+            left = left.detach().cpu().numpy()
+            right = right.detach().cpu().numpy()
         self.kiez.fit(left, right)
         neighs = self.kiez.kneighbors(return_distance=False)
         assert isinstance(neighs, np.ndarray)  # for mypy
@@ -107,27 +93,27 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
         raise NotImplementedError
 
     @staticmethod
-    def blocks_side(cluster_labels: np.ndarray, data: KlinkerFrame) -> pd.DataFrame:
+    def blocks_side(cluster_labels: np.ndarray, names: List[str], data_name: str) -> pd.DataFrame:
         blocked = (
-            pd.DataFrame([data[data.id_col].values, cluster_labels])
+            pd.DataFrame([names, cluster_labels])
             .transpose()
             .groupby(1)
             .agg(list)
         )
-        blocked.columns = [data.name]
+        blocked.columns = [data_name]
         return blocked
 
     def build_blocks(
         self,
-        left: GeneralVector,
-        right: GeneralVector,
-        left_data: KlinkerFrame,
-        right_data: KlinkerFrame,
+        left: NamedVector,
+        right: NamedVector,
+        left_name: str,
+        right_name: str,
     ) -> pd.DataFrame:
-        left_cluster_labels, right_cluster_labels = self._cluster(left, right)
-        left_blocks = ClusteringBlockBuilder.blocks_side(left_cluster_labels, left_data)
+        left_cluster_labels, right_cluster_labels = self._cluster(left.vectors, right.vectors)
+        left_blocks = ClusteringBlockBuilder.blocks_side(left_cluster_labels, left.names, left_name)
         right_blocks = ClusteringBlockBuilder.blocks_side(
-            right_cluster_labels, right_data
+            right_cluster_labels, right.names, right_name
         )
         return left_blocks.join(right_blocks)
 

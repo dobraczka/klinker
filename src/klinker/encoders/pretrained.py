@@ -58,10 +58,9 @@ class TokenizedWordEmbedder:
     ):
         if isinstance(embedding_fn, str):
             if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
-                self.embedding_fn = lambda x: np.random.rand(300,)
-                # self.embedding_fn = gensim_downloader.load(
-                #     TokenizedWordEmbedder._gensim_mapping_download[embedding_fn]
-                # ).__getitem__
+                self.embedding_fn = gensim_downloader.load(
+                    TokenizedWordEmbedder._gensim_mapping_download[embedding_fn]
+                ).__getitem__
             else:
                 self.embedding_fn = gensim_downloader.load(embedding_fn).__getitem__
         else:
@@ -77,25 +76,17 @@ class TokenizedWordEmbedder:
 
 
     def embed(self, values: str) -> np.ndarray:
-        embedded: List[GeneralVector] = []
-        for tok in self.tokenizer_fn(values):
-            try:
-                tok_emb = self.embedding_fn(tok)
-            except KeyError:
-                warnings.warn(f"Could not find embedding for {tok}")
-                continue
-        if len(embedded) == 0:
-            return np.array(embedded)
-        return np.vstack(embedded)
+        return self.weighted_embed(values, {})
 
     def weighted_embed(
         self, values: str, weight_mapping: Dict[str, float]
     ) -> np.ndarray:
-        # TODO fix code duplication across embed methods
+        # TODO fix code duplication across embed methods can be solved better
         embedded: List[GeneralVector] = []
         for tok in self.tokenizer_fn(values):
             try:
-                tok_emb = self.embedding_fn(tok) * weight_mapping[tok]
+                tok_emb = self.embedding_fn(tok) * weight_mapping.get(tok, 1.0)
+                embedded.append(tok_emb)
             except KeyError:
                 warnings.warn(f"Could not find embedding for {tok}")
                 continue

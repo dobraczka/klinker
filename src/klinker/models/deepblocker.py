@@ -108,8 +108,8 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss,
-        optimizer: HintOrType[Optimizer],
+        loss_function: _Loss = None,
+        optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
         self.input_dimension = input_dimension
@@ -146,9 +146,6 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
-        loss_function: _Loss,
-        optimizer: HintOrType[Optimizer],
-        optimizer_kwargs: OptionalKwargs = None,
     ) -> DeepBlockerModel:
         self.device = resolve_device()
         self.model.to(self.device)
@@ -208,6 +205,7 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         return AutoEncoderDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
+        assert self.loss_function is not None
         for _ in range(num_epochs):
             train_loss = 0
             for _, data in enumerate(train_dataloader):
@@ -224,18 +222,11 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
-        loss_function: _Loss = None,
-        optimizer: HintOrType[Optimizer] = "adam",
-        optimizer_kwargs: OptionalKwargs = None,
     ) -> DeepBlockerModel:
-        loss_fn = nn.MSELoss() if loss_function is None else loss_function
         return super().train(
             features=features,
             num_epochs=num_epochs,
             batch_size=batch_size,
-            loss_function=loss_fn,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
         )
 
 
@@ -275,6 +266,7 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         return CTTDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
+        assert self.loss_function is not None
         for _ in range(num_epochs):
             train_loss = 0
             for _, (left, right, label) in enumerate(train_dataloader):
@@ -294,16 +286,9 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
-        loss_function: _Loss = None,
-        optimizer: HintOrType[Optimizer] = "adam",
-        optimizer_kwargs: OptionalKwargs = None,
     ) -> DeepBlockerModel:
-        loss_fn = nn.BCELoss() if loss_function is None else loss_function
         return super().train(
             features=features,
             num_epochs=num_epochs,
             batch_size=batch_size,
-            loss_function=loss_fn,
-            optimizer=optimizer,
-            optimizer_kwargs=optimizer_kwargs,
         )

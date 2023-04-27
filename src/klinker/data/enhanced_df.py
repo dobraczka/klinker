@@ -17,7 +17,7 @@ class KlinkerFrame(pd.DataFrame):
         columns: Optional[Axes] = None,
         dtype: Optional[Dtype] = None,
         copy: Optional[bool] = None,
-        name: str = None,
+        name: Optional[str] = None,
         id_col: Optional[str] = "id",
     ) -> None:
         super().__init__(

@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
+from torch.nn.modules.loss import _Loss
+from torch.optim import Optimizer
 
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
@@ -13,7 +15,7 @@ from ..models.deepblocker import (
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from ..typing import GeneralVector, TorchVectorLiteral
+from ..typing import GeneralVector
 
 FeatureType = TypeVar("FeatureType")
 
@@ -23,10 +25,13 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
 
     def __init__(
         self,
-        hidden_dimensions: Sequence[int],
+        hidden_dimensions: Tuple[int, int],
         num_epochs: int = 50,
         batch_size: int = 256,
         learning_rate: float = 1e-3,
+        loss_function: Optional[_Loss] = None,
+        optimizer: Optional[HintOrType[Optimizer]] = None,
+        optimizer_kwargs: OptionalKwargs = None,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
         **kwargs
@@ -39,6 +44,9 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.input_dimension: Optional[int] = None
+        self.loss_function = loss_function
+        self._optimizer_hint = optimizer
+        self._optimizer_kwargs = optimizer_kwargs
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
@@ -54,11 +62,22 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         raise NotImplementedError
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         features, left_enc, right_enc = self.create_features(left, right)
+        assert self.input_dimension is not None
+        assert self.hidden_dimensions is not None
         trainer = self.trainer_cls(
-            self.input_dimension, self.hidden_dimensions, self.learning_rate
+            input_dimension=self.input_dimension,
+            hidden_dimensions=self.hidden_dimensions,
+            learning_rate=self.learning_rate,
+            loss_function=self.loss_function,
+            optimizer=self._optimizer_hint,
+            optimizer_kwargs=self._optimizer_kwargs,
         )
         self.model = trainer.train(
             features, num_epochs=self.num_epochs, batch_size=self.batch_size
@@ -69,21 +88,21 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
 class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
     def __init__(
         self,
-        frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
-        frame_encoder_kwargs: OptionalKwargs = None,
-        hidden_dimensions: Sequence[int] = (2 * 150, 150),
+        hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
         num_epochs: int = 50,
         batch_size: int = 256,
         learning_rate: float = 1e-3,
+        frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
+        frame_encoder_kwargs: OptionalKwargs = None,
         **kwargs
     ):
         super().__init__(
-            frame_encoder=frame_encoder,
-            frame_encoder_kwargs=frame_encoder_kwargs,
             hidden_dimensions=hidden_dimensions,
             num_epochs=num_epochs,
             batch_size=batch_size,
             learning_rate=learning_rate,
+            frame_encoder=frame_encoder,
+            frame_encoder_kwargs=frame_encoder_kwargs,
             **kwargs
         )
         self._input_dimension = -1
@@ -96,19 +115,18 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         self, left: pd.DataFrame, right: pd.DataFrame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
-        left_enc = left_enc.float()
-        right_enc = right_enc.float()
+        left_enc_vecs, right_enc_vecs = left_enc.vectors, right_enc.vectors
+        left_enc_vecs = left_enc_vecs.float()
+        right_enc_vecs = right_enc_vecs.float()
 
-        self.input_dimension = left_enc.shape[1]
-        return torch.concat([left_enc, right_enc]), left_enc, right_enc
+        self.input_dimension = left_enc_vecs.shape[1]
+        return torch.concat([left_enc_vecs, right_enc_vecs]), left_enc_vecs, right_enc_vecs
 
 
 class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     def __init__(
         self,
-        frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
-        frame_encoder_kwargs: OptionalKwargs = None,
-        hidden_dimensions: Sequence[int] = (2 * 150, 150),
+        hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
         num_epochs: int = 50,
         batch_size: int = 256,
         learning_rate: float = 1e-3,
@@ -116,15 +134,17 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         pos_to_neg_ratio: float = 1.0,
         max_perturbation=0.4,
         random_seed=None,
+        frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
+        frame_encoder_kwargs: OptionalKwargs = None,
     ):
 
         super().__init__(
-            frame_encoder=frame_encoder,
-            frame_encoder_kwargs=frame_encoder_kwargs,
             hidden_dimensions=hidden_dimensions,
             num_epochs=num_epochs,
             batch_size=batch_size,
             learning_rate=learning_rate,
+            frame_encoder=frame_encoder,
+            frame_encoder_kwargs=frame_encoder_kwargs,
         )
         self.synth_tuples_per_tuple = synth_tuples_per_tuple
         self.pos_to_neg_ratio = pos_to_neg_ratio
@@ -197,17 +217,17 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
             pd.DataFrame(right_tuple_list),
             return_type="pt",
         )
-        self.input_dimension = left_train_enc.shape[1]
+        self.input_dimension = left_train_enc.vectors.shape[1]
 
         left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
         return (
-            (left_train_enc.float(), right_train_enc.float(), torch.tensor(label_list)),
-            left_enc.float(),
-            right_enc.float(),
+            (left_train_enc.vectors.float(), right_train_enc.vectors.float(), torch.tensor(label_list)),
+            left_enc.vectors.float(),
+            right_enc.vectors.float(),
         )
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: pd.DataFrame, right: pd.DataFrame, left_rel: Optional[pd.DataFrame] = None, right_rel: Optional[pd.DataFrame] = None
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.inner_encoder.prepare(left, right)
         (
@@ -216,6 +236,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
             right_enc,
         ) = self.create_features(left, right)
 
+        assert self.input_dimension is not None
         trainer = CTTDeepBlockerModelTrainer(
             input_dimension=self.input_dimension,
             hidden_dimensions=self.hidden_dimensions,
@@ -238,7 +259,7 @@ class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
         self,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
-        hidden_dimensions: Sequence[int] = (2 * 150, 150),
+        hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
         num_epochs: int = 50,
         batch_size: int = 256,
         learning_rate: float = 1e-3,

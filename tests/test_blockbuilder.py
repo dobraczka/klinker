@@ -6,8 +6,8 @@ import pytest
 from strawman import dummy_triples
 from util import compare_blocks
 
-from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder
-from klinker.data import KlinkerFrame
+from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder, KiezEmbeddingBlockBuilder
+from klinker.data import KlinkerFrame, NamedVector
 from klinker.typing import GeneralVector
 
 
@@ -29,7 +29,7 @@ def create_dummy_data(
 
 
 @pytest.fixture
-def example() -> Tuple[GeneralVector, GeneralVector, KlinkerFrame, KlinkerFrame]:
+def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, str]:
     data = np.array(
         [
             [-10.02214045, 10.4762855],
@@ -47,9 +47,9 @@ def example() -> Tuple[GeneralVector, GeneralVector, KlinkerFrame, KlinkerFrame]
     left_length = 6
     right_length = len(data) - left_length
     left, right = data[:left_length], data[left_length:]
-    left_data = create_dummy_data("A", entity_prefix="a", length=left_length)
-    right_data = create_dummy_data("B", entity_prefix="b", length=right_length)
-    return left, right, left_data, right_data
+    left_names = [f"a{idx}" for idx in range(left_length)]
+    right_names = [f"b{idx}" for idx in range(right_length)]
+    return NamedVector(names=left_names, vectors=left), NamedVector(names=right_names, vectors=right), "A", "B"
 
 
 @pytest.fixture
@@ -65,3 +65,8 @@ def expected() -> pd.DataFrame:
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANBlockBuilder(min_cluster_size=2).build_blocks(*example)
     compare_blocks(blocks, expected)
+
+def test_nn_block_builder(example):
+    blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)
+    assert blocks["A"].str.startswith("a").all()
+    assert blocks["B"].apply(lambda x: len(x) == 2 and all([xi.startswith("b") for xi in x])).all()

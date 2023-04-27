@@ -22,6 +22,8 @@ def example() -> Tuple[pd.DataFrame, pd.DataFrame]:
     right = dummy_df(
         (10, 1), content_length=20, allowed_chars=" abcdefghijklmnopqrstuvw"
     )
+    left.index = [f"a{idx}" for idx in range(len(left))]
+    right.index = [f"b{idx}" for idx in range(len(right))]
     return left, right
 
 
@@ -36,7 +38,8 @@ def test_word_embedding(cls, return_type, example, mocker):
         MockGensimDownloader(dimension=dimension),
     )
     left, right = example
-    left_enc, right_enc = cls().encode(left, right, return_type=return_type)
+    left_named_enc, right_named_enc = cls().encode(left, right, return_type=return_type)
+    left_enc, right_enc = left_named_enc.vectors, right_named_enc.vectors
     assert left_enc.shape == (len(left), dimension)
     assert right_enc.shape == (len(right), dimension)
     if return_type == TorchVectorLiteral:
@@ -45,3 +48,6 @@ def test_word_embedding(cls, return_type, example, mocker):
     elif return_type == NumpyVectorLiteral:
         assert isinstance(left_enc, np.ndarray)
         assert isinstance(right_enc, np.ndarray)
+
+    assert left_named_enc.names == left.index.tolist()
+    assert right_named_enc.names == right.index.tolist()

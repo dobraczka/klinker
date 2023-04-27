@@ -3,6 +3,7 @@ from typing import Callable, List, Literal, Optional, Tuple, overload
 import numpy as np
 import pandas as pd
 import torch
+from ..data import NamedVector
 
 from ..typing import GeneralVector, GeneralVectorLiteral
 from ..utils import cast_general_vector
@@ -34,7 +35,7 @@ class FrameEncoder:
         return_type: Literal["np"],
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray]]:
         ...
 
     @overload
@@ -45,7 +46,7 @@ class FrameEncoder:
         return_type: Literal["pt"],
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[NamedVector[torch.Tensor], NamedVector[torch.Tensor]]:
         ...
 
     def encode(
@@ -55,7 +56,7 @@ class FrameEncoder:
         return_type: GeneralVectorLiteral = "pt",
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> Tuple[GeneralVector, GeneralVector]:
+    ) -> Tuple[NamedVector, NamedVector]:
         self.validate(left, right)
         left = left.fillna("")
         right = right.fillna("")
@@ -63,9 +64,9 @@ class FrameEncoder:
         left_enc, right_enc = self._encode(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        return cast_general_vector(
-            left_enc, return_type=return_type
-        ), cast_general_vector(right_enc, return_type=return_type)
+        left_enc = cast_general_vector(left_enc, return_type=return_type)
+        right_enc = cast_general_vector(right_enc, return_type=return_type)
+        return NamedVector(names=left.index.tolist(), vectors=left_enc), NamedVector(names=right.index.tolist(), vectors=right_enc)
 
 
 class TokenizedFrameEncoder(FrameEncoder):
