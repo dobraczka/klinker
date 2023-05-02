@@ -224,17 +224,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
         return self._encode_side(left), self._encode_side(right)
 
-
-frame_encoder_resolver = ClassResolver(
-    [
-        TransformerTokenizedFrameEncoder,
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ],
-    base=FrameEncoder,
-    default=SIFEmbeddingTokenizedFrameEncoder,
-)
-
 tokenized_frame_encoder_resolver = ClassResolver(
     [
         TransformerTokenizedFrameEncoder,

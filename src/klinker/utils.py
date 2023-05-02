@@ -3,6 +3,7 @@ from typing import Callable, List, Literal, overload
 import numpy as np
 import pandas as pd
 import torch
+from torch import nn
 from nltk.tokenize import word_tokenize
 
 from .typing import (
@@ -11,7 +12,6 @@ from .typing import (
     NumpyVectorLiteral,
     TorchVectorLiteral,
 )
-
 
 @overload
 def cast_general_vector(

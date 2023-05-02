@@ -6,10 +6,25 @@ from .deepblocker import (
     CrossTupleTrainingDeepBlockerFrameEncoder,
     HybridDeepBlockerFrameEncoder,
 )
+from .light_ea import LightEAFrameEncoder
 from .pretrained import (
     AverageEmbeddingTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
     TransformerTokenizedFrameEncoder,
+)
+
+frame_encoder_resolver = ClassResolver(
+    [
+        TransformerTokenizedFrameEncoder,
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
+        AutoEncoderDeepBlockerFrameEncoder,
+        CrossTupleTrainingDeepBlockerFrameEncoder,
+        HybridDeepBlockerFrameEncoder,
+        LightEAFrameEncoder,
+    ],
+    base=FrameEncoder,
+    default=SIFEmbeddingTokenizedFrameEncoder,
 )
 
 __all__ = [
@@ -21,4 +36,6 @@ __all__ = [
     "AutoEncoderDeepBlockerFrameEncoder",
     "CrossTupleTrainingDeepBlockerFrameEncoder",
     "HybridDeepBlockerFrameEncoder",
+    "LightEAFrameEncoder",
+    "frame_encoder_resolver",
 ]

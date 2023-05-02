@@ -1,7 +1,10 @@
 import pandas as pd
 import pytest
+import torch
 
 from klinker.encoders import FrameEncoder
+from klinker.encoders.light_ea import initialize_and_fill
+from klinker.data import NamedVector
 
 
 @pytest.fixture
@@ -30,3 +33,14 @@ def test_validate_wrong(example_left, example_right, should_fail, request):
             FrameEncoder().validate(left, right)
     else:
         FrameEncoder().validate(left, right)
+
+
+def test_initialize_and_fill():
+    all_names = ["a", "b", "c", "d", "e"]
+    known_vectors = torch.zeros((2, 10))
+    known = NamedVector(names=["b", "d"], vectors=known_vectors)
+    nv = initialize_and_fill(known=known, all_names=all_names)
+    assert (nv[["b", "d"]] == known_vectors).all()
+    assert nv.vectors.shape == (len(all_names), 10)
+    with pytest.raises(ValueError):
+        initialize_and_fill(known=known, all_names=["l","m","n"])

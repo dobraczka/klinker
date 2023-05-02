@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple, Type
 import pandas as pd
 import pytest
 from mocks import MockGensimDownloader
+from strawman import dummy_triples
 from util import compare_blocks
 
 from klinker.blockers import (
@@ -53,11 +54,11 @@ def example_tables() -> Tuple[KlinkerFrame, KlinkerFrame]:
 
     table_B = KlinkerFrame(
         data=[
-            [1, "John", "McExample", "11-12-1973", None],
-            [2, "Maggie", "Smith", "02-02-1983", "USA"],
-            [3, "Rebecca", "Smith", "04-12-1990", "Bulgaria"],
-            [4, "Anh", "Nguyen", "04-12-1990", "Indonesia"],
-            [5, "Nushi", "Zhang", "21-08-1989", "China"],
+            [10, "John", "McExample", "11-12-1973", None],
+            [20, "Maggie", "Smith", "02-02-1983", "USA"],
+            [30, "Rebecca", "Smith", "04-12-1990", "Bulgaria"],
+            [40, "Anh", "Nguyen", "04-12-1990", "Indonesia"],
+            [50, "Nushi", "Zhang", "21-08-1989", "China"],
         ],
         name="B",
         columns=["id", "FirstName", "GivenName", "Birthdate", "BirthCountry"],
@@ -89,6 +90,13 @@ def example_triples(example_tables) -> Tuple[KlinkerFrame, KlinkerFrame]:
 
 
 @pytest.fixture
+def example_rel_triples() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    left_rel = dummy_triples(8, 5, entity_prefix="")
+    right_rel = dummy_triples(10, 8, entity_prefix="")
+    return left_rel, right_rel
+
+
+@pytest.fixture
 def example_both(example_tables, example_triples) -> Tuple[KlinkerFrame, KlinkerFrame]:
     ta, _ = example_tables
     _, tb = example_triples
@@ -98,10 +106,10 @@ def example_both(example_tables, example_triples) -> Tuple[KlinkerFrame, Klinker
 @pytest.fixture
 def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
     return [
-        pd.DataFrame({"A": {1: [2], 2: [1]}, "B": {1: [2]}}),
-        pd.DataFrame({"A": {1: 2, 2: 1}, "B": {1: [2]}}),
-        pd.DataFrame({"A": {1: 2}, "B": {1: [2]}}),
-    ], pd.DataFrame({"A": {1: [2]}, "B": {1: [2]}})
+        pd.DataFrame({"A": {1: [2], 2: [1]}, "B": {1: [20]}}),
+        pd.DataFrame({"A": {1: 2, 2: 1}, "B": {1: [20]}}),
+        pd.DataFrame({"A": {1: 2}, "B": {1: [20]}}),
+    ], pd.DataFrame({"A": {1: [2]}, "B": {1: [20]}})
 
 
 @pytest.fixture
@@ -122,7 +130,7 @@ def expected_standard_blocker() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "A": {"Bulgaria": [3], "USA": [1, 2]},
-            "B": {"Bulgaria": [3], "USA": [2]},
+            "B": {"Bulgaria": [30], "USA": [20]},
         }
     )
 
@@ -142,14 +150,14 @@ def expected_qgrams_blocker() -> pd.DataFrame:
                 "ulg": [3],
             },
             "B": {
-                "Bul": [3],
-                "Ind": [4],
-                "USA": [2],
-                "ari": [3],
-                "gar": [3],
-                "lga": [3],
-                "ria": [3],
-                "ulg": [3],
+                "Bul": [30],
+                "Ind": [40],
+                "USA": [20],
+                "ari": [30],
+                "gar": [30],
+                "lga": [30],
+                "ria": [30],
+                "ulg": [30],
             },
         }
     )
@@ -169,13 +177,13 @@ def expected_sorted_neighborhood_blocker() -> pd.DataFrame:
                 9: [2],
             },
             "B": {
-                2: [3, 5],
-                3: [3, 5],
-                4: [5, 4],
-                5: [4],
-                6: [4],
-                8: [2],
-                9: [2, 1],
+                2: [30, 50],
+                3: [30, 50],
+                4: [50, 40],
+                5: [40],
+                6: [40],
+                8: [20],
+                9: [20, 10],
             },
         }
     )
@@ -200,18 +208,18 @@ def expected_token_blocker() -> pd.DataFrame:
                 "USA": [1, 2],
             },
             "B": {
-                "02-02-1983": [2],
-                "04-12-1990": [3, 4],
-                "11-12-1973": [1],
-                "Bulgaria": [3],
-                "John": [1],
-                "Maggie": [2],
-                "McExample": [1],
-                "None": [1],
-                "Nushi": [5],
-                "Rebecca": [3],
-                "Smith": [2, 3],
-                "USA": [2],
+                "02-02-1983": [20],
+                "04-12-1990": [30, 40],
+                "11-12-1973": [10],
+                "Bulgaria": [30],
+                "John": [10],
+                "Maggie": [20],
+                "McExample": [10],
+                "None": [10],
+                "Nushi": [50],
+                "Rebecca": [30],
+                "Smith": [20, 30],
+                "USA": [20],
             },
         }
     )
@@ -219,7 +227,9 @@ def expected_token_blocker() -> pd.DataFrame:
 
 @pytest.fixture
 def expected_lsh_blocker() -> pd.DataFrame:
-    return pd.DataFrame({"A": {1: [1], 2: [2], 3: [3]}, "B": {1: [1], 2: [2], 3: [3]}})
+    return pd.DataFrame(
+        {"A": {1: [1], 2: [2], 3: [3]}, "B": {1: [10], 2: [20], 3: [30]}}
+    )
 
 
 @pytest.mark.parametrize(
@@ -334,6 +344,29 @@ def test_assign_embedding_blocker(
         assert all(
             len(val) == eb_kwargs["n_neighbors"] for val in block[tb.name].values
         )
+
+
+def test_assign_light_ea(
+    example_triples,
+    example_rel_triples,
+    mocker,
+):
+    dimension = 3
+    mocker.patch(
+        "klinker.encoders.pretrained.gensim_downloader",
+        MockGensimDownloader(dimension=dimension),
+    )
+    ta, tb = example_triples
+    rel_ta, rel_tb = example_rel_triples
+    eb_kwargs = {"algorithm": "SklearnNN", "n_neighbors": 2}
+    block = EmbeddingBlocker(
+        frame_encoder="LightEAFrameEncoder",
+    ).assign(ta, tb, rel_ta, rel_tb)
+
+    assert block.columns.tolist() == [ta.name, tb.name]
+    assert len(block) == len(ta.concat_values())  # need unique in case of triples
+    assert all(len(val) == 1 for val in block[ta.name].values)
+    assert all(len(val) == eb_kwargs["n_neighbors"] for val in block[tb.name].values)
 
 
 def test_postprocess(example_prepostprocess):

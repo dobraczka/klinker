@@ -28,7 +28,7 @@ class QgramsBlocker(StandardBlocker):
         qgramed = []
         for tab in [left, right]:
             data = (
-                tab[self.blocking_key]
+                tab.set_index(tab.id_col)[self.blocking_key]
                 .apply(self.qgram_tokenize)
                 .explode()
                 .to_frame()
@@ -38,7 +38,7 @@ class QgramsBlocker(StandardBlocker):
             kf = KlinkerFrame(
                 data=data,
                 name=tab.name,
-                id_col="index",
+                id_col=tab.id_col,
             )
             qgramed.append(kf)
         return super()._assign(left=qgramed[0], right=qgramed[1])
