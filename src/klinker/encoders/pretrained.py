@@ -40,7 +40,7 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         return self.encoder.encode_all(left.values), self.encoder.encode_all(
-            left.values
+            right.values
         )
 
 
@@ -67,6 +67,7 @@ class TokenizedWordEmbedder:
             self.embedding_fn = embedding_fn
         self.tokenizer_fn = tokenizer_fn
         self._embedding_dim = -1
+        self._unknown_token_counter = 0
 
     @property
     def embedding_dim(self) -> int:
@@ -88,7 +89,7 @@ class TokenizedWordEmbedder:
                 tok_emb = self.embedding_fn(tok) * weight_mapping.get(tok, 1.0)
                 embedded.append(tok_emb)
             except KeyError:
-                warnings.warn(f"Could not find embedding for {tok}")
+                self._unknown_token_counter += 1
                 continue
         if len(embedded) == 0:
             return np.array(embedded)
@@ -162,9 +163,10 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-    def prepare(self, left: pd.DataFrame, right: pd.DataFrame):
+    def prepare(self, left: pd.DataFrame, right: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
         # use this instead of pd.concat in case columns have different
         # names, we already validated both dfs only have 1 column
+        left, right = super().prepare(left, right)
         merged_col = "merged"
         all_values = pd.DataFrame(
             np.concatenate([left.values, right.values]), columns=[merged_col]
@@ -187,12 +189,14 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             else:
                 token_weight_dict[word] = 1.0
         self.token_weight_dict = token_weight_dict
+        return left, right
 
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         assert self.token_weight_dict is not None
         embeddings = torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
         embeddings = torch.nn.init.xavier_normal_(embeddings).numpy()
+        # TODO vectorize this?
         for idx, val in enumerate(df[df.columns[0]].values):
             emb = self.tokenized_word_embedder.weighted_embed(
                 val, self.token_weight_dict
@@ -221,7 +225,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     ) -> Tuple[GeneralVector, GeneralVector]:
         if self.token_weight_dict is None:
             self.prepare(left, right)
-
         return self._encode_side(left), self._encode_side(right)
 
 tokenized_frame_encoder_resolver = ClassResolver(

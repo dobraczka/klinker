@@ -1,17 +1,20 @@
-from typing import Generic, List, Sequence, TypeVar, Union, Dict
+from typing import Dict, Generic, List, Sequence, TypeVar, Union
 
 import numpy as np
 import pandas as pd
 import torch
+
 from ..typing import GeneralVector
 
 T = TypeVar("T", np.ndarray, torch.Tensor)
+
 
 def _shorten_tensor_repr(tensor: GeneralVector) -> str:
     t_repr = tensor.__repr__()
     first_bracket_idx = t_repr.find("[")
     last_bracket_idx = t_repr.rfind("]") + 1
     return t_repr[first_bracket_idx:last_bracket_idx]
+
 
 class NamedVector(Generic[T]):
     _vectors: T
@@ -24,7 +27,7 @@ class NamedVector(Generic[T]):
             self._names = names
         else:
             self.names = names
-        if not all(isinstance(x,str) for x in self._names.index):
+        if not all(isinstance(x, str) for x in self._names.index):
             raise ValueError("The names index must be of type `str`")
         if not (self._names.values == np.arange(len(self._names))).all():
             raise ValueError("Indices must be contiguous!")
@@ -59,14 +62,24 @@ class NamedVector(Generic[T]):
             self._validate(self.names, new_vectors)
         self._vectors = new_vectors
 
-    def _key_handling(self, key: Union[str, int, List[str], List[int], slice]) -> Union[int, pd.Series, List[int], slice]:
+    @property
+    def entity_id_mapping(self) -> Dict[str, int]:
+        return self._names.to_dict()
+
+    @property
+    def id_entity_mapping(self) -> Dict[int, str]:
+        return pd.Series(self._names.index.values, index=self._names).to_dict()
+
+    def _key_handling(
+        self, key: Union[str, int, List[str], List[int], slice]
+    ) -> Union[int, pd.Series, List[int], slice]:
         if isinstance(key, int):
             return key
         elif isinstance(key, str):
             return self._names.loc[key]
         elif isinstance(key, Sequence):
             if len(key) == 0:
-                return slice(0,0,1)
+                return slice(0, 0, 1)
             elif isinstance(key[0], str):
                 return self._names.loc[key]
             else:
@@ -89,14 +102,14 @@ class NamedVector(Generic[T]):
         self.vectors[vector_key] = value
 
     def __repr__(self) -> str:
-        vector_type = "torch.Tensor" if isinstance(self.vectors, torch.Tensor) else "np.ndarray"
+        if not hasattr(self, "_vectors"):
+            return "NamedVector(names=None, vectors=None)"
+        "torch.Tensor" if isinstance(self.vectors, torch.Tensor) else "np.ndarray"
         str_repr = ""
         spacing = "\t    "
-        for idx, name_arr_line in enumerate(
-            zip(self.names, self.vectors)
-        ):
+        for idx, name_arr_line in enumerate(zip(self.names, self.vectors)):
             name, arr_line = name_arr_line
-            line = f"{idx}|\"{name}\": {_shorten_tensor_repr(arr_line)},\n"
+            line = f'{idx}|"{name}": {_shorten_tensor_repr(arr_line)},\n'
             if str_repr == "":
                 str_repr = f"NamedVector({line}"
             else:
@@ -121,7 +134,6 @@ class NamedVector(Generic[T]):
             return False
         return True
 
-
     def concat(self, other: "NamedVector") -> "NamedVector":
         new_vectors = self._tensor_lib.concatenate([self.vectors, other.vectors])
         new_names = self.names + other.names
@@ -130,4 +142,5 @@ class NamedVector(Generic[T]):
     def subset(self, key: Union[str, List[str]]) -> "NamedVector":
         sub_names = self._names.loc[key]
         sub_vectors = self._vectors[sub_names]
-        return NamedVector(names=sub_names, vectors=sub_vectors)
+        # need to cast to list to ensure contiguous ids
+        return NamedVector(names=sub_names.index.tolist(), vectors=sub_vectors)

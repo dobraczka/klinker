@@ -1,37 +1,16 @@
-from typing import Optional, Set, Tuple, Dict, List, Union
+from typing import Optional
 
 import faiss
 import numpy as np
-import pandas as pd
 import torch
-from torch import nn
 from class_resolver import HintOrType, OptionalKwargs
-from class_resolver.contrib.torch import initializer_resolver
 from pykeen.utils import resolve_device
-from sylloge.id_mapped import id_map_rel_triples
 from tqdm import trange
 
-from .base import FrameEncoder
+from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
-from ..typing import GeneralVector
 from ..data import NamedVector
-
-
-def initialize_and_fill(known: NamedVector[torch.Tensor], all_names: Union[List[str], Dict[str, int]], initializer= nn.init.xavier_normal_, initializer_kwargs: OptionalKwargs = None) -> NamedVector[torch.Tensor]:
-    if not set(known.names).union(set(all_names)) == set(all_names):
-        raise ValueError("Known vector must be subset of all_names!")
-    initializer = initializer_resolver.lookup(initializer)
-    initializer_kwargs = initializer_kwargs or {}
-
-    # get same shape for single vector
-    empty = torch.empty_like(known[0])
-
-    # create full lengthy empty matrix with correct shape
-    vector = torch.stack([empty] * len(all_names))
-    vector = initializer(vector, **initializer_kwargs)
-    nv = NamedVector(names=all_names, vectors=vector)
-    nv[known.names] = known.vectors
-    return nv
+from ..typing import GeneralVector
 
 
 @torch.no_grad()
@@ -73,7 +52,7 @@ def batch_sparse_matmul(
         return torch.cat(results, dim=-1)
 
 
-class LightEAFrameEncoder(FrameEncoder):
+class LightEAFrameEncoder(RelationFrameEncoder):
     def __init__(
         self,
         ent_dim: int = 256,
@@ -92,48 +71,12 @@ class LightEAFrameEncoder(FrameEncoder):
             attribute_encoder, attribute_encoder_kwargs
         )
 
-    def _get_ids(self, attr: pd.DataFrame, rel: pd.DataFrame) -> Set:
-        return set(attr.index).union(set(rel["head"])).union(set(rel["tail"]))
-
-    def _fill_attr(
-        self, entity_map_part: pd.DataFrame, attr_df: pd.DataFrame
-    ) -> pd.DataFrame:
-        return attr_df.join(
-            entity_map_part.set_index("uri"),
-            how="outer",
-            lsuffix="",
-            rsuffix="deleteme",
-        )[[attr_df.columns[0]]].loc[entity_map_part["uri"]]
-
-    def _encode(
+    def _encode_rel(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
-    ) -> Tuple[GeneralVector, GeneralVector]:
-        if left_rel is None or right_rel is None:
-            raise ValueError(f"{self.__class__.__name__} needs left_rel and right_rel!")
-        # left_ids = list(self._get_ids(left, left_rel))
-        # right_ids = list(self._get_ids(right, right_rel))
-        # all_ids = left_ids + right_ids
-        # entity_map_df = pd.DataFrame(
-        #     all_ids, index=list(range(len(all_ids))), columns=["uri"]
-        # )
-        # entity_mapping = {uri: idx for idx, uri in enumerate(entity_map_df["uri"])}
-        # left_attr = self._fill_attr(entity_map_df[: len(left_ids)], left)
-        # right_attr = self._fill_attr(entity_map_df[len(left_ids) :], right)
-
-        left_attr_enc, right_attr_enc = self.attribute_encoder.encode(
-            left, right
-        )
-
-        rel_triples_left, entity_mapping, rel_mapping = id_map_rel_triples( left_rel)
-        rel_triples_right, entity_mapping, rel_mapping = id_map_rel_triples(
-            right_rel,
-            entity_mapping=entity_mapping,
-            rel_mapping=rel_mapping,
-        )
+        rel_triples_left: np.ndarray,
+        rel_triples_right: np.ndarray,
+        ent_features: NamedVector,
+    ) -> GeneralVector:
         (
             node_size,
             rel_size,
@@ -144,10 +87,7 @@ class LightEAFrameEncoder(FrameEncoder):
             rel_ent,
             ent_rel,
         ) = self._transform_graph(rel_triples_left, rel_triples_right)
-        ent_features = initialize_and_fill(known=left_attr_enc.concat(right_attr_enc), all_names=entity_mapping)
-        import ipdb # noqa: autoimport
-        ipdb.set_trace() # BREAKPOINT
-        features = self._get_features(
+        return self._get_features(
             node_size,
             rel_size,
             ent_tuple,
@@ -158,9 +98,6 @@ class LightEAFrameEncoder(FrameEncoder):
             ent_rel,
             ent_features.vectors,
         )
-        named_features = NamedVector(names=entity_mapping, vectors=features)
-        # TODO continue here
-        return features[:len(left_ids)], features[len(left_ids):]
 
     def _transform_graph(
         self, rel_triples_left: np.ndarray, rel_triples_right: np.ndarray
@@ -241,12 +178,6 @@ class LightEAFrameEncoder(FrameEncoder):
             torch.tensor,
             [ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple],
         )
-        list(
-            map(
-                lambda x: print(x.size()),
-                [ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple],
-            )
-        )
         ent_ent, ent_rel, rel_ent, triples_idx, ent_tuple = map(
             lambda x: x.t(), [ent_ent, ent_rel, rel_ent, triples_idx, ent_tuple]
         )
@@ -300,9 +231,9 @@ class LightEAFrameEncoder(FrameEncoder):
         ).to(self.device)
         adj_value = batch_sparse_matmul(sparse_graph, rel_feature, self.device)
         del rel_feature
-        # ent_featu
 
         features_list = []
+
         for batch in trange(self.rel_dim // batch_size + 1):
             temp_list = []
             for head in trange(batch_size):
@@ -328,8 +259,7 @@ class LightEAFrameEncoder(FrameEncoder):
         features = np.concatenate(features_list, axis=-1)
 
         faiss.normalize_L2(features)
-        if extra_feature is not None:
-            features = np.concatenate([ent_feature, features], axis=-1)
+        features = np.concatenate([ent_feature, features], axis=-1)
         return features
 
 
@@ -350,7 +280,7 @@ if __name__ == "__main__":
         algorithm_kwargs=dict(index_key="HNSW32", index_param="efSearch=512"),
     )
     blocker = EmbeddingBlocker(
-        frame_encoder=LightEAFrameEncoder(ent_dim=256, depth=2, mini_dim=16),
+        frame_encoder=LightEAFrameEncoder(ent_dim=256, depth=2, mini_dim=16, attribute_encoder="TransformerTokenizedFrameEncoder"),
         embedding_block_builder=kiez,
     )
 

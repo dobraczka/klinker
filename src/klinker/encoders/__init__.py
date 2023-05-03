@@ -1,6 +1,6 @@
 from class_resolver import ClassResolver
 
-from .base import FrameEncoder, TokenizedFrameEncoder
+from .base import FrameEncoder, TokenizedFrameEncoder, RelationFrameEncoder
 from .deepblocker import (
     AutoEncoderDeepBlockerFrameEncoder,
     CrossTupleTrainingDeepBlockerFrameEncoder,
@@ -28,8 +28,11 @@ frame_encoder_resolver = ClassResolver(
 )
 
 __all__ = [
+    # abstract classes
     "FrameEncoder",
     "TokenizedFrameEncoder",
+    "RelationFrameEncoder",
+    # concrete implementations
     "TransformerTokenizedFrameEncoder",
     "AverageEmbeddingTokenizedFrameEncoder",
     "SIFEmbeddingTokenizedFrameEncoder",
@@ -37,5 +40,6 @@ __all__ = [
     "CrossTupleTrainingDeepBlockerFrameEncoder",
     "HybridDeepBlockerFrameEncoder",
     "LightEAFrameEncoder",
+    # resolver
     "frame_encoder_resolver",
 ]

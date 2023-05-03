@@ -1,5 +1,5 @@
 import random
-from typing import Callable, Generic, List, Optional, Sequence, Tuple, Type, TypeVar
+from typing import Callable, Generic, List, Optional, Tuple, Type, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,9 @@ from ..models.deepblocker import (
     DeepBlockerModelTrainer,
 )
 from ..typing import GeneralVector
+from ..utils import cast_general_vector
 
+from class_resolver import HintOrType, OptionalKwargs
 FeatureType = TypeVar("FeatureType")
 
 
@@ -114,13 +116,16 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
     def create_features(
         self, left: pd.DataFrame, right: pd.DataFrame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
-        left_enc_vecs, right_enc_vecs = left_enc.vectors, right_enc.vectors
-        left_enc_vecs = left_enc_vecs.float()
-        right_enc_vecs = right_enc_vecs.float()
+        left_enc, right_enc = self.inner_encoder._encode_as(left, right, return_type="pt")
+        left_enc = left_enc.float()
+        right_enc = right_enc.float()
 
-        self.input_dimension = left_enc_vecs.shape[1]
-        return torch.concat([left_enc_vecs, right_enc_vecs]), left_enc_vecs, right_enc_vecs
+        self.input_dimension = left_enc.shape[1]
+        return (
+            torch.concat([left_enc, right_enc]),
+            left_enc,
+            right_enc,
+        )
 
 
 class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
@@ -212,22 +217,27 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
                 label_list[training_data_index] = 0
                 training_data_index += 1
 
-        left_train_enc, right_train_enc = self.inner_encoder.encode(
+
+        left_train_enc, right_train_enc = self.inner_encoder._encode_as(
             pd.DataFrame(left_tuple_list),
             pd.DataFrame(right_tuple_list),
-            return_type="pt",
+            return_type="pt"
         )
-        self.input_dimension = left_train_enc.vectors.shape[1]
+        self.input_dimension = left_train_enc.shape[1]
 
-        left_enc, right_enc = self.inner_encoder.encode(left, right, return_type="pt")
+        left_enc, right_enc = self.inner_encoder._encode_as(left, right, return_type="pt")
         return (
-            (left_train_enc.vectors.float(), right_train_enc.vectors.float(), torch.tensor(label_list)),
-            left_enc.vectors.float(),
-            right_enc.vectors.float(),
+            (left_train_enc.float(), right_train_enc.float(), torch.tensor(label_list)),
+            left_enc.float(),
+            right_enc.float(),
         )
 
     def _encode(
-        self, left: pd.DataFrame, right: pd.DataFrame, left_rel: Optional[pd.DataFrame] = None, right_rel: Optional[pd.DataFrame] = None
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_rel: Optional[pd.DataFrame] = None,
+        right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.inner_encoder.prepare(left, right)
         (

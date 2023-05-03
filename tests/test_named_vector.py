@@ -10,16 +10,23 @@ from klinker.data.named_vector import NamedVector
 @pytest.mark.parametrize("torchify", [True, False])
 def test_named_vector(as_dict, change_names, torchify):
     names = ["a", "b", "c", "d"]
+    names_mapping = {name: idx for idx, name in enumerate(names)}
+    id_mapping = {idx: name for idx, name in enumerate(names)}
     orig_names = names
     vector = np.random.rand(4, 10)
     if torchify:
         vector = torch.from_numpy(vector)
     if as_dict:
         nv = NamedVector(
-            names={name: idx for idx, name in enumerate(names)}, vectors=vector
+            names=names_mapping, vectors=vector
         )
     else:
         nv = NamedVector(names=names, vectors=vector)
+
+
+    # test entity mapping
+    assert nv.entity_id_mapping == names_mapping
+    assert nv.id_entity_mapping == id_mapping
 
     if change_names:
         names = ["a", "c", "d", "e"]
@@ -77,7 +84,8 @@ def test_named_vector(as_dict, change_names, torchify):
     new_vectors = np.random.rand(3,10)
     if torchify:
         new_vectors = torch.from_numpy(new_vectors)
-    new_nv = nv.concat(NamedVector(names=new_names, vectors=new_vectors))
+    new_nv_sub = NamedVector(names=new_names, vectors=new_vectors)
+    new_nv = nv.concat(new_nv_sub)
 
     assert len(new_nv) == len(names) + len(new_names)
     assert (new_nv[orig_names] == vector).all()
@@ -85,3 +93,4 @@ def test_named_vector(as_dict, change_names, torchify):
 
     # test subset
     assert new_nv.subset(orig_names) == nv
+    assert new_nv.subset(new_names) == new_nv_sub
