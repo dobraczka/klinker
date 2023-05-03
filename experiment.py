@@ -1,18 +1,32 @@
 import time
-from typing import Dict, List, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type
 
 import click
 from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from sylloge import MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 
-from klinker.blockers import DeepBlocker, MinHashLSHBlocker, TokenBlocker
+from klinker import KlinkerDataset
+from klinker.blockers import (
+    DeepBlocker,
+    EmbeddingBlocker,
+    MinHashLSHBlocker,
+    TokenBlocker,
+)
 from klinker.blockers.base import Blocker
-from klinker.blockers.embedding.blockbuilder import block_builder_resolver, EmbeddingBlockBuilder
-from klinker import KlinkerTripleFrame, KlinkerDataset
-from klinker.encoders.deepblocker import deep_blocker_encoder_resolver, DeepBlockerFrameEncoder
-from klinker.encoders.base import FrameEncoder
-from klinker.encoders.pretrained import tokenized_frame_encoder_resolver, TokenizedFrameEncoder
+from klinker.blockers.embedding.blockbuilder import (
+    EmbeddingBlockBuilder,
+    block_builder_resolver,
+)
+from klinker.encoders import LightEAFrameEncoder, TransformerTokenizedFrameEncoder
+from klinker.encoders.deepblocker import (
+    DeepBlockerFrameEncoder,
+    deep_blocker_encoder_resolver,
+)
+from klinker.encoders.pretrained import (
+    TokenizedFrameEncoder,
+    tokenized_frame_encoder_resolver,
+)
 from klinker.eval_metrics import Evaluation
 
 
@@ -47,7 +61,12 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         tracker = ConsoleResultTracker()
     tracker.start_run()
     start = time.time()
-    blocks = blocker.assign(left=klinker_dataset.left, right=klinker_dataset.right)
+    blocks = blocker.assign(
+        left=klinker_dataset.left,
+        right=klinker_dataset.right,
+        left_rel=klinker_dataset.left_rel,
+        right_rel=klinker_dataset.right_rel,
+    )
     end = time.time()
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
@@ -83,7 +102,9 @@ def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
 
 @cli.command()
 @deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
-@tokenized_frame_encoder_resolver.get_option("--inner-encoder", default="TransformerTokenizedFrameEncoder")
+@tokenized_frame_encoder_resolver.get_option(
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+)
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--learning_rate", type=float, default=1e-3)
@@ -128,9 +149,50 @@ def deepblocker(
         click.get_current_context().params,
     )
 
+
 @cli.command()
 def token_blocker():
     return TokenBlocker(), {}
+
+
+@cli.command()
+@tokenized_frame_encoder_resolver.get_option(
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+)
+@click.option("--ent-dim", type=int, default=256)
+@click.option("--depth", type=int, default=2)
+@click.option("--mini-dim", type=int, default=16)
+@click.option("--rel-dim", type=int)
+@click.option("--batch-size", type=int)
+@block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--n-neighbors", type=int, default=100)
+def light_ea_blocker(
+    inner_encoder: Type[TokenizedFrameEncoder],
+    ent_dim: int,
+    depth: int,
+    mini_dim: int,
+    rel_dim: Optional[int],
+    batch_size: Optional[int],
+    block_builder: Type[EmbeddingBlockBuilder],
+    n_neighbors: int,
+) -> Tuple[Blocker, Dict]:
+    attribute_encoder_kwargs: Dict = {}
+    if inner_encoder == TransformerTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(batch_size=batch_size)
+    return (
+        EmbeddingBlocker(
+            frame_encoder=LightEAFrameEncoder(
+                ent_dim=ent_dim,
+                depth=depth,
+                mini_dim=mini_dim,
+                attribute_encoder=inner_encoder,
+                attribute_encoder_kwargs=attribute_encoder_kwargs,
+            ),
+            embedding_block_builder=block_builder,
+            embedding_block_builder_kwargs=dict(n_neighbors=n_neighbors),
+        ),
+        click.get_current_context().params,
+    )
 
 
 if __name__ == "__main__":

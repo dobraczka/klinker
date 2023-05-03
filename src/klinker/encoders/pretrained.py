@@ -1,17 +1,16 @@
 import logging
-import torch
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
 from sklearn.decomposition import TruncatedSVD
-import warnings
 
-from .base import FrameEncoder, TokenizedFrameEncoder
+from .base import TokenizedFrameEncoder
 from ..typing import GeneralVector
 
 logger = logging.getLogger(__name__)
@@ -22,11 +21,13 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         self,
         pretrained_model_name_or_path: str = "bert-base-cased",
         max_length: int = 512,
+        batch_size: Optional[int] = None,
     ):
         self.encoder = TransformerTextEncoder(
             pretrained_model_name_or_path=pretrained_model_name_or_path,
             max_length=max_length,
         )
+        self.batch_size = batch_size
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
@@ -39,9 +40,9 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        return self.encoder.encode_all(left.values), self.encoder.encode_all(
-            right.values
-        )
+        return self.encoder.encode_all(
+            left.values, batch_size=self.batch_size
+        ), self.encoder.encode_all(right.values, batch_size=self.batch_size)
 
 
 class TokenizedWordEmbedder:
@@ -74,7 +75,6 @@ class TokenizedWordEmbedder:
         if self._embedding_dim == -1:
             self._embedding_dim = self.embedding_fn("hello").shape[0]
         return self._embedding_dim
-
 
     def embed(self, values: str) -> np.ndarray:
         return self.weighted_embed(values, {})
@@ -163,7 +163,9 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-    def prepare(self, left: pd.DataFrame, right: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def prepare(
+        self, left: pd.DataFrame, right: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         # use this instead of pd.concat in case columns have different
         # names, we already validated both dfs only have 1 column
         left, right = super().prepare(left, right)
@@ -190,7 +192,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
                 token_weight_dict[word] = 1.0
         self.token_weight_dict = token_weight_dict
         return left, right
-
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         assert self.token_weight_dict is not None
@@ -226,6 +227,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         if self.token_weight_dict is None:
             self.prepare(left, right)
         return self._encode_side(left), self._encode_side(right)
+
 
 tokenized_frame_encoder_resolver = ClassResolver(
     [
