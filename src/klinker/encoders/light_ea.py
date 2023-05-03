@@ -173,6 +173,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_rel,
         ent_feature,
     ):
+        ent_feature = ent_feature.to(self.device)
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)
         ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple = map(
             torch.tensor,
