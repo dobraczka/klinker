@@ -115,9 +115,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             triples.append([t, h, 2 * r + 1])
             rel_size = max(rel_size, 2 * r + 1)
         triples = np.unique(triples, axis=0)
-        print(f"rel_size is {rel_size}")
         node_size, rel_size = np.max(triples) + 1, np.max(triples[:, 2]) + 1
-        print(f"node size is {node_size}, rel_size is {rel_size}")
         ent_tuple, triples_idx = [], []
         ent_ent_s, rel_ent_s, ent_rel_s = {}, set(), set()
         last, index = (-1, -1), -1
@@ -222,8 +220,6 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_feature = my_norm(ent_feature)
         rel_feature = my_norm(rel_feature)
         rel_feature = random_projection(rel_feature, self.rel_dim, self.device)
-        ent_feature = ent_feature.cpu()
-        # = torch.tensor(triples_idx)
         batch_size = ent_feature.shape[-1] // self.mini_dim
         sparse_graph = torch.sparse_coo_tensor(
             indices=triples_idx,
@@ -260,7 +256,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         features = np.concatenate(features_list, axis=-1)
 
         faiss.normalize_L2(features)
-        features = np.concatenate([ent_feature, features], axis=-1)
+        features = np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
         return features
 
 
