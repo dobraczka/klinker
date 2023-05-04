@@ -1,5 +1,6 @@
 import time
-from typing import Dict, List, Optional, Tuple, Type
+import ast
+from typing import Dict, List, Optional, Tuple, Type, Any
 
 import click
 from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
@@ -112,6 +113,7 @@ def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
 @block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
@@ -123,6 +125,7 @@ def deepblocker(
     pos_to_neg_ratio: float,
     max_perturbation: float,
     block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
     n_neighbors: int,
 ) -> Tuple[Blocker, Dict]:
     encoder_kwargs = {
@@ -139,12 +142,16 @@ def deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs["n_neighbors"] = n_neighbors
     return (
         DeepBlocker(
             frame_encoder=encoder,
             frame_encoder_kwargs=encoder_kwargs,
             embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=dict(n_neighbors=n_neighbors),
+            embedding_block_builder_kwargs=bb_kwargs,
         ),
         click.get_current_context().params,
     )
@@ -165,6 +172,7 @@ def token_blocker():
 @click.option("--rel-dim", type=int)
 @click.option("--batch-size", type=int)
 @block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -174,11 +182,16 @@ def light_ea_blocker(
     rel_dim: Optional[int],
     batch_size: Optional[int],
     block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
     n_neighbors: int,
 ) -> Tuple[Blocker, Dict]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs["n_neighbors"] = n_neighbors
     return (
         EmbeddingBlocker(
             frame_encoder=LightEAFrameEncoder(
@@ -189,7 +202,7 @@ def light_ea_blocker(
                 attribute_encoder_kwargs=attribute_encoder_kwargs,
             ),
             embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=dict(n_neighbors=n_neighbors),
+            embedding_block_builder_kwargs=bb_kwargs,
         ),
         click.get_current_context().params,
     )
