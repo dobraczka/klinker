@@ -11,6 +11,7 @@ from .pretrained import (
     AverageEmbeddingTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
     TransformerTokenizedFrameEncoder,
+    SentenceTransformerTokenizedFrameEncoder,
 )
 
 frame_encoder_resolver = ClassResolver(
@@ -28,12 +29,13 @@ frame_encoder_resolver = ClassResolver(
 )
 
 __all__ = [
-    # abstract classes
+    # abstract
     "FrameEncoder",
     "TokenizedFrameEncoder",
     "RelationFrameEncoder",
-    # concrete implementations
+    # concrete
     "TransformerTokenizedFrameEncoder",
+    "SentenceTransformerTokenizedFrameEncoder",
     "AverageEmbeddingTokenizedFrameEncoder",
     "SIFEmbeddingTokenizedFrameEncoder",
     "AutoEncoderDeepBlockerFrameEncoder",

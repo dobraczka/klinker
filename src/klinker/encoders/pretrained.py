@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -8,15 +8,20 @@ from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
+from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import TruncatedSVD
+from torch_max_mem import MemoryUtilizationMaximizer
 
 from .base import TokenizedFrameEncoder
 from ..typing import GeneralVector
 
 logger = logging.getLogger(__name__)
+memory_utilization_maximizer = MemoryUtilizationMaximizer()
 
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
+    encoder: TransformerTextEncoder
+
     def __init__(
         self,
         pretrained_model_name_or_path: str = "bert-base-cased",
@@ -33,6 +38,11 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.encoder.tokenizer.tokenize
 
+    def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
+        return self.encoder.encode_all(
+            df[df.columns[0]].values, batch_size=self.batch_size
+        )
+
     def _encode(
         self,
         left: pd.DataFrame,
@@ -40,9 +50,31 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        return self.encoder.encode_all(
-            left.values, batch_size=self.batch_size
-        ), self.encoder.encode_all(right.values, batch_size=self.batch_size)
+        return self._encode_side(left), self._encode_side(right)
+
+
+class SentenceTransformerTextEncoder(TransformerTextEncoder):
+    def __init__(self, model_name: str):
+        super().__init__()
+        self.model = SentenceTransformer(model_name)
+
+    def forward_normalized(self, texts: Sequence[str]) -> torch.FloatTensor:
+        return self.model.encode(texts, convert_to_numpy=False, convert_to_tensor=True)
+
+
+class SentenceTransformerTokenizedFrameEncoder(TransformerTokenizedFrameEncoder):
+    _shortname_mapping = {
+        "smpnet": "all-mpnet-base-v2",
+        "st5": "gtr-t5-large",
+        "sdistilroberta": "all-distilroberta-v1",
+        "sminilm": "all-MiniLM-L12-v2",
+        "glove": "average_word_embeddings_glove.6B.300d",
+    }
+
+    def __init__(self, model_name: str = "st5", batch_size: Optional[int] = None):
+        model_name = self.__class__._shortname_mapping.get(model_name, model_name)
+        self.encoder = SentenceTransformerTextEncoder(model_name)
+        self.batch_size = batch_size
 
 
 class TokenizedWordEmbedder:
@@ -232,6 +264,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 tokenized_frame_encoder_resolver = ClassResolver(
     [
         TransformerTokenizedFrameEncoder,
+        SentenceTransformerTokenizedFrameEncoder,
         AverageEmbeddingTokenizedFrameEncoder,
         SIFEmbeddingTokenizedFrameEncoder,
     ],

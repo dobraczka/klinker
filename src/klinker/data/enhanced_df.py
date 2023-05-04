@@ -73,7 +73,6 @@ class KlinkerTripleFrame(KlinkerFrame):
         self, columns: ColumnSpecifier = None, new_column_name: str = "_merged_text"
     ) -> KlinkerFrame:
         assert self.name
-        new_id_col = "id"
         head_with_tail = [self.id_col, self.columns[2]]
         df = (
             self[head_with_tail]
@@ -81,8 +80,8 @@ class KlinkerTripleFrame(KlinkerFrame):
             .agg(lambda row: " ".join(row.astype(str).values))
             .reset_index()
         )
-        df.columns = [new_id_col, new_column_name]
-        return KlinkerFrame.from_df(df, name=self.name, id_col=new_id_col)
+        df.columns = [self.id_col, new_column_name]
+        return KlinkerFrame.from_df(df, name=self.name, id_col=self.id_col)
 
 
 @pd.api.extensions.register_dataframe_accessor("klinker_block")
