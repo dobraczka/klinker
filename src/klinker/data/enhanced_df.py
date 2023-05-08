@@ -55,8 +55,9 @@ class KlinkerFrame(pd.DataFrame):
         if isinstance(wanted, pd.Series):
             wanted = wanted.to_frame(name=columns)
         wanted = wanted.astype(str)
-        self[new_column_name] = wanted.agg(" ".join, axis=1)
-        return self[[self.id_col, new_column_name]]
+        new_df = self.copy()
+        new_df[new_column_name] = wanted.agg(" ".join, axis=1)
+        return new_df[[self.id_col, new_column_name]]
 
     def __repr__(self) -> str:
         return super().__repr__() + f"\nTable Name: {self.name}, id_col: {self.id_col}"
@@ -77,7 +78,7 @@ class KlinkerTripleFrame(KlinkerFrame):
         assert self.name
         head_with_tail = [self.id_col, self.columns[2]]
         df = (
-            self[head_with_tail]
+            self.copy()[head_with_tail]
             .groupby(self.id_col)
             .agg(lambda row: " ".join(row.astype(str).values))
             .reset_index()
@@ -90,6 +91,7 @@ class KlinkerTripleFrame(KlinkerFrame):
 def combine_blocks(blocks_a: pd.DataFrame, blocks_b: pd.DataFrame) -> pd.DataFrame:
     def _block_merge(
         row: pd.Series,
+        left_suffix: str,
     ) -> pd.Series:
         def _merge_val(
             row: pd.Series, indices: Tuple[int, int]
@@ -111,10 +113,11 @@ def combine_blocks(blocks_a: pd.DataFrame, blocks_b: pd.DataFrame) -> pd.DataFra
             row,
             indices=(1,3)
         )
-        name_left = row.index[0].replace("left","")
-        name_right = row.index[1].replace("left","")
+        name_left = row.index[0].replace(left_suffix,"")
+        name_right = row.index[1].replace(left_suffix,"")
         return pd.Series({name_left: a, name_right: b}, name=row.name)
-    return blocks_a.join(blocks_b, how="outer", lsuffix="left",rsuffix="right").apply(_block_merge, axis=1)
+    left_suffix = "_tmp_left_suffix"
+    return blocks_a.join(blocks_b, how="outer", lsuffix=left_suffix,rsuffix="_tmp_right_suffix").apply(_block_merge,left_suffix=left_suffix, axis=1)
 
 
 @pd.api.extensions.register_dataframe_accessor("klinker_block")

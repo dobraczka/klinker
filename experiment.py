@@ -18,6 +18,7 @@ from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
     MinHashLSHBlocker,
+    RelationalMinHashLSHBlocker,
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
@@ -154,6 +155,25 @@ def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
 def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
     return (
         MinHashLSHBlocker(threshold=threshold, num_perm=num_perm),
+        click.get_current_context().params,
+    )
+
+
+@cli.command()
+@click.option("--attr-threshold", type=float, default=0.5)
+@click.option("--attr-num-perm", type=int, default=128)
+@click.option("--rel-threshold", type=float, default=0.7)
+@click.option("--rel-num-perm", type=int, default=128)
+def relational_lsh_blocker(
+    attr_threshold: float, attr_num_perm: int, rel_threshold: float, rel_num_perm: int
+) -> Tuple[Blocker, Dict]:
+    return (
+        RelationalMinHashLSHBlocker(
+            attr_threshold=attr_threshold,
+            attr_num_perm=attr_num_perm,
+            rel_threshold=rel_threshold,
+            rel_num_perm=rel_num_perm,
+        ),
         click.get_current_context().params,
     )
 

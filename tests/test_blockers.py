@@ -17,8 +17,10 @@ from klinker.blockers import (
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker, postprocess
-from klinker.encoders.base import _get_ids
+from klinker.blockers.relation_aware import concat_neighbor_attributes
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from klinker.encoders.base import _get_ids
+
 
 @pytest.fixture
 def example_tables() -> Tuple[KlinkerFrame, KlinkerFrame]:
@@ -355,3 +357,10 @@ def test_postprocess(example_prepostprocess):
     prepost, expected = example_prepostprocess
     for pp in prepost:
         assert postprocess(pp).equals(expected)
+
+def test_concat_neighbor_attributes(example_tables, example_rel_triples):
+    ta =example_tables[0]
+    rel_ta = example_rel_triples[0]
+    all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
+    conc_ta = concat_neighbor_attributes(ta, rel_ta)
+    assert len(conc_ta) == len(all_ids)
