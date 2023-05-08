@@ -1,8 +1,14 @@
-import time
 import ast
-from typing import Dict, List, Optional, Tuple, Type, Any
+import hashlib
+import json
+import os
+import pickle
+import time
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import click
+import pandas as pd
+import wandb
 from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from sylloge import MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
@@ -31,8 +37,45 @@ from klinker.encoders.pretrained import (
 from klinker.eval_metrics import Evaluation
 
 
+def _create_artifact_path(
+    artifact_name: str, artifact_dir: str, suffix="_blocks.pl"
+) -> str:
+    return os.path.join(os.path.join(artifact_dir, f"{artifact_name}{suffix}"))
+
+
+def _handle_artifacts(
+    blocks: pd.DataFrame, tracker: ResultTracker, params: Dict, artifact_dir: str
+) -> None:
+    if isinstance(tracker, WANDBResultTracker):
+        artifact_name = str(tracker.run.id)
+        artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
+        blocks.to_pickle(artifact_file_path)
+        artifact = wandb.Artifact(name="blocks", type="result")
+        artifact.add_file(local_path=artifact_file_path)
+        tracker.run.log_artifact(artifact)
+    else:
+        # see https://stackoverflow.com/a/22003440
+        hashed_config_params = hashlib.sha1(
+            json.dumps(params, sort_keys=True).encode()
+        ).hexdigest()
+        params_artifact_path = _create_artifact_path(
+            hashed_config_params, artifact_dir, suffix="_params.pkl"
+        )
+        with open(params_artifact_path, "wb") as out_file:
+            pickle.dump(params, out_file)
+        counter = 0
+        while True:
+            artifact_name = f"{hashed_config_params}_{counter}"
+            artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
+            if os.path.exists(artifact_file_path):
+                counter += 1
+            else:
+                break
+        blocks.to_pickle(artifact_file_path)
+
+
 @click.group(chain=True)
-@click.option("--clean/--no-clean", default=False)
+@click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 def cli(clean: bool, wandb: bool):
     pass
@@ -53,6 +96,13 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
 
+    dataset_name = dataset.canonical_name
+    blocker_name = blocker.__class__.__name__
+    experiment_artifact_dir = os.path.join(
+        "experiment_artifacts", dataset_name, blocker_name
+    )
+    if not os.path.exists(experiment_artifact_dir):
+        os.makedirs(experiment_artifact_dir)
     tracker: ResultTracker
     if wandb:
         tracker = WANDBResultTracker(
@@ -61,6 +111,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     else:
         tracker = ConsoleResultTracker()
     tracker.start_run()
+
     start = time.time()
     blocks = blocker.assign(
         left=klinker_dataset.left,
@@ -72,6 +123,9 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
     tracker.log_metrics({**ev.to_dict(), "time in s": run_time})
+
+    _handle_artifacts(blocks, tracker, params, experiment_artifact_dir)
+    tracker.end_run()
 
 
 @cli.command()
@@ -87,8 +141,11 @@ def open_ea_dataset(graph_pair: str, size: str, version: str) -> Tuple[EADataset
 
 @cli.command()
 @click.option("--graph-pair", type=str, default="imdb-tmdb")
-def movie_graph_benchmark_dataset(graph_pair: str) -> EADataset:
-    return MovieGraphBenchmark(graph_pair=graph_pair)
+def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
+    return (
+        MovieGraphBenchmark(graph_pair=graph_pair),
+        click.get_current_context().params,
+    )
 
 
 @cli.command()
