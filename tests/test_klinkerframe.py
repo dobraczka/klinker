@@ -5,6 +5,7 @@ import pytest
 from strawman import dummy_df, dummy_triples
 
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from util import compare_blocks
 
 
 @pytest.fixture
@@ -45,22 +46,22 @@ def block_example() -> Tuple[
         pd.DataFrame(
             {
                 "A": {
-                    2: [3],
-                    4: [4],
-                    5: [4],
-                    6: [4, 5],
-                    7: [5],
-                    10: [1, 2],
-                    11: [2],
+                    2: {3},
+                    4: {4},
+                    5: {4},
+                    6: {4, 5},
+                    7: {5},
+                    10: {1, 2},
+                    11: {2},
                 },
                 "B": {
-                    2: [3, 5],
-                    4: [5],
-                    5: [4],
-                    6: [4],
-                    7: [4],
-                    10: [2],
-                    11: [2],
+                    2: {3, 5},
+                    4: {5},
+                    5: {4},
+                    6: {4},
+                    7: {4},
+                    10: {2},
+                    11: {2},
                 },
             }
         ),
@@ -71,6 +72,17 @@ def block_example() -> Tuple[
             "B": {2: 5, 4: 5, 5: 4, 6: 4, 7: 4, 10: 2, 11: 2},
         },
     )
+
+@pytest.fixture
+def block_combine_example(block_example):
+    block, _, _, _ = block_example
+    other_block = block.loc[[4,6]]
+    other_block.loc[4] = {"A": {1,2}, "B": {5}}
+    other_block.loc[20] = {"A": {5}, "B": {7}}
+    expected = block.copy(deep=True)
+    expected.loc[4] = {"A": {1,2,4}, "B": {5}}
+    expected.loc[20] = {"A": {5}, "B": {7}}
+    return block, other_block, expected
 
 
 def test_klinkerframe(example):
@@ -129,3 +141,9 @@ def test_concat(concat_example):
     assert concat_kf.name == kf.name
     assert len(concat_kf.columns) == 2
     assert concat_kf[concat_kf.non_id_columns].values.tolist() == expected
+
+def test_combine_blocks(block_combine_example):
+    block, other_block, expected = block_combine_example
+    compare_blocks(block.klinker_block.combine(other_block),expected)
+
+

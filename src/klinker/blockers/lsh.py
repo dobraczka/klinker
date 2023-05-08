@@ -61,6 +61,6 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                 else:
                     res = lsh.query(minhash)
                     if len(res) > 0:
-                        hashed[left_name][row_id] = res
-                        hashed[right_name][row_id] = [row_id]
+                        hashed[left_name][row_id] = set(res)
+                        hashed[right_name][row_id] = {row_id}
         return pd.DataFrame(hashed, columns=[left.name, right.name])

@@ -45,6 +45,7 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     ) -> pd.DataFrame:
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         df = pd.DataFrame(neighbors)
+        tmp = df.applymap(lambda x, right: right.names[x], right=right)
         df[right_name] = df.applymap(
             lambda x, right: right.names[x],
             right=right,
@@ -98,7 +99,7 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
             pd.DataFrame([names, cluster_labels])
             .transpose()
             .groupby(1)
-            .agg(list)
+            .agg(set)
         )
         blocked.columns = [data_name]
         return blocked

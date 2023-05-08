@@ -1,5 +1,6 @@
 import abc
-from typing import List, Optional, Tuple
+import numpy as np
+from typing import List, Optional, Tuple, Set
 
 import pandas as pd
 
@@ -14,10 +15,17 @@ def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame
 
 
 def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
+    def _ensure_set(value) -> Set:
+        if isinstance(value, set):
+            return value
+        elif isinstance(value, str) or isinstance(value, int):
+            return {value}
+        else:
+            return set(value)
     # remove blocks with only one entry
     max_number_nans = len(blocks.columns) - 1
     blocks = blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
-    return blocks.applymap(lambda x: [x] if not isinstance(x, list) else x)
+    return blocks.applymap(_ensure_set)
 
 
 class Blocker(abc.ABC):

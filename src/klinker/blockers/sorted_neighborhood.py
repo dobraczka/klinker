@@ -37,7 +37,7 @@ class SortedNeighborhoodBlocker(StandardBlocker):
                     entry_ds_name = entry[0]
                     entry_id = entry[1]
                     if w_id in res[entry_ds_name]:
-                        res[entry_ds_name][w_id].append(entry_id)
+                        res[entry_ds_name][w_id].add(entry_id)
                     else:
-                        res[entry_ds_name][w_id] = [entry_id]
+                        res[entry_ds_name][w_id] = {entry_id}
         return pd.DataFrame(res)

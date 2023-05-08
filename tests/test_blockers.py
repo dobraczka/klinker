@@ -88,10 +88,10 @@ def example_both(example_tables, example_triples) -> Tuple[KlinkerFrame, Klinker
 @pytest.fixture
 def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
     return [
-        pd.DataFrame({"A": {1: ["a2"], 2: ["a1"]}, "B": {1: ["b2"]}}),
-        pd.DataFrame({"A": {1: "a2", 2: "a1"}, "B": {1: ["b2"]}}),
-        pd.DataFrame({"A": {1: "a2"}, "B": {1: ["b2"]}}),
-    ], pd.DataFrame({"A": {1: ["a2"]}, "B": {1: ["b2"]}})
+        pd.DataFrame({"A": {1: {"a2"}, 2: {"a1"}}, "B": {1: {"b2"}}}),
+        pd.DataFrame({"A": {1: "a2", 2: "a1"}, "B": {1: {"b2"}}}),
+        pd.DataFrame({"A": {1: "a2"}, "B": {1: {"b2"}}}),
+    ], pd.DataFrame({"A": {1: {"a2"}}, "B": {1: {"b2"}}})
 
 
 @pytest.fixture
@@ -108,8 +108,8 @@ def example_with_expected(
 def expected_standard_blocker() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "A": {"Bulgaria": ["a3"], "USA": ["a1", "a2"]},
-            "B": {"Bulgaria": ["b3"], "USA": ["b2"]},
+            "A": {"Bulgaria": {"a3"}, "USA": {"a1", "a2"}},
+            "B": {"Bulgaria": {"b3"}, "USA": {"b2"}},
         }
     )
 
@@ -119,24 +119,24 @@ def expected_qgrams_blocker() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "A": {
-                "Bul": ["a3"],
-                "Ind": ["a4"],
-                "USA": ["a1", "a2"],
-                "ari": ["a3"],
-                "gar": ["a3"],
-                "lga": ["a3"],
-                "ria": ["a3"],
-                "ulg": ["a3"],
+                "Bul": {"a3"},
+                "Ind": {"a4"},
+                "USA": {"a1", "a2"},
+                "ari": {"a3"},
+                "gar": {"a3"},
+                "lga": {"a3"},
+                "ria": {"a3"},
+                "ulg": {"a3"},
             },
             "B": {
-                "Bul": ["b3"],
-                "Ind": ["b4"],
-                "USA": ["b2"],
-                "ari": ["b3"],
-                "gar": ["b3"],
-                "lga": ["b3"],
-                "ria": ["b3"],
-                "ulg": ["b3"],
+                "Bul": {"b3"},
+                "Ind": {"b4"},
+                "USA": {"b2"},
+                "ari": {"b3"},
+                "gar": {"b3"},
+                "lga": {"b3"},
+                "ria": {"b3"},
+                "ulg": {"b3"},
             },
         }
     )
@@ -147,22 +147,22 @@ def expected_sorted_neighborhood_blocker() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "A": {
-                2: ["a3"],
-                3: ["a4"],
-                4: ["a4"],
-                5: ["a4", "a5"],
-                6: ["a5", "a1"],
-                8: ["a1", "a2"],
-                9: ["a2"],
+                2: {"a3"},
+                3: {"a4"},
+                4: {"a4"},
+                5: {"a4", "a5"},
+                6: {"a5", "a1"},
+                8: {"a1", "a2"},
+                9: {"a2"},
             },
             "B": {
-                2: ["b3", "b5"],
-                3: ["b3", "b5"],
-                4: ["b5", "b4"],
-                5: ["b4"],
-                6: ["b4"],
-                8: ["b2"],
-                9: ["b2", "b1"],
+                2: {"b3", "b5"},
+                3: {"b3", "b5"},
+                4: {"b5", "b4"},
+                5: {"b4"},
+                6: {"b4"},
+                8: {"b2"},
+                9: {"b2", "b1"},
             },
         }
     )
@@ -173,32 +173,32 @@ def expected_token_blocker() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "A": {
-                "02-02-1983": ["a2"],
-                "04-12-1990": ["a3"],
-                "11-12-1973": ["a1"],
-                "Bulgaria": ["a3"],
-                "John": ["a1"],
-                "Maggie": ["a2"],
-                "McExample": ["a1"],
-                "None": ["a4"],
-                "Nushi": ["a4"],
-                "Rebecca": ["a3"],
-                "Smith": ["a2", "a3"],
-                "USA": ["a1", "a2"],
+                "02-02-1983": {"a2"},
+                "04-12-1990": {"a3"},
+                "11-12-1973": {"a1"},
+                "Bulgaria": {"a3"},
+                "John": {"a1"},
+                "Maggie": {"a2"},
+                "McExample": {"a1"},
+                "None": {"a4"},
+                "Nushi": {"a4"},
+                "Rebecca": {"a3"},
+                "Smith": {"a2", "a3"},
+                "USA": {"a1", "a2"},
             },
             "B": {
-                "02-02-1983": ["b2"],
-                "04-12-1990": ["b3", "b4"],
-                "11-12-1973": ["b1"],
-                "Bulgaria": ["b3"],
-                "John": ["b1"],
-                "Maggie": ["b2"],
-                "McExample": ["b1"],
-                "None": ["b1"],
-                "Nushi": ["b5"],
-                "Rebecca": ["b3"],
-                "Smith": ["b2", "b3"],
-                "USA": ["b2"],
+                "02-02-1983": {"b2"},
+                "04-12-1990": {"b3", "b4"},
+                "11-12-1973": {"b1"},
+                "Bulgaria": {"b3"},
+                "John": {"b1"},
+                "Maggie": {"b2"},
+                "McExample": {"b1"},
+                "None": {"b1"},
+                "Nushi": {"b5"},
+                "Rebecca": {"b3"},
+                "Smith": {"b2", "b3"},
+                "USA": {"b2"},
             },
         }
     )
@@ -207,7 +207,7 @@ def expected_token_blocker() -> pd.DataFrame:
 @pytest.fixture
 def expected_lsh_blocker() -> pd.DataFrame:
     return pd.DataFrame(
-        {"A": {1: ["a1"], 2: ["a2"], 3: ["a3"]}, "B": {1: ["b1"], 2: ["b2"], 3: ["b3"]}}
+        {"A": {1: {"a1"}, 2: {"a2"}, 3: {"a3"}}, "B": {1: {"b1"}, 2: {"b2"}, 3: {"b3"}}}
     )
 
 

@@ -15,7 +15,7 @@ class StandardBlocker(Blocker):
     def _inner_assign(self, kf: KlinkerFrame) -> pd.DataFrame:
         id_col = kf.id_col
         name = kf.name
-        blocked = kf[[id_col, self.blocking_key]].groupby(self.blocking_key).agg(list)
+        blocked = kf[[id_col, self.blocking_key]].groupby(self.blocking_key).agg(set)
         return blocked.rename(columns={id_col: name})
 
     def _assign(

@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from klinker.encoders import FrameEncoder
-from klinker.encoders.light_ea import initialize_and_fill
+from klinker.encoders.base import initialize_and_fill
 from klinker.data import NamedVector
 
 

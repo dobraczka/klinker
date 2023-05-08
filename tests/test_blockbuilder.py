@@ -56,8 +56,8 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
 def expected() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "A": {0: ["a0", "a2", "a3"], 1: ["a4", "a5"], 2: ["a1"]},
-            "B": {0: ["b2"], 1: ["b1"], 2: ["b0", "b3"]},
+            "A": {0: {"a0", "a2", "a3"}, 1: {"a4", "a5"}, 2: {"a1"}},
+            "B": {0: {"b2"}, 1: {"b1"}, 2: {"b0", "b3"}},
         }
     )
 
