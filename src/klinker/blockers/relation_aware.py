@@ -64,8 +64,10 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
         tokenize_fn: Callable = word_tokenize,
         attr_threshold: float = 0.5,
         attr_num_perm: int = 128,
+        attr_weights: Tuple[float, float] = (0.5, 0.5),
         rel_threshold: float = 0.7,
         rel_num_perm: int = 128,
+        rel_weights: Tuple[float, float] = (0.5, 0.5),
         wanted_cols: Union[
             str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
         ] = None,
@@ -75,10 +77,12 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
             threshold=attr_threshold,
             num_perm=attr_num_perm,
             wanted_cols=wanted_cols,
+            weights=attr_weights,
         )
         self._relation_blocker = MinHashLSHBlocker(
             tokenize_fn=tokenize_fn,
             threshold=rel_threshold,
             num_perm=rel_num_perm,
             wanted_cols=wanted_cols,
+            weights=rel_weights,
         )

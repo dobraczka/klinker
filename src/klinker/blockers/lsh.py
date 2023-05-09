@@ -14,6 +14,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         tokenize_fn: Callable = word_tokenize,
         threshold: float = 0.5,
         num_perm: int = 128,
+        weights: Tuple[float, float] = (0.5, 0.5),
         wanted_cols: Union[
             str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
         ] = None,
@@ -21,6 +22,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         self.tokenize_fn = tokenize_fn
         self.threshold = threshold
         self.num_perm = num_perm
+        self.weights = weights
         super().__init__(wanted_cols=wanted_cols)
 
     def _inner_encode(self, val: str):
@@ -48,7 +50,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         assert right_name
 
         hashed: Dict[str, Dict] = {left_name: {}, right_name: {}}
-        lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm)
+        lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm, weights=self.weights)
         for number, tab in enumerate([left, right]):
             tok = tab[tab.non_id_columns].apply(self._encode, axis=1).tolist()
 
