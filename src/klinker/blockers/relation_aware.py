@@ -7,6 +7,7 @@ from klinker.data import KlinkerFrame, KlinkerTripleFrame
 
 from .base import Blocker
 from .lsh import MinHashLSHBlocker
+from .token_blocking import TokenBlocker
 
 
 def reverse_rel(rel_frame: pd.DataFrame) -> pd.DataFrame:
@@ -85,4 +86,26 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
             num_perm=rel_num_perm,
             wanted_cols=wanted_cols,
             weights=rel_weights,
+        )
+
+
+class RelationalTokenBlocker(RelationalBlocker):
+    def __init__(
+        self,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+        wanted_cols: Union[
+            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
+        ] = None,
+        attr_min_token_length: int = 3,
+        rel_min_token_length: int = 3,
+    ):
+        self._attribute_blocker = TokenBlocker(
+            tokenize_fn=tokenize_fn,
+            wanted_cols=wanted_cols,
+            min_token_length=attr_min_token_length,
+        )
+        self._relation_blocker = TokenBlocker(
+            tokenize_fn=tokenize_fn,
+            wanted_cols=wanted_cols,
+            min_token_length=rel_min_token_length,
         )

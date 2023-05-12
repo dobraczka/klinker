@@ -32,7 +32,7 @@ datasketch = "^1.5.9"
 kiez = {git = "https://github.com/dobraczka/kiez.git", rev = "main"}
 sylloge = {git = "https://github.com/dobraczka/sylloge", rev = "fix-idmapped"}
 transformers = "^4.27.3"
-torch = ">=1.9"
+torch = "==2.0.0"
 pykeen = "^1.10.1"
 faiss-cpu = {version = "^1.7.3", optional = true}
 autofaiss = {version = "^2.15.5", optional = true}

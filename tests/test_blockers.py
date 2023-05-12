@@ -1,5 +1,5 @@
 import itertools
-from typing import List, Optional, Tuple, Type
+from typing import List, Tuple, Type
 
 import pandas as pd
 import pytest
@@ -327,7 +327,10 @@ def test_assign_embedding_blocker(
         )
 
 
-def test_assign_light_ea(
+@pytest.mark.parametrize("cls, params", [("LightEAFrameEncoder", dict(mini_dim=3)), ("GCNFrameEncoder",{})])
+def test_assign_relation_frame_encoder(
+    cls,
+    params,
     example_triples,
     example_rel_triples,
     mocker,
@@ -341,8 +344,8 @@ def test_assign_light_ea(
     rel_ta, rel_tb = example_rel_triples
     eb_kwargs = {"algorithm": "SklearnNN", "n_neighbors": 2}
     block = EmbeddingBlocker(
-        frame_encoder="LightEAFrameEncoder",
-        frame_encoder_kwargs=dict(mini_dim=3),
+        frame_encoder=cls,
+        frame_encoder_kwargs=params,
         embedding_block_builder_kwargs=eb_kwargs,
     ).assign(ta, tb, rel_ta, rel_tb)
 
@@ -358,8 +361,9 @@ def test_postprocess(example_prepostprocess):
     for pp in prepost:
         assert postprocess(pp).equals(expected)
 
+
 def test_concat_neighbor_attributes(example_tables, example_rel_triples):
-    ta =example_tables[0]
+    ta = example_tables[0]
     rel_ta = example_rel_triples[0]
     all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
     conc_ta = concat_neighbor_attributes(ta, rel_ta)

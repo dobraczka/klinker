@@ -13,6 +13,7 @@ from .pretrained import (
     TransformerTokenizedFrameEncoder,
     SentenceTransformerTokenizedFrameEncoder,
 )
+from .gcn import GCNFrameEncoder
 
 frame_encoder_resolver = ClassResolver(
     [
@@ -23,6 +24,7 @@ frame_encoder_resolver = ClassResolver(
         CrossTupleTrainingDeepBlockerFrameEncoder,
         HybridDeepBlockerFrameEncoder,
         LightEAFrameEncoder,
+        GCNFrameEncoder
     ],
     base=FrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
@@ -42,6 +44,7 @@ __all__ = [
     "CrossTupleTrainingDeepBlockerFrameEncoder",
     "HybridDeepBlockerFrameEncoder",
     "LightEAFrameEncoder",
+    "GCNFrameEncoder",
     # resolver
     "frame_encoder_resolver",
 ]

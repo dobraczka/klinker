@@ -30,6 +30,7 @@ class Evaluation:
         self.comp_without_blocking = left_data_len * right_data_len
         self.comp_with_blocking = len(block_pairs)
         self._calc_tp_fp_fn()
+        self.mean_block_size = blocks.klinker_block.mean_block_size
 
     def _calc_tp_fp_fn(self):
         self.true_positive = len(self.block_pair_set.intersection(self.gold_pair_set))
@@ -89,4 +90,5 @@ class Evaluation:
             "f_measure": self.f_measure,
             "reduction_ratio": self.reduction_ratio,
             "h3r": self.h3r,
+            "mean_block_size": self.mean_block_size,
         }

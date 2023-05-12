@@ -19,6 +19,7 @@ from klinker.blockers import (
     EmbeddingBlocker,
     MinHashLSHBlocker,
     RelationalMinHashLSHBlocker,
+    RelationalTokenBlocker,
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
@@ -26,7 +27,7 @@ from klinker.blockers.embedding.blockbuilder import (
     EmbeddingBlockBuilder,
     block_builder_resolver,
 )
-from klinker.encoders import LightEAFrameEncoder, TransformerTokenizedFrameEncoder
+from klinker.encoders import LightEAFrameEncoder, TransformerTokenizedFrameEncoder, GCNFrameEncoder
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
     deep_blocker_encoder_resolver,
@@ -235,8 +236,25 @@ def deepblocker(
 
 
 @cli.command()
-def token_blocker():
-    return TokenBlocker(), {}
+@click.option("--min-token-length", type=int, default=3)
+def token_blocker(min_token_length: int):
+    return (
+        TokenBlocker(min_token_length=min_token_length),
+        click.get_current_context().params,
+    )
+
+
+@cli.command()
+@click.option("--attr-min-token-length", type=int, default=3)
+@click.option("--rel-min-token-length", type=int, default=3)
+def relational_token_blocker(attr_min_token_length: int, rel_min_token_length: int):
+    return (
+        RelationalTokenBlocker(
+            attr_min_token_length=attr_min_token_length,
+            rel_min_token_length=rel_min_token_length,
+        ),
+        click.get_current_context().params,
+    )
 
 
 @cli.command()
@@ -275,6 +293,43 @@ def light_ea_blocker(
                 ent_dim=ent_dim,
                 depth=depth,
                 mini_dim=mini_dim,
+                attribute_encoder=inner_encoder,
+                attribute_encoder_kwargs=attribute_encoder_kwargs,
+            ),
+            embedding_block_builder=block_builder,
+            embedding_block_builder_kwargs=bb_kwargs,
+        ),
+        click.get_current_context().params,
+    )
+
+@cli.command()
+@tokenized_frame_encoder_resolver.get_option(
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+)
+@click.option("--depth", type=int, default=2)
+@click.option("--batch-size", type=int)
+@block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--block-builder-kwargs", type=str)
+@click.option("--n-neighbors", type=int, default=100)
+def gcn_blocker(
+    inner_encoder: Type[TokenizedFrameEncoder],
+    depth: int,
+    batch_size: Optional[int],
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    n_neighbors: int,
+) -> Tuple[Blocker, Dict]:
+    attribute_encoder_kwargs: Dict = {}
+    if inner_encoder == TransformerTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(batch_size=batch_size)
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs["n_neighbors"] = n_neighbors
+    return (
+        EmbeddingBlocker(
+            frame_encoder=GCNFrameEncoder(
+                depth=depth,
                 attribute_encoder=inner_encoder,
                 attribute_encoder_kwargs=attribute_encoder_kwargs,
             ),
