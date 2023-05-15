@@ -63,6 +63,7 @@ class KlinkerDataset:
         right = KlinkerTripleFrame.from_df(
             dataset.attr_triples_right, name="right", id_col="head"
         )
+
         if clean:
             # remove datatype
             left["tail"] = left["tail"].str.split(pat=r"\^\^", expand=True)[0]

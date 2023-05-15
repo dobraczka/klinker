@@ -55,7 +55,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
             tok = tab[tab.non_id_columns].apply(self._encode, axis=1).tolist()
 
             for minhash, row_id in zip(
-                MinHash.generator(tok),
+                MinHash.generator(tok, num_perm=self.num_perm),
                 tab[tab.id_col],
             ):
                 if number == 0:

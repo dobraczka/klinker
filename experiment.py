@@ -8,11 +8,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import click
 import pandas as pd
-import wandb
 from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
-from sylloge import MovieGraphBenchmark, OpenEA
+from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 
+import wandb
 from klinker import KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
@@ -27,7 +27,11 @@ from klinker.blockers.embedding.blockbuilder import (
     EmbeddingBlockBuilder,
     block_builder_resolver,
 )
-from klinker.encoders import LightEAFrameEncoder, TransformerTokenizedFrameEncoder, GCNFrameEncoder
+from klinker.encoders import (
+    GCNFrameEncoder,
+    LightEAFrameEncoder,
+    TransformerTokenizedFrameEncoder,
+)
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
     deep_blocker_encoder_resolver,
@@ -151,11 +155,26 @@ def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
 
 
 @cli.command()
+@click.option("--task", type=str, default="starwars-swg")
+def oaei_dataset(task: str) -> Tuple[EADataset, Dict]:
+    return (
+        OAEI(task=task, backend="pandas"),
+        click.get_current_context().params,
+    )
+
+
+@cli.command()
 @click.option("--threshold", type=float, default=0.5)
 @click.option("--num-perm", type=int, default=128)
-def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
+@click.option("--fn-weight", type=float, default=0.5)
+def lsh_blocker(
+    threshold: float, num_perm: int, fn_weight: float
+) -> Tuple[Blocker, Dict]:
+    fp_weight = 1.0 - fn_weight
     return (
-        MinHashLSHBlocker(threshold=threshold, num_perm=num_perm),
+        MinHashLSHBlocker(
+            threshold=threshold, num_perm=num_perm, weights=(fp_weight, fn_weight)
+        ),
         click.get_current_context().params,
     )
 
@@ -163,17 +182,28 @@ def lsh_blocker(threshold: float, num_perm: int) -> Tuple[Blocker, Dict]:
 @cli.command()
 @click.option("--attr-threshold", type=float, default=0.5)
 @click.option("--attr-num-perm", type=int, default=128)
+@click.option("--attr-fn-weight", type=float, default=0.5)
 @click.option("--rel-threshold", type=float, default=0.7)
 @click.option("--rel-num-perm", type=int, default=128)
+@click.option("--rel-fn-weight", type=float, default=0.5)
 def relational_lsh_blocker(
-    attr_threshold: float, attr_num_perm: int, rel_threshold: float, rel_num_perm: int
+    attr_threshold: float,
+    attr_num_perm: int,
+    attr_fn_weight: float,
+    rel_threshold: float,
+    rel_num_perm: int,
+    rel_fn_weight: float,
 ) -> Tuple[Blocker, Dict]:
+    attr_fp_weight = 1.0 - attr_fn_weight
+    rel_fp_weight = 1.0 - rel_fn_weight
     return (
         RelationalMinHashLSHBlocker(
             attr_threshold=attr_threshold,
             attr_num_perm=attr_num_perm,
+            attr_weights=(attr_fp_weight, attr_fn_weight),
             rel_threshold=rel_threshold,
             rel_num_perm=rel_num_perm,
+            rel_weights=(rel_fp_weight, rel_fn_weight),
         ),
         click.get_current_context().params,
     )
@@ -301,6 +331,7 @@ def light_ea_blocker(
         ),
         click.get_current_context().params,
     )
+
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
