@@ -6,7 +6,6 @@ import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
 from class_resolver.contrib.torch import optimizer_resolver
-from pykeen.utils import resolve_device
 from torch import nn
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
@@ -48,7 +47,7 @@ class DeepBlockerModel(nn.Module):
         self.input_dimension = input_dimension
         self.hidden_dimensions = hidden_dimensions
 
-    def encode_side(self, x: torch.Tensor) -> np.ndarray:
+    def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
         raise NotImplementedError
 
 
@@ -73,9 +72,9 @@ class AutoEncoderDeepBlockerModel(DeepBlockerModel):
         x = self.decoder(x)
         return x
 
-    def encode_side(self, x: torch.Tensor) -> np.ndarray:
+    def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
         with torch.no_grad():
-            return self.encoder(x).detach().numpy()
+            return self.encoder(x.to(device)).detach().cpu().numpy()
 
 
 class CTTDeepBlockerModel(DeepBlockerModel):
@@ -97,9 +96,9 @@ class CTTDeepBlockerModel(DeepBlockerModel):
         pred = self.classifier(torch.abs(x1 - x2))
         return torch.sigmoid(pred)
 
-    def encode_side(self, x: torch.Tensor) -> np.ndarray:
+    def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
         with torch.no_grad():
-            return self.siamese_summarizer(x).detach().numpy()
+            return self.siamese_summarizer(x.to(device)).detach().cpu().numpy()
 
 
 class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
@@ -146,9 +145,10 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
+        device: torch.device,
     ) -> DeepBlockerModel:
-        self.device = resolve_device()
-        self.model.to(self.device)
+        self.device = device
+        self.model = self.model.to(self.device)
 
         train_dataloader = self.create_dataloader(
             features=features, batch_size=batch_size
@@ -222,11 +222,13 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
+        device: torch.device,
     ) -> DeepBlockerModel:
         return super().train(
             features=features,
             num_epochs=num_epochs,
             batch_size=batch_size,
+            device=device,
         )
 
 
@@ -286,9 +288,11 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         features: FeatureType,
         num_epochs: int,
         batch_size: int,
+        device: torch.device,
     ) -> DeepBlockerModel:
         return super().train(
             features=features,
             num_epochs=num_epochs,
             batch_size=batch_size,
+            device=device,
         )
