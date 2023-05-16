@@ -12,7 +12,6 @@ from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTrac
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 
-import wandb
 from klinker import KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
@@ -28,11 +27,11 @@ from klinker.blockers.embedding.blockbuilder import (
     block_builder_resolver,
 )
 from klinker.encoders import (
+    AverageEmbeddingTokenizedFrameEncoder,
     GCNFrameEncoder,
     LightEAFrameEncoder,
-    TransformerTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
-    AverageEmbeddingTokenizedFrameEncoder,
+    TransformerTokenizedFrameEncoder,
 )
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
@@ -243,8 +242,13 @@ def deepblocker(
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
+    elif (
+        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
+        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+    ):
+        attribute_encoder_kwargs = dict(
+            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
+        )
     encoder_kwargs = {
         "frame_encoder": inner_encoder,
         "frame_encoder_kwargs": attribute_encoder_kwargs,
@@ -325,8 +329,13 @@ def light_ea_blocker(
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
+    elif (
+        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
+        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+    ):
+        attribute_encoder_kwargs = dict(
+            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
+        )
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
@@ -369,8 +378,13 @@ def gcn_blocker(
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
+    elif (
+        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
+        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+    ):
+        attribute_encoder_kwargs = dict(
+            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
+        )
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
