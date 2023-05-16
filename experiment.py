@@ -402,6 +402,39 @@ def gcn_blocker(
         click.get_current_context().params,
     )
 
+@cli.command()
+@click.option(
+    "--encoder", type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"])
+)
+@click.option("--embeddings", type=str, default="glove")
+@block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--block-builder-kwargs", type=str)
+@click.option("--n-neighbors", type=int, default=100)
+def only_embeddings_blocker(
+    encoder: str,
+    embeddings: str,
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    n_neighbors: int,
+) -> Tuple[Blocker, Dict]:
+    frame_encoder_kwargs = dict(
+        tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
+    )
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs["n_neighbors"] = n_neighbors
+    return (
+        EmbeddingBlocker(
+            frame_encoder=encoder,
+            frame_encoder_kwargs=frame_encoder_kwargs,
+            embedding_block_builder=block_builder,
+            embedding_block_builder_kwargs=bb_kwargs,
+        ),
+        click.get_current_context().params,
+    )
+
+
 
 if __name__ == "__main__":
     cli()
