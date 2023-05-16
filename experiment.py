@@ -56,9 +56,9 @@ def _handle_artifacts(
         artifact_name = str(tracker.run.id)
         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
         blocks.to_pickle(artifact_file_path)
-        artifact = wandb.Artifact(name="blocks", type="result")
-        artifact.add_file(local_path=artifact_file_path)
-        tracker.run.log_artifact(artifact)
+        # artifact = wandb.Artifact(name="blocks", type="result")
+        # artifact.add_file(local_path=artifact_file_path)
+        # tracker.run.log_artifact(artifact)
     else:
         # see https://stackoverflow.com/a/22003440
         hashed_config_params = hashlib.sha1(
