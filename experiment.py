@@ -31,6 +31,8 @@ from klinker.encoders import (
     GCNFrameEncoder,
     LightEAFrameEncoder,
     TransformerTokenizedFrameEncoder,
+    SIFEmbeddingTokenizedFrameEncoder,
+    AverageEmbeddingTokenizedFrameEncoder,
 )
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
@@ -44,7 +46,7 @@ from klinker.eval_metrics import Evaluation
 
 
 def _create_artifact_path(
-    artifact_name: str, artifact_dir: str, suffix="_blocks.pl"
+    artifact_name: str, artifact_dir: str, suffix="_blocks.pkl"
 ) -> str:
     return os.path.join(os.path.join(artifact_dir, f"{artifact_name}{suffix}"))
 
@@ -214,6 +216,7 @@ def relational_lsh_blocker(
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="TransformerTokenizedFrameEncoder"
 )
+@click.option("--embeddings", type=str, default="glove")
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--learning_rate", type=float, default=1e-3)
@@ -226,6 +229,7 @@ def relational_lsh_blocker(
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
     inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
     num_epochs: int,
     batch_size: int,
     learning_rate: float,
@@ -236,8 +240,14 @@ def deepblocker(
     block_builder_kwargs: str,
     n_neighbors: int,
 ) -> Tuple[Blocker, Dict]:
+    attribute_encoder_kwargs: Dict = {}
+    if inner_encoder == TransformerTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(batch_size=batch_size)
+    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
     encoder_kwargs = {
         "frame_encoder": inner_encoder,
+        "frame_encoder_kwargs": attribute_encoder_kwargs,
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
@@ -291,6 +301,7 @@ def relational_token_blocker(attr_min_token_length: int, rel_min_token_length: i
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="TransformerTokenizedFrameEncoder"
 )
+@click.option("--embeddings", type=str, default="glove")
 @click.option("--ent-dim", type=int, default=256)
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
@@ -301,6 +312,7 @@ def relational_token_blocker(attr_min_token_length: int, rel_min_token_length: i
 @click.option("--n-neighbors", type=int, default=100)
 def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
     ent_dim: int,
     depth: int,
     mini_dim: int,
@@ -313,6 +325,8 @@ def light_ea_blocker(
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
+    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
@@ -337,6 +351,7 @@ def light_ea_blocker(
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="TransformerTokenizedFrameEncoder"
 )
+@click.option("--embeddings", type=str, default="glove")
 @click.option("--depth", type=int, default=2)
 @click.option("--batch-size", type=int)
 @block_builder_resolver.get_option("--block-builder", default="kiez")
@@ -344,6 +359,7 @@ def light_ea_blocker(
 @click.option("--n-neighbors", type=int, default=100)
 def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
     depth: int,
     batch_size: Optional[int],
     block_builder: Type[EmbeddingBlockBuilder],
@@ -353,6 +369,8 @@ def gcn_blocker(
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
+    elif inner_encoder == AverageEmbeddingTokenizedFrameEncoder or inner_encoder == SIFEmbeddingTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(embedding_fn="embeddings")
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
