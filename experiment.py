@@ -28,6 +28,7 @@ from klinker.blockers.embedding.blockbuilder import (
 )
 from klinker.encoders import (
     AverageEmbeddingTokenizedFrameEncoder,
+    FrameEncoder,
     GCNFrameEncoder,
     LightEAFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
@@ -42,6 +43,15 @@ from klinker.encoders.pretrained import (
     tokenized_frame_encoder_resolver,
 )
 from klinker.eval_metrics import Evaluation
+
+
+def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
+    for _, value in instance.__dict__.items():
+        if isinstance(value, FrameEncoder):
+            if hasattr(value, "_encoding_time"):
+                known[value.__class__.__name__] = value._encoding_time
+                known.update(_get_encoder_times(value, known))
+    return known
 
 
 def _create_artifact_path(
@@ -99,9 +109,11 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         raise ValueError("First command must be blocker command!")
     dataset_with_params, blocker_with_params = blocker_and_dataset
     dataset, ds_params = dataset_with_params
-    blocker, bl_params = blocker_with_params
+    blocker, bl_params, blocker_creation_time = blocker_with_params
     klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
+    params["dataset_name"] = dataset.canonical_name
+    params["blocker_name"] = blocker.__class__.__name__
 
     dataset_name = dataset.canonical_name
     blocker_name = blocker.__class__.__name__
@@ -129,7 +141,16 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     end = time.time()
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
-    tracker.log_metrics({**ev.to_dict(), "time in s": run_time})
+    run_time + blocker_creation_time
+    encoder_times: Dict[str, float] = {"encoder_times_{key.lower()}": value for key, value in _get_encoder_times(blocker, {}).items()}
+    tracker.log_metrics(
+        {
+            **ev.to_dict(),
+            "time_in_s": run_time,
+            "blocker_creation_time": blocker_creation_time,
+            **encoder_times
+        }
+    )
 
     _handle_artifacts(blocks, tracker, params, experiment_artifact_dir)
     tracker.end_run()
@@ -170,14 +191,14 @@ def oaei_dataset(task: str) -> Tuple[EADataset, Dict]:
 @click.option("--fn-weight", type=float, default=0.5)
 def lsh_blocker(
     threshold: float, num_perm: int, fn_weight: float
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     fp_weight = 1.0 - fn_weight
-    return (
-        MinHashLSHBlocker(
-            threshold=threshold, num_perm=num_perm, weights=(fp_weight, fn_weight)
-        ),
-        click.get_current_context().params,
+    start = time.time()
+    blocker = MinHashLSHBlocker(
+        threshold=threshold, num_perm=num_perm, weights=(fp_weight, fn_weight)
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
@@ -194,20 +215,20 @@ def relational_lsh_blocker(
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     attr_fp_weight = 1.0 - attr_fn_weight
     rel_fp_weight = 1.0 - rel_fn_weight
-    return (
-        RelationalMinHashLSHBlocker(
-            attr_threshold=attr_threshold,
-            attr_num_perm=attr_num_perm,
-            attr_weights=(attr_fp_weight, attr_fn_weight),
-            rel_threshold=rel_threshold,
-            rel_num_perm=rel_num_perm,
-            rel_weights=(rel_fp_weight, rel_fn_weight),
-        ),
-        click.get_current_context().params,
+    start = time.time()
+    blocker = RelationalMinHashLSHBlocker(
+        attr_threshold=attr_threshold,
+        attr_num_perm=attr_num_perm,
+        attr_weights=(attr_fp_weight, attr_fn_weight),
+        rel_threshold=rel_threshold,
+        rel_num_perm=rel_num_perm,
+        rel_weights=(rel_fp_weight, rel_fn_weight),
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
@@ -238,7 +259,7 @@ def deepblocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
@@ -268,37 +289,39 @@ def deepblocker(
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
-    return (
-        DeepBlocker(
-            frame_encoder=encoder,
-            frame_encoder_kwargs=encoder_kwargs,
-            embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=bb_kwargs,
-        ),
-        click.get_current_context().params,
+    start = time.time()
+    blocker = DeepBlocker(
+        frame_encoder=encoder,
+        frame_encoder_kwargs=encoder_kwargs,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
-def token_blocker(min_token_length: int):
-    return (
-        TokenBlocker(min_token_length=min_token_length),
-        click.get_current_context().params,
-    )
+def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
+    start = time.time()
+    blocker = TokenBlocker(min_token_length=min_token_length)
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
 @click.option("--attr-min-token-length", type=int, default=3)
 @click.option("--rel-min-token-length", type=int, default=3)
-def relational_token_blocker(attr_min_token_length: int, rel_min_token_length: int):
-    return (
-        RelationalTokenBlocker(
-            attr_min_token_length=attr_min_token_length,
-            rel_min_token_length=rel_min_token_length,
-        ),
-        click.get_current_context().params,
+def relational_token_blocker(
+    attr_min_token_length: int, rel_min_token_length: int
+) -> Tuple[Blocker, Dict, float]:
+    start = time.time()
+    blocker = RelationalTokenBlocker(
+        attr_min_token_length=attr_min_token_length,
+        rel_min_token_length=rel_min_token_length,
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
@@ -325,7 +348,7 @@ def light_ea_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
@@ -340,20 +363,20 @@ def light_ea_blocker(
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
-    return (
-        EmbeddingBlocker(
-            frame_encoder=LightEAFrameEncoder(
-                ent_dim=ent_dim,
-                depth=depth,
-                mini_dim=mini_dim,
-                attribute_encoder=inner_encoder,
-                attribute_encoder_kwargs=attribute_encoder_kwargs,
-            ),
-            embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=bb_kwargs,
+    start = time.time()
+    blocker = EmbeddingBlocker(
+        frame_encoder=LightEAFrameEncoder(
+            ent_dim=ent_dim,
+            depth=depth,
+            mini_dim=mini_dim,
+            attribute_encoder=inner_encoder,
+            attribute_encoder_kwargs=attribute_encoder_kwargs,
         ),
-        click.get_current_context().params,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
@@ -374,7 +397,7 @@ def gcn_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
         attribute_encoder_kwargs = dict(batch_size=batch_size)
@@ -389,22 +412,24 @@ def gcn_blocker(
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
-    return (
-        EmbeddingBlocker(
-            frame_encoder=GCNFrameEncoder(
-                depth=depth,
-                attribute_encoder=inner_encoder,
-                attribute_encoder_kwargs=attribute_encoder_kwargs,
-            ),
-            embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=bb_kwargs,
+    start = time.time()
+    blocker = EmbeddingBlocker(
+        frame_encoder=GCNFrameEncoder(
+            depth=depth,
+            attribute_encoder=inner_encoder,
+            attribute_encoder_kwargs=attribute_encoder_kwargs,
         ),
-        click.get_current_context().params,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
     )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
 
 @cli.command()
 @click.option(
-    "--encoder", type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"])
+    "--encoder",
+    type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"]),
 )
 @click.option("--embeddings", type=str, default="glove")
 @block_builder_resolver.get_option("--block-builder", default="kiez")
@@ -416,7 +441,7 @@ def only_embeddings_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
-) -> Tuple[Blocker, Dict]:
+) -> Tuple[Blocker, Dict, float]:
     frame_encoder_kwargs = dict(
         tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
     )
@@ -424,16 +449,15 @@ def only_embeddings_blocker(
     if block_builder_kwargs:
         bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
-    return (
-        EmbeddingBlocker(
-            frame_encoder=encoder,
-            frame_encoder_kwargs=frame_encoder_kwargs,
-            embedding_block_builder=block_builder,
-            embedding_block_builder_kwargs=bb_kwargs,
-        ),
-        click.get_current_context().params,
+    start = time.time()
+    blocker = EmbeddingBlocker(
+        frame_encoder=encoder,
+        frame_encoder_kwargs=frame_encoder_kwargs,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
     )
-
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
 
 
 if __name__ == "__main__":

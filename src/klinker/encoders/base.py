@@ -1,4 +1,5 @@
 from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, overload
+import time
 
 import numpy as np
 import pandas as pd
@@ -94,6 +95,7 @@ class FrameEncoder:
         left = left.fillna("")
         right = right.fillna("")
         self.prepare(left, right)
+        start = time.time()
         left_enc, right_enc = self._encode_as(
             left=left,
             right=right,
@@ -101,6 +103,8 @@ class FrameEncoder:
             right_rel=right_rel,
             return_type=return_type,
         )
+        end = time.time()
+        self._encoding_time = end - start
         return NamedVector(names=left.index.tolist(), vectors=left_enc), NamedVector(
             names=right.index.tolist(), vectors=right_enc
         )
@@ -206,6 +210,7 @@ class RelationFrameEncoder(FrameEncoder):
         self.validate(left=left, right=right, left_rel=left_rel, right_rel=right_rel)
         left, right = self.prepare(left, right)
 
+        start = time.time()
         # encode attributes
         left_attr_enc, right_attr_enc = self.attribute_encoder.encode(
             left, right, return_type=return_type
@@ -237,6 +242,9 @@ class RelationFrameEncoder(FrameEncoder):
             return_type=return_type,
         )
         named_features = NamedVector(names=entity_mapping, vectors=features)
+
+        end = time.time()
+        self._encoding_time = end - start
         return named_features.subset(list(left_ids)), named_features.subset(
             list(right_ids)
         )
