@@ -113,7 +113,13 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
     params["dataset_name"] = dataset.canonical_name
-    params["blocker_name"] = blocker.__class__.__name__
+    blocker_name = blocker.__class__.__name__
+    if isinstance(blocker, EmbeddingBlocker):
+        blocker_name = blocker.frame_encoder.__class__.__name__.replace("FrameEncoder","")
+    params["blocker_name"] = blocker_name
+    print(params)
+    import sys
+    sys.exit(1)
 
     dataset_name = dataset.canonical_name
     blocker_name = blocker.__class__.__name__
@@ -142,13 +148,16 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
     run_time + blocker_creation_time
-    encoder_times: Dict[str, float] = {f"encoder_times_{key.lower()}": value for key, value in _get_encoder_times(blocker, {}).items()}
+    encoder_times: Dict[str, float] = {
+        f"encoder_times_{key.lower()}": value
+        for key, value in _get_encoder_times(blocker, {}).items()
+    }
     tracker.log_metrics(
         {
             **ev.to_dict(),
             "time_in_s": run_time,
             "blocker_creation_time": blocker_creation_time,
-            **encoder_times
+            **encoder_times,
         }
     )
 
