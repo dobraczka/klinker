@@ -117,9 +117,6 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     if isinstance(blocker, EmbeddingBlocker):
         blocker_name = blocker.frame_encoder.__class__.__name__.replace("FrameEncoder","")
     params["blocker_name"] = blocker_name
-    print(params)
-    import sys
-    sys.exit(1)
 
     dataset_name = dataset.canonical_name
     blocker_name = blocker.__class__.__name__
