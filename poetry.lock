@@ -2093,6 +2093,27 @@ notebook = "*"
 qtconsole = "*"
 
 [[package]]
+name = "jupyter-black"
+version = "0.3.4"
+description = "A simple extension for Jupyter Notebook and Jupyter Lab to beautify Python code automatically using Black. Fork of dnanhkhoa/nb_black."
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "jupyter-black-0.3.4.tar.gz", hash = "sha256:2a38f33d4c321eb768f426103635ac9b80b40c9e42aa06072a729e3caddca4c3"},
+    {file = "jupyter_black-0.3.4-py3-none-any.whl", hash = "sha256:8690ec1d16d173a74eecc44419755ca7209c494b213e0d7b04c40a878239e247"},
+]
+
+[package.dependencies]
+black = ">=21"
+ipython = ">=7"
+tokenize-rt = ">=4"
+
+[package.extras]
+dev = ["build (==0.9.0)", "twine (==4.0.1)", "wheel (==0.37.0)"]
+test = ["flake8 (==3.9.2)", "flake8-docstrings (==1.6.0)", "flake8-import-order (==0.18.1)", "isort (==5.11.5)", "jupyterlab (==3.6.3)", "mypy (==1.2.0)", "pep8-naming (==0.12.1)", "playwright (==1.14.1)", "pytest (==7.3.1)", "tox (==4.5.1)"]
+
+[[package]]
 name = "jupyter-client"
 version = "8.2.0"
 description = "Jupyter protocol implementation and client libraries"
@@ -5392,6 +5413,18 @@ doc = ["sphinx", "sphinx_rtd_theme"]
 test = ["flake8", "isort", "pytest"]
 
 [[package]]
+name = "tokenize-rt"
+version = "5.0.0"
+description = "A wrapper around the stdlib `tokenize` which roundtrips."
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "tokenize_rt-5.0.0-py2.py3-none-any.whl", hash = "sha256:c67772c662c6b3dc65edf66808577968fb10badfc2042e3027196bed4daf9e5a"},
+    {file = "tokenize_rt-5.0.0.tar.gz", hash = "sha256:3160bc0c3e8491312d0485171dea861fc160a240f5f5766b72a1165408d10740"},
+]
+
+[[package]]
 name = "tokenizers"
 version = "0.13.3"
 description = "Fast and Customizable Tokenizers"
@@ -6174,4 +6207,4 @@ faiss-gpu = ["faiss-gpu", "autofaiss"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<4.0"
-content-hash = "85169fbaa010f056abfd5aaacb620339b9ab080c1fe3da0561afc98a40b23fad"
+content-hash = "6670eb1ae6610799dbc0ba7606cd660d18468aceb6c306f2128b2c1f72be09d7"

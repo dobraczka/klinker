@@ -1,3 +1,5 @@
+import pickle
+from types import ModuleType
 from typing import Dict, Generic, List, Sequence, TypeVar, Union
 
 import numpy as np
@@ -32,7 +34,6 @@ class NamedVector(Generic[T]):
         if not (self._names.values == np.arange(len(self._names))).all():
             raise ValueError("Indices must be contiguous!")
         self.vectors = vectors
-        self._tensor_lib = np if isinstance(self.vectors, np.ndarray) else torch
 
     def _validate(self, names: List[str], vectors: T):
         if not len(set(names)) == len(names):
@@ -41,6 +42,10 @@ class NamedVector(Generic[T]):
             raise ValueError(
                 f"Names and vectors must have same length but got len(names)={len(names)} and len(vectors)={len(vectors)}"
             )
+
+    @property
+    def _tensor_lib(self) -> ModuleType:
+        return np if isinstance(self.vectors, np.ndarray) else torch
 
     @property
     def names(self) -> List[str]:
@@ -144,3 +149,13 @@ class NamedVector(Generic[T]):
         sub_vectors = self._vectors[sub_names]
         # need to cast to list to ensure contiguous ids
         return NamedVector(names=sub_names.index.tolist(), vectors=sub_vectors)
+
+    def to_pickle(self, path):
+        with open(path, "wb") as file_handle:
+            pickle.dump((self.names, self.vectors), file_handle)
+
+    @classmethod
+    def from_pickle(cls, path) -> "NamedVector":
+        with open(path, "rb") as file_handle:
+            names, vectors = pickle.load(file_handle)
+        return cls(names, vectors)

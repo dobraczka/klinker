@@ -144,7 +144,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     end = time.time()
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
-    run_time + blocker_creation_time
+    run_time += blocker_creation_time
     encoder_times: Dict[str, float] = {
         f"encoder_times_{key.lower()}": value
         for key, value in _get_encoder_times(blocker, {}).items()

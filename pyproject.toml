@@ -78,6 +78,7 @@ darglint = "^1.8.1"
 toml = "^0.10.2"
 strawman = "^0.1.2"
 pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-517-approach"}
+jupyter-black = "^0.3.4"
 
 
 [tool.poetry.extras]
