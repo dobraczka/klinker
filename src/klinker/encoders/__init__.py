@@ -24,7 +24,8 @@ frame_encoder_resolver = ClassResolver(
         CrossTupleTrainingDeepBlockerFrameEncoder,
         HybridDeepBlockerFrameEncoder,
         LightEAFrameEncoder,
-        GCNFrameEncoder
+        GCNFrameEncoder,
+        SentenceTransformerTokenizedFrameEncoder,
     ],
     base=FrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
