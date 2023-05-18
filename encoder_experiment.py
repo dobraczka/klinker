@@ -65,10 +65,10 @@ def run_experiment(
             else:
                 encoder_kwargs["inner_encoder"] = inner_encoder
 
-        left = ds.left
-        right = ds.right
-        left_reduced = left.concat_values().set_index(left.id_col)[left.non_id_columns]
-        right_reduced = right.concat_values().set_index(right.id_col)[right.non_id_columns]
+        left = ds.left.concat_values()
+        right = ds.right.concat_values()
+        left_reduced = left.set_index(left.id_col)[left.non_id_columns]
+        right_reduced = right.set_index(right.id_col)[right.non_id_columns]
 
         start = time.time()
         enc_inst = frame_encoder_resolver.make(encoder, encoder_kwargs)
