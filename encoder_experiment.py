@@ -1,4 +1,5 @@
 import os
+from klinker.blockers.base import postprocess
 import time
 from typing import Any, Dict, Tuple, Type, Union
 
@@ -94,11 +95,12 @@ def run_experiment(
         algorithm_kwargs={"index_key": "HNSW32", "index_param": "efSearch=918"},
     )
     blocks = kiez.build_blocks(
-        left_enc.subset(ds.gold["left"][:100]),
-        right_enc.subset(ds.gold["right"][:100]),
+        left_enc,
+        right_enc,
         left_name=ds.gold.columns[0],
         right_name=ds.gold.columns[1],
     )
+    blocks = postprocess(blocks)
     block_builder_run_time = time.time() - start
     ev = Evaluation.from_dataset(blocks=blocks, dataset=ds)
     tracker.log_metrics(
@@ -106,6 +108,7 @@ def run_experiment(
             **ev.to_dict(),
             "encoder_run_time": encoder_run_time,
             "block_builder_run_time": block_builder_run_time,
+            "encoder_experiment": True,
         }
     )
 
