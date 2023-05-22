@@ -46,7 +46,7 @@ def run_experiment(
     n_neighbors: int,
     base_dir: str,
 ):
-    tracker = WANDBResultTracker(project="klinker", entity="dobraczka", config=click.get_current_context().params)
+    tracker = WANDBResultTracker(project="klinker", entity="dobraczka", config={**click.get_current_context().params, "encoder_experiment": True})
     tracker.start_run()
     path_or_encoded = _load_or_create_path(base_dir, encoder)
     ds = KlinkerDataset.from_sylloge(
@@ -108,7 +108,6 @@ def run_experiment(
             **ev.to_dict(),
             "encoder_run_time": encoder_run_time,
             "block_builder_run_time": block_builder_run_time,
-            "encoder_experiment": True,
         }
     )
 
