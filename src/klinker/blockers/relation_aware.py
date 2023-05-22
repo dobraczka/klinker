@@ -1,11 +1,15 @@
 from typing import Callable, List, Optional, Tuple, Union
 
 import pandas as pd
+from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
 
 from .base import Blocker
+from .embedding.deepblocker import DeepBlocker
+from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .lsh import MinHashLSHBlocker
 from .token_blocking import TokenBlocker
 
@@ -108,4 +112,30 @@ class RelationalTokenBlocker(RelationalBlocker):
             tokenize_fn=tokenize_fn,
             wanted_cols=wanted_cols,
             min_token_length=rel_min_token_length,
+        )
+
+
+class RelationalDeepBlocker(RelationalBlocker):
+    def __init__(
+        self,
+        attr_frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
+        attr_frame_encoder_kwargs: OptionalKwargs = None,
+        attr_embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
+        attr_embedding_block_builder_kwargs: OptionalKwargs = None,
+        rel_frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
+        rel_frame_encoder_kwargs: OptionalKwargs = None,
+        rel_embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
+        rel_embedding_block_builder_kwargs: OptionalKwargs = None,
+    ):
+        self._attribute_blocker = DeepBlocker(
+            frame_encoder=attr_frame_encoder,
+            frame_encoder_kwargs=attr_frame_encoder_kwargs,
+            embedding_block_builder=attr_embedding_block_builder,
+            embedding_block_builder_kwargs=attr_embedding_block_builder_kwargs,
+        )
+        self._relation_blocker = DeepBlocker(
+            frame_encoder=rel_frame_encoder,
+            frame_encoder_kwargs=rel_frame_encoder_kwargs,
+            embedding_block_builder=rel_embedding_block_builder,
+            embedding_block_builder_kwargs=rel_embedding_block_builder_kwargs,
         )

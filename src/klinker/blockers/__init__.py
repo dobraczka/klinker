@@ -5,7 +5,7 @@ from .qgrams import QgramsBlocker
 from .sorted_neighborhood import SortedNeighborhoodBlocker
 from .standard import StandardBlocker
 from .token_blocking import TokenBlocker
-from .relation_aware import RelationalMinHashLSHBlocker, RelationalTokenBlocker
+from .relation_aware import RelationalMinHashLSHBlocker, RelationalTokenBlocker, RelationalDeepBlocker
 
 __all__ = [
     "StandardBlocker",
@@ -15,6 +15,7 @@ __all__ = [
     "MinHashLSHBlocker",
     "EmbeddingBlocker",
     "DeepBlocker",
-    "RelationalMinHashLSHBlocker"
-    "RelationalTokenBlocker"
+    "RelationalMinHashLSHBlocker",
+    "RelationalTokenBlocker",
+    "RelationalDeepBlocker",
 ]

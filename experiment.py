@@ -17,6 +17,7 @@ from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
     MinHashLSHBlocker,
+    RelationalDeepBlocker,
     RelationalMinHashLSHBlocker,
     RelationalTokenBlocker,
     TokenBlocker,
@@ -115,7 +116,9 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     params["dataset_name"] = dataset.canonical_name
     blocker_name = blocker.__class__.__name__
     if isinstance(blocker, EmbeddingBlocker):
-        blocker_name = blocker.frame_encoder.__class__.__name__.replace("FrameEncoder","")
+        blocker_name = blocker.frame_encoder.__class__.__name__.replace(
+            "FrameEncoder", ""
+        )
     params["blocker_name"] = blocker_name
 
     dataset_name = dataset.canonical_name
@@ -301,6 +304,84 @@ def deepblocker(
         frame_encoder_kwargs=encoder_kwargs,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command()
+@deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
+@tokenized_frame_encoder_resolver.get_option(
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+)
+@click.option("--embeddings", type=str, default="glove")
+@click.option("--num-epochs", type=int, default=50)
+@click.option("--batch-size", type=int, default=256)
+@click.option("--learning_rate", type=float, default=1e-3)
+@click.option("--synth-tuples-per-tuple", type=int, default=5)
+@click.option("--pos-to-neg-ratio", type=float, default=1.0)
+@click.option("--max-perturbation", type=float, default=0.4)
+@block_builder_resolver.get_option("--block-builder", default="kiez")
+@click.option("--block-builder-kwargs", type=str)
+@click.option("--attr-n-neighbors", type=int, default=100)
+@click.option("--rel-n-neighbors", type=int, default=100)
+def relational_deepblocker(
+    encoder: Type[DeepBlockerFrameEncoder],
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    num_epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    synth_tuples_per_tuple: int,
+    pos_to_neg_ratio: float,
+    max_perturbation: float,
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    attr_n_neighbors: int,
+    rel_n_neighbors: int,
+) -> Tuple[Blocker, Dict, float]:
+    attribute_encoder_kwargs: Dict = {}
+    if inner_encoder == TransformerTokenizedFrameEncoder:
+        attribute_encoder_kwargs = dict(batch_size=batch_size)
+    elif (
+        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
+        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+    ):
+        attribute_encoder_kwargs = dict(
+            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
+        )
+    encoder_kwargs = {
+        "frame_encoder": inner_encoder,
+        "frame_encoder_kwargs": attribute_encoder_kwargs,
+        "num_epochs": num_epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+    }
+    if not encoder == "autoencoder":
+        encoder_kwargs.update(
+            {
+                "synth_tuples_per_tuple": synth_tuples_per_tuple,
+                "pos_to_neg_ratio": pos_to_neg_ratio,
+                "max_perturbation": max_perturbation,
+            }
+        )
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    attr_bb_kwargs = bb_kwargs
+    rel_bb_kwargs = bb_kwargs
+    attr_bb_kwargs["n_neighbors"] = attr_n_neighbors
+    rel_bb_kwargs["n_neighbors"] = rel_n_neighbors
+    start = time.time()
+    blocker = RelationalDeepBlocker(
+        attr_frame_encoder=encoder,
+        attr_frame_encoder_kwargs=encoder_kwargs,
+        attr_embedding_block_builder=block_builder,
+        attr_embedding_block_builder_kwargs=attr_bb_kwargs,
+        rel_frame_encoder=encoder,
+        rel_frame_encoder_kwargs=encoder_kwargs,
+        rel_embedding_block_builder=block_builder,
+        rel_embedding_block_builder_kwargs=rel_bb_kwargs,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
