@@ -1,8 +1,10 @@
 import logging
+import os
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+import pystow
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
@@ -11,12 +13,15 @@ from pykeen.nn.text import TransformerTextEncoder
 from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import TruncatedSVD
 from torch_max_mem import MemoryUtilizationMaximizer
+from gensim.models import KeyedVectors
 
 from .base import TokenizedFrameEncoder
 from ..typing import GeneralVector
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
+
+word_embedding_dir = pystow.module("klinker").join("word_embeddings")
 
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
@@ -91,11 +96,18 @@ class TokenizedWordEmbedder:
     ):
         if isinstance(embedding_fn, str):
             if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
-                self.embedding_fn = gensim_downloader.load(
-                    TokenizedWordEmbedder._gensim_mapping_download[embedding_fn]
-                ).__getitem__
+                actual_name = TokenizedWordEmbedder._gensim_mapping_download[
+                    embedding_fn
+                ]
+                memmap_path = str(word_embedding_dir.joinpath(f"{actual_name}.kv"))
+                if not os.path.exists(memmap_path):
+                    kv = gensim_downloader.load(actual_name)
+                    kv.save(memmap_path)
+                else:
+                    kv = KeyedVectors.load(memmap_path, mmap="r")
             else:
-                self.embedding_fn = gensim_downloader.load(embedding_fn).__getitem__
+                kv = gensim_downloader.load(embedding_fn)
+            self.embedding_fn = kv.__getitem__
         else:
             self.embedding_fn = embedding_fn
         self.tokenizer_fn = tokenizer_fn
