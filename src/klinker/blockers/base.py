@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Set
 
 import pandas as pd
 
-from ..data import KlinkerFrame, KlinkerTripleFrame
+from ..data import KlinkerFrame, KlinkerTripleFrame, KlinkerBlockManager
 from ..typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
 
 
@@ -14,18 +14,18 @@ def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame
     return None
 
 
-def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
-    def _ensure_set(value) -> Set:
-        if isinstance(value, set):
-            return value
-        elif isinstance(value, str) or isinstance(value, int):
-            return {value}
-        else:
-            return set(value)
-    # remove blocks with only one entry
-    max_number_nans = len(blocks.columns) - 1
-    blocks = blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
-    return blocks.applymap(_ensure_set)
+# def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
+#     def _ensure_set(value) -> Set:
+#         if isinstance(value, set):
+#             return value
+#         elif isinstance(value, str) or isinstance(value, int):
+#             return {value}
+#         else:
+#             return set(value)
+#     # remove blocks with only one entry
+#     max_number_nans = len(blocks.columns) - 1
+#     blocks = blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
+#     return blocks.applymap(_ensure_set)
 
 
 class Blocker(abc.ABC):
@@ -45,11 +45,12 @@ class Blocker(abc.ABC):
         right: KlinkerFrame,
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+    ) -> KlinkerBlockManager:
         res = self._assign(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        return postprocess(res)
+        return res
+        # return postprocess(res)
 
 
 class SchemaAgnosticBlocker(Blocker):
@@ -118,7 +119,7 @@ class SchemaAgnosticBlocker(Blocker):
         right: KlinkerFrame,
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+    ) -> KlinkerBlockManager:
         left_reduced, right_reduced = self._preprocess(left, right)
         return super().assign(
             left=left_reduced,

@@ -5,7 +5,6 @@ import pytest
 from strawman import dummy_df, dummy_triples
 
 from klinker.data import KlinkerFrame, KlinkerTripleFrame
-from util import compare_blocks
 
 
 @pytest.fixture
@@ -38,52 +37,6 @@ def triple_example() -> Dict:
     return dummy_triples(10, relation_triples=False).to_dict()
 
 
-@pytest.fixture
-def block_example() -> Tuple[
-    pd.DataFrame, Dict[int, int], float, Dict[str, Dict[int, int]]
-]:
-    return (
-        pd.DataFrame(
-            {
-                "A": {
-                    2: {3},
-                    4: {4},
-                    5: {4},
-                    6: {4, 5},
-                    7: {5},
-                    10: {1, 2},
-                    11: {2},
-                },
-                "B": {
-                    2: {3, 5},
-                    4: {5},
-                    5: {4},
-                    6: {4},
-                    7: {4},
-                    10: {2},
-                    11: {2},
-                },
-            }
-        ),
-        {2: 3, 4: 2, 5: 2, 6: 3, 7: 2, 10: 3, 11: 2},
-        2.4285714285714284,
-        {
-            "A": {2: 3, 4: 4, 5: 4, 6: 5, 7: 5, 10: 2, 11: 2},
-            "B": {2: 5, 4: 5, 5: 4, 6: 4, 7: 4, 10: 2, 11: 2},
-        },
-    )
-
-@pytest.fixture
-def block_combine_example(block_example):
-    block, _, _, _ = block_example
-    other_block = block.loc[[4,6]]
-    other_block.loc[4] = {"A": {1,2}, "B": {5}}
-    other_block.loc[20] = {"A": {5}, "B": {7}}
-    expected = block.copy(deep=True)
-    expected.loc[4] = {"A": {1,2,4}, "B": {5}}
-    expected.loc[20] = {"A": {5}, "B": {7}}
-    return block, other_block, expected
-
 
 def test_klinkerframe(example):
     name = "A"
@@ -113,27 +66,6 @@ def test_klinker_triple_frame(triple_example):
     concated = ktf.concat_values()
     assert len(concated[concated.id_col].unique()) == len(concated)
 
-
-def test_block_statistics(block_example):
-    block, expected_sizes, mean_size, _ = block_example
-    assert expected_sizes == block.klinker_block.block_sizes.to_dict()
-    assert mean_size == pytest.approx(block.klinker_block.mean_block_size)
-
-
-def test_block_to_pairs(block_example):
-    block, _, _, pairs = block_example
-    assert pairs == block.klinker_block.to_pairs().to_dict()
-
-
-def test_validate_klinker_block():
-    with pytest.raises(ValueError):
-        # only lists allowed
-        pd.DataFrame({"A": {1: 1, 2: [1]}, "B": {1: [1], 2: [1]}}).klinker_block
-    with pytest.raises(ValueError):
-        # no nans
-        pd.DataFrame({"A": {4: [1], 2: [1]}, "B": {1: [1], 2: [1]}}).klinker_block
-
-
 def test_concat(concat_example):
     kf, wanted_cols, expected = concat_example
     concat_kf = kf.concat_values(wanted_cols)
@@ -141,9 +73,4 @@ def test_concat(concat_example):
     assert concat_kf.name == kf.name
     assert len(concat_kf.columns) == 2
     assert concat_kf[concat_kf.non_id_columns].values.tolist() == expected
-
-def test_combine_blocks(block_combine_example):
-    block, other_block, expected = block_combine_example
-    compare_blocks(block.klinker_block.combine(other_block),expected)
-
 

@@ -1,7 +1,7 @@
 import itertools
-import numpy as np
-from typing import List, Optional, Tuple
+from typing import Generator, List, Mapping, Optional, Set, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from pandas._typing import Axes, Dtype
 
@@ -87,15 +87,12 @@ class KlinkerTripleFrame(KlinkerFrame):
         return KlinkerFrame.from_df(df, name=self.name, id_col=self.id_col)
 
 
-
 def combine_blocks(blocks_a: pd.DataFrame, blocks_b: pd.DataFrame) -> pd.DataFrame:
     def _block_merge(
         row: pd.Series,
         left_suffix: str,
     ) -> pd.Series:
-        def _merge_val(
-            row: pd.Series, indices: Tuple[int, int]
-        ) -> pd.Series:
+        def _merge_val(row: pd.Series, indices: Tuple[int, int]) -> pd.Series:
             left = row.index[indices[0]]
             right = row.index[indices[1]]
             if row[left] is np.nan:
@@ -105,19 +102,16 @@ def combine_blocks(blocks_a: pd.DataFrame, blocks_b: pd.DataFrame) -> pd.DataFra
             else:
                 return row[left] | row[right]
 
-        a = _merge_val(
-            row,
-            indices=(0,2)
-        )
-        b = _merge_val(
-            row,
-            indices=(1,3)
-        )
-        name_left = row.index[0].replace(left_suffix,"")
-        name_right = row.index[1].replace(left_suffix,"")
+        a = _merge_val(row, indices=(0, 2))
+        b = _merge_val(row, indices=(1, 3))
+        name_left = row.index[0].replace(left_suffix, "")
+        name_right = row.index[1].replace(left_suffix, "")
         return pd.Series({name_left: a, name_right: b}, name=row.name)
+
     left_suffix = "_tmp_left_suffix"
-    return blocks_a.join(blocks_b, how="outer", lsuffix=left_suffix,rsuffix="_tmp_right_suffix").apply(_block_merge,left_suffix=left_suffix, axis=1)
+    return blocks_a.join(
+        blocks_b, how="outer", lsuffix=left_suffix, rsuffix="_tmp_right_suffix"
+    ).apply(_block_merge, left_suffix=left_suffix, axis=1)
 
 
 @pd.api.extensions.register_dataframe_accessor("klinker_block")
