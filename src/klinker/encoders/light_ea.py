@@ -5,6 +5,7 @@ import torch
 from class_resolver import HintOrType, OptionalKwargs
 from pykeen.utils import resolve_device
 from tqdm import trange
+from sklearn.preprocessing import normalize
 
 from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
@@ -171,7 +172,6 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_feature,
     ):
         # delayed import to avoid faiss logging message always
-        import faiss
         ent_feature = ent_feature.to(self.device)
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)
         ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple = map(
@@ -255,7 +255,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             if len(temp_list):
                 features_list.append(np.concatenate(temp_list, axis=-1))
         features = np.concatenate(features_list, axis=-1)
-        faiss.normalize_L2(features)
+        features = normalize(features)
         features = np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
         return features
 

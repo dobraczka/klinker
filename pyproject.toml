@@ -34,9 +34,6 @@ sylloge = {git = "https://github.com/dobraczka/sylloge", rev = "fix-idmapped"}
 transformers = "^4.27.3"
 torch = "==2.0.0"
 pykeen = "^1.10.1"
-faiss-cpu = {version = "^1.7.3", optional = true}
-autofaiss = {version = "^2.15.5", optional = true}
-faiss-gpu = {version = "^1.7.2", optional = true}
 hdbscan = "^0.8.29"
 fasttext-wheel = "^0.9.2"
 pathlib = "^1.0.1"
