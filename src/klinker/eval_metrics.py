@@ -2,7 +2,7 @@ from typing import Dict
 
 import pandas as pd
 
-from . import KlinkerDataset
+from . import KlinkerDataset, KlinkerBlockManager
 
 
 def harmonic_mean(a: float, b: float) -> float:
@@ -14,40 +14,40 @@ def harmonic_mean(a: float, b: float) -> float:
 class Evaluation:
     def __init__(
         self,
-        blocks: pd.DataFrame,
+        blocks: KlinkerBlockManager,
         gold: pd.DataFrame,
         left_data_len: int,
         right_data_len: int,
     ):
         self._check_consistency(blocks, gold)
 
-        block_pairs = blocks.klinker_block.to_pairs()
         left_col = gold.columns[0]
         right_col = gold.columns[1]
-        self.block_pair_set = set(zip(block_pairs[left_col], block_pairs[right_col]))
+
+        self.block_pair_set = set(blocks.to_pairs())
         self.gold_pair_set = set(zip(gold[left_col], gold[right_col]))
 
         self.comp_without_blocking = left_data_len * right_data_len
-        self.comp_with_blocking = len(block_pairs)
+        self.comp_with_blocking = len(self.block_pair_set)
         self._calc_tp_fp_fn()
-        self.mean_block_size = blocks.klinker_block.mean_block_size
+        self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self):
         self.true_positive = len(self.block_pair_set.intersection(self.gold_pair_set))
         self.false_negative = len(self.gold_pair_set - self.block_pair_set)
         self.false_positive = len(self.block_pair_set - self.gold_pair_set)
 
-    def _check_consistency(self, blocks: pd.DataFrame, gold: pd.DataFrame):
-        if not len(blocks.columns) == 2 or not len(gold.columns) == 2:
+    def _check_consistency(self, blocks: KlinkerBlockManager, gold: pd.DataFrame):
+        if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
-        if not set(blocks.columns) == set(gold.columns):
+        if not set(blocks.dataset_names) == set(gold.columns):
             raise ValueError(
                 "Blocks and gold standard frame need to have the same columns!"
             )
 
     @classmethod
     def from_dataset(
-        cls, blocks: pd.DataFrame, dataset: KlinkerDataset
+        cls, blocks: KlinkerBlockManager, dataset: KlinkerDataset
     ) -> "Evaluation":
         return cls(
             blocks=blocks,
