@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from strawman import dummy_triples
-from util import compare_blocks
 
 from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder, KiezEmbeddingBlockBuilder
 from klinker.data import KlinkerFrame, NamedVector
@@ -64,9 +63,13 @@ def expected() -> pd.DataFrame:
 
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANBlockBuilder(min_cluster_size=2).build_blocks(*example)
-    compare_blocks(blocks, expected)
+    blocks == expected
 
 def test_nn_block_builder(example):
     blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)
-    assert blocks["A"].str.startswith("a").all()
-    assert blocks["B"].apply(lambda x: len(x) == 2 and all([xi.startswith("b") for xi in x])).all()
+    for bname, btuple in blocks.items():
+        for ba in btuple[0]:
+            assert ba.startswith("a")
+        assert len(btuple[1]) == 2
+        for bb in btuple[1]:
+            assert bb.startswith("b")

@@ -15,7 +15,7 @@ from klinker.blockers import (
     StandardBlocker,
     TokenBlocker,
 )
-from klinker.blockers.base import Blocker, postprocess
+from klinker.blockers.base import Blocker
 from klinker.blockers.relation_aware import concat_neighbor_attributes
 from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerTripleFrame
 from klinker.encoders.base import _get_ids
@@ -57,7 +57,11 @@ def example_tables() -> Tuple[
 
 
 @pytest.fixture
-def example_triples(example_tables) -> Tuple[KlinkerFrame, KlinkerFrame]:
+def example_triples(
+    example_tables,
+) -> Tuple[
+    KlinkerFrame, KlinkerFrame, Tuple[str, str], Tuple[Dict[int, str], Dict[int, str]]
+]:
     def triplify(df: pd.DataFrame) -> pd.DataFrame:
         new_df = (
             df.set_index("id")
@@ -75,8 +79,8 @@ def example_triples(example_tables) -> Tuple[KlinkerFrame, KlinkerFrame]:
             new_df.reset_index(), name=df.name, id_col=df.id_col
         )
 
-    table_A, table_B = example_tables
-    return triplify(table_A), triplify(table_B)
+    table_A, table_B, dataset_names, id_mappings = example_tables
+    return triplify(table_A), triplify(table_B), dataset_names, id_mappings
 
 
 @pytest.fixture
@@ -87,10 +91,14 @@ def example_rel_triples() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 
 @pytest.fixture
-def example_both(example_tables, example_triples) -> Tuple[KlinkerFrame, KlinkerFrame]:
-    ta, _ = example_tables
-    _, tb = example_triples
-    return ta, tb
+def example_both(
+    example_tables, example_triples
+) -> Tuple[
+    KlinkerFrame, KlinkerFrame, Tuple[str, str], Tuple[Dict[int, str], Dict[int, str]]
+]:
+    ta, _, dataset_names, id_mappings = example_tables
+    _, tb, _, _ = example_triples
+    return ta, tb, dataset_names, id_mappings
 
 
 @pytest.fixture
@@ -286,7 +294,7 @@ def test_assign_embedding_blocker(
         "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
-    ta, tb = request.getfixturevalue(tables)
+    ta, tb, _, _ = request.getfixturevalue(tables)
     eb, eb_kwargs = embedding_block_builder
     block = cls(
         frame_encoder=frame_encoder,
@@ -319,7 +327,7 @@ def test_assign_relation_frame_encoder(
         "klinker.encoders.pretrained.gensim_downloader",
         MockGensimDownloader(dimension=dimension),
     )
-    ta, tb = example_triples
+    ta, tb, _, _ = example_triples
     rel_ta, rel_tb = example_rel_triples
     eb_kwargs = {"algorithm": "SklearnNN", "n_neighbors": 2}
     block = EmbeddingBlocker(
@@ -337,10 +345,10 @@ def test_assign_relation_frame_encoder(
     )
 
 
-def test_postprocess(example_prepostprocess):
-    prepost, expected = example_prepostprocess
-    for pp in prepost:
-        assert postprocess(pp).equals(expected)
+# def test_postprocess(example_prepostprocess):
+#     prepost, expected = example_prepostprocess
+#     for pp in prepost:
+#         assert postprocess(pp).equals(expected)
 
 
 def test_concat_neighbor_attributes(example_tables, example_rel_triples):

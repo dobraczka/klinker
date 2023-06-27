@@ -8,12 +8,12 @@ import pystow
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
+from gensim.models import KeyedVectors
 from nltk.tokenize import word_tokenize
 from pykeen.nn.text import TransformerTextEncoder
 from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import TruncatedSVD
 from torch_max_mem import MemoryUtilizationMaximizer
-from gensim.models import KeyedVectors
 
 from .base import TokenizedFrameEncoder
 from ..typing import GeneralVector
@@ -136,8 +136,9 @@ class TokenizedWordEmbedder:
                 self._unknown_token_counter += 1
                 continue
         if len(embedded) == 0:
-            return np.array(embedded)
-        return np.vstack(embedded)
+            return np.array([np.nan] * self.embedding_dim)
+        emb: np.ndarray = np.mean(np.vstack(embedded), axis=0)
+        return emb
 
 
 tokenized_word_embedder_resolver = ClassResolver(
@@ -162,15 +163,15 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.tokenized_word_embedder.tokenizer_fn
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
-        return np.array(
-            [
-                np.mean(
-                    self.tokenized_word_embedder.embed(val),
-                    axis=0,
-                )
-                for val in df[df.columns[0]].values
-            ]
-        )
+        embeddings: np.ndarray = torch.nn.init.xavier_normal_(
+            torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
+        ).numpy()
+        # TODO vectorize this?
+        for idx, val in enumerate(df[df.columns[0]].values):
+            emb = self.tokenized_word_embedder.embed(val)
+            if not any(np.isnan(emb)):
+                embeddings[idx] = emb
+        return embeddings
 
     def _encode(
         self,
@@ -239,15 +240,16 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
         assert self.token_weight_dict is not None
-        embeddings = torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
-        embeddings = torch.nn.init.xavier_normal_(embeddings).numpy()
+        embeddings: np.ndarray = torch.nn.init.xavier_normal_(
+            torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
+        ).numpy()
         # TODO vectorize this?
         for idx, val in enumerate(df[df.columns[0]].values):
             emb = self.tokenized_word_embedder.weighted_embed(
                 val, self.token_weight_dict
             )
-            if len(emb) > 0:
-                embeddings[idx] = np.mean(emb, axis=0)
+            if not any(np.isnan(emb)):
+                embeddings[idx] = emb
 
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py

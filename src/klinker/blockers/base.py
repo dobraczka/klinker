@@ -52,7 +52,6 @@ class Blocker(abc.ABC):
         return res
         # return postprocess(res)
 
-
 class SchemaAgnosticBlocker(Blocker):
     _actual_wanted_cols: DualColumnSpecifier
     _merge_col_name = "_merged_text"

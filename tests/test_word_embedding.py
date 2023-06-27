@@ -38,7 +38,11 @@ def test_word_embedding(cls, return_type, example, mocker):
         MockGensimDownloader(dimension=dimension),
     )
     left, right = example
-    left_named_enc, right_named_enc = cls().encode(left, right, return_type=return_type)
+    left_named_enc, right_named_enc = cls(
+        tokenized_word_embedder_kwargs=dict(
+            embedding_fn="mock"
+        )  # avoid loading downloaded
+    ).encode(left, right, return_type=return_type)
     left_enc, right_enc = left_named_enc.vectors, right_named_enc.vectors
     assert left_enc.shape == (len(left), dimension)
     assert right_enc.shape == (len(right), dimension)

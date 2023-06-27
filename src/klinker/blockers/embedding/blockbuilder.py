@@ -8,7 +8,7 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from ...data import KlinkerFrame, NamedVector
+from ...data import KlinkerFrame, NamedVector, KlinkerBlockManager
 from ...typing import GeneralVector
 
 try:
@@ -24,7 +24,7 @@ class EmbeddingBlockBuilder:
         right: NamedVector,
         left_name: str,
         right_name: str,
-    ) -> pd.DataFrame:
+    ) -> KlinkerBlockManager:
         raise NotImplementedError
 
 
@@ -42,7 +42,7 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         right: NamedVector,
         left_name: str,
         right_name: str,
-    ) -> pd.DataFrame:
+    ) -> KlinkerBlockManager:
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         df = pd.DataFrame(neighbors)
         tmp = df.applymap(lambda x, right: right.names[x], right=right)
@@ -51,7 +51,7 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
             right=right,
         ).values.tolist()
         df[left_name] = left.names
-        return df[[left_name, right_name]]
+        return KlinkerBlockManager.from_pandas(df[[left_name, right_name]])
 
 
 class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
@@ -116,7 +116,7 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
         right_blocks = ClusteringBlockBuilder.blocks_side(
             right_cluster_labels, right.names, right_name
         )
-        return left_blocks.join(right_blocks)
+        return KlinkerBlockManager.from_pandas(left_blocks.join(right_blocks))
 
 
 class HDBSCANBlockBuilder(ClusteringBlockBuilder):

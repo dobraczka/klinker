@@ -1,5 +1,5 @@
 import itertools
-from typing import Dict, Generator, Optional, Set, Tuple, Union
+from typing import Dict, Generator, Optional, Set, Tuple, Union, ItemsView, ValuesView, KeysView
 
 import pandas as pd
 
@@ -124,6 +124,15 @@ class KlinkerBlockManager:
             else None,
         )
 
+    def items(self) -> ItemsView[Union[str,int], Tuple[Set[int], ...]]:
+        return self.blocks.items()
+
+    def values(self) -> ValuesView[Tuple[Set[int], ...]]:
+        return self.blocks.values()
+
+    def keys(self) -> KeysView[Union[str, int]]:
+        return self.blocks.keys()
+
     def __contains__(self, value: Union[str, int]) -> bool:
         return value in self.blocks
 
@@ -157,6 +166,17 @@ class KlinkerBlockManager:
         pd_blocks: pd.DataFrame,
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
     ) -> "KlinkerBlockManager":
+        def _ensure_set(value) -> Set:
+            if isinstance(value, set):
+                return value
+            elif isinstance(value, str) or isinstance(value, int):
+                return {value}
+            else:
+                return set(value)
+        # remove blocks with only one entry
+        max_number_nans = len(pd_blocks.columns) - 1
+        pd_blocks = pd_blocks[~(pd_blocks.isnull().sum(axis=1) == max_number_nans)]
+        pd_blocks = pd_blocks.applymap(_ensure_set)
         return cls(
             blocks=pd_blocks.agg(tuple, axis=1).to_dict(),
             dataset_names=tuple(pd_blocks.columns),

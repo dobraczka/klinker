@@ -1,7 +1,4 @@
 import numpy as np
-import torch
-
-from klinker.typing import GeneralVectorLiteral
 
 
 class MockKeyedVector:
