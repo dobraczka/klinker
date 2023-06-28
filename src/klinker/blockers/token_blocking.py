@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Union, Optional
+from typing import Callable, List, Optional, Tuple, Union
 
 import pandas as pd
 from nltk.tokenize import word_tokenize
@@ -36,23 +36,19 @@ class TokenBlocker(SchemaAgnosticBlocker):
     ) -> pd.DataFrame:
         tmp_blocking_key = "_tmp_blocking_key"
 
-        tok_list = []
+        tok_list: List[KlinkerFrame] = []
         for tab in [left, right]:
-            tok = (
+            print(tab)
+            kf = KlinkerFrame(
                 tab.set_index(tab.id_col)[tab.non_id_columns]
                 .apply(self.tokenize, axis=1)
-                .explode()
-                .to_frame()
-                .reset_index()
-                .rename(columns={tab.name: tmp_blocking_key})
-            )
-            tok_list.append(
-                KlinkerFrame(
-                    data=tok,
-                    name=tab.name,
-                    id_col=tab.id_col,
-                )
-            )
+                .explode(),
+                table_name=tab.table_name,
+                id_col=tab.id_col,
+                columns=[tmp_blocking_key],
+            ).reset_index(inplace=False)
+            tok_list.append(kf)
+        print(tok_list)
         return StandardBlocker(blocking_key=tmp_blocking_key)._assign(
             tok_list[0], tok_list[1]
         )

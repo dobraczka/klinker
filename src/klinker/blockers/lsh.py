@@ -46,8 +46,8 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         right_rel: Optional[pd.DataFrame] = None,
     ) -> KlinkerBlockManager:
         # for mypy
-        assert left.name
-        assert right.name
+        assert left.table_name
+        assert right.table_name
 
         block_dict: Dict[Union[str, int], Tuple[Set[int], ...]] = {}
         lsh = MinHashLSH(threshold=self.threshold, num_perm=self.num_perm, weights=self.weights)
@@ -64,7 +64,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                     res = lsh.query(minhash)
                     if len(res) > 0:
                         block_dict[row_id] = (set(res), {row_id})
-        return KlinkerBlockManager(block_dict, (left.name, right.name))
+        return KlinkerBlockManager(block_dict, (left.table_name, right.table_name))
 
 
 class NewMinHashLSHBlocker(SchemaAgnosticBlocker):
@@ -102,8 +102,8 @@ class NewMinHashLSHBlocker(SchemaAgnosticBlocker):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
-        left_name = left.name
-        right_name = right.name
+        left_name = left.table_name
+        right_name = right.table_name
         # for mypy
         assert left_name
         assert right_name

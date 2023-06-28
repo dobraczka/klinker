@@ -22,11 +22,11 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         tables = [left, right]
         for tab in tables:
             tab[name_id_tuple_col] = tab[tab.id_col].apply(
-                lambda x, name: (name, x), name=tab.name
+                lambda x, name: (name, x), name=tab.table_name
             )
         conc = pd.concat(tables)
 
-        res: Dict = {tab.name: {} for tab in tables}
+        res: Dict = {tab.table_name: {} for tab in tables}
         for w_id, window in enumerate(
             conc.sort_values(by=self.blocking_key)[name_id_tuple_col].rolling(
                 window=self.window_size

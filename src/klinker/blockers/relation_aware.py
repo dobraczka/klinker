@@ -4,7 +4,7 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
-from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from klinker.data import KlinkerFrame, KlinkerTripleFrame, KlinkerBlockManager
 from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
 
 from .base import Blocker
@@ -40,7 +40,7 @@ def concat_neighbor_attributes(
     concat_attr = attribute_frame.concat_values().set_index(attribute_frame.id_col)
     return KlinkerTripleFrame(
         with_inv.set_index(with_inv.columns[2]).join(concat_attr, how="left").dropna(),
-        name=attribute_frame.name,
+        table_name=attribute_frame.table_name,
         id_col=rel_frame.columns[0],
     ).concat_values()
 
@@ -60,7 +60,7 @@ class RelationalBlocker(Blocker):
         left_rel_conc = concat_neighbor_attributes(left, left_rel)
         right_rel_conc = concat_neighbor_attributes(right, right_rel)
         rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
-        return attr_blocked.klinker_block.combine(rel_blocked)
+        return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
 
 
 class RelationalMinHashLSHBlocker(RelationalBlocker):

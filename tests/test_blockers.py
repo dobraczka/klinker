@@ -39,7 +39,7 @@ def example_tables() -> Tuple[
             ["a5", "Grzegorz Brzęczyszczykiewicz", "02-04-1970", "Poland", "Soldier"],
         ],
         columns=["id", "Name", "Birthdate", "BirthCountry", "Occupation"],
-        name=dataset_names[0],
+        table_name=dataset_names[0],
     )
 
     table_B = KlinkerFrame(
@@ -51,7 +51,7 @@ def example_tables() -> Tuple[
             ["b5", "Nushi", "Zhang", "21-08-1989", "China"],
         ],
         columns=["id", "FirstName", "GivenName", "Birthdate", "BirthCountry"],
-        name=dataset_names[1],
+        table_name=dataset_names[1],
     )
     return table_A, table_B, dataset_names, id_mappings
 
@@ -68,7 +68,7 @@ def example_triples(
             .apply(lambda row: [key for key, val in row.items()], axis=1)
             .explode()
             .to_frame()
-            .rename(columns={df.name: "rel"})
+            .rename(columns={df.table_name: "rel"})
         )
         new_df["tail"] = (
             df.set_index("id")
@@ -76,7 +76,7 @@ def example_triples(
             .explode()
         )
         return KlinkerTripleFrame.from_df(
-            new_df.reset_index(), name=df.name, id_col=df.id_col
+            new_df.reset_index(), table_name=df.table_name, id_col=df.id_col
         )
 
     table_A, table_B, dataset_names, id_mappings = example_tables
@@ -303,7 +303,7 @@ def test_assign_embedding_blocker(
         embedding_block_builder_kwargs=eb_kwargs,
     ).assign(ta, tb)
 
-    assert block.dataset_names == (ta.name, tb.name)
+    assert block.dataset_names == (ta.table_name, tb.table_name)
     if eb != "HDBSCANBlockBuilder":
         assert len(block) == len(ta.concat_values())  # need unique in case of triples
         assert all(
@@ -337,7 +337,7 @@ def test_assign_relation_frame_encoder(
     ).assign(ta, tb, rel_ta, rel_tb)
 
     a_ids = _get_ids(attr=ta.set_index(ta.id_col), rel=rel_ta)
-    assert block.dataset_names == (ta.name, tb.name)
+    assert block.dataset_names == (ta.table_name, tb.table_name)
     assert len(block) == len(a_ids)
     assert all(
         len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]

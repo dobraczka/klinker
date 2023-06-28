@@ -27,18 +27,13 @@ class QgramsBlocker(StandardBlocker):
     ) -> pd.DataFrame:
         qgramed = []
         for tab in [left, right]:
-            data = (
+            kf = KlinkerFrame(
                 tab.set_index(tab.id_col)[self.blocking_key]
                 .apply(self.qgram_tokenize)
-                .explode()
-                .to_frame()
-                .reset_index()
-                .rename(columns={tab.name: self.blocking_key})
-            )
-            kf = KlinkerFrame(
-                data=data,
-                name=tab.name,
+                .explode(),
+                table_name=tab.table_name,
                 id_col=tab.id_col,
-            )
+                columns=[self.blocking_key]
+            ).reset_index(inplace=False)
             qgramed.append(kf)
         return super()._assign(left=qgramed[0], right=qgramed[1])

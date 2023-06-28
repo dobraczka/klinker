@@ -13,21 +13,6 @@ def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame
         return kf.concat_values()
     return None
 
-
-# def postprocess(blocks: pd.DataFrame) -> pd.DataFrame:
-#     def _ensure_set(value) -> Set:
-#         if isinstance(value, set):
-#             return value
-#         elif isinstance(value, str) or isinstance(value, int):
-#             return {value}
-#         else:
-#             return set(value)
-#     # remove blocks with only one entry
-#     max_number_nans = len(blocks.columns) - 1
-#     blocks = blocks[~(blocks.isnull().sum(axis=1) == max_number_nans)]
-#     return blocks.applymap(_ensure_set)
-
-
 class Blocker(abc.ABC):
     @abc.abstractmethod
     def _assign(
@@ -50,7 +35,6 @@ class Blocker(abc.ABC):
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
         return res
-        # return postprocess(res)
 
 class SchemaAgnosticBlocker(Blocker):
     _actual_wanted_cols: DualColumnSpecifier

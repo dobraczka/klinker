@@ -52,8 +52,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
-        assert left.name is not None
-        assert right.name is not None
+        assert left.table_name is not None
+        assert right.table_name is not None
         self._check_ids(left, right)
         left_reduced = left.set_index(left.id_col)[left.non_id_columns]
         right_reduced = right.set_index(right.id_col)[right.non_id_columns]
@@ -65,5 +65,5 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
             right_rel=right_rel,
         )  # type: ignore
         return self.embedding_block_builder.build_blocks(
-            left=left_emb, right=right_emb, left_name=left.name, right_name=right.name
+            left=left_emb, right=right_emb, left_name=left.table_name, right_name=right.table_name
         )
