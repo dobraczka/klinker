@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from strawman import dummy_df, dummy_triples
 
-from klinker.data import KlinkerFrame, KlinkerTripleFrame
+from klinker.data import KlinkerPandasFrame, KlinkerTriplePandasFrame
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def example() -> Dict:
 
 
 @pytest.fixture
-def concat_example() -> Tuple[KlinkerFrame, List[str], List[List[str]]]:
+def concat_example() -> Tuple[KlinkerPandasFrame, List[str], List[List[str]]]:
     df = dummy_df((5, 3), columns=["colA", "colB", "colC"])
 
     wanted_cols = ["wc1", "wc2"]
@@ -29,7 +29,7 @@ def concat_example() -> Tuple[KlinkerFrame, List[str], List[List[str]]]:
         for left, right in zip(column_values[0], column_values[1])
     ]
     df["id"] = [f"e{idx}" for idx in range(5)]
-    return KlinkerFrame.from_df(df, table_name="A", id_col="id"), wanted_cols, expected
+    return KlinkerPandasFrame.from_df(df, table_name="A", id_col="id"), wanted_cols, expected
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def triple_example() -> Dict:
 def test_klinkerframe(example):
     name = "A"
     id_col = "index"
-    kf = KlinkerFrame(table_name=name, id_col=id_col, data=example)
+    kf = KlinkerPandasFrame(table_name=name, id_col=id_col, data=example)
     assert kf.table_name == name
     assert kf.id_col == id_col
 
@@ -63,7 +63,7 @@ def test_klinkerframe(example):
 def test_klinker_triple_frame(triple_example):
     name = "A"
     id_col = "head"
-    ktf = KlinkerTripleFrame(data=triple_example, table_name=name, id_col=id_col)
+    ktf = KlinkerTriplePandasFrame(data=triple_example, table_name=name, id_col=id_col)
     assert ktf.non_id_columns == ["tail"]
     concated = ktf.concat_values()
     assert len(concated[concated.id_col].unique()) == len(concated)

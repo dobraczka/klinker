@@ -4,7 +4,7 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
-from klinker.data import KlinkerFrame, KlinkerTripleFrame, KlinkerBlockManager
+from klinker.data import KlinkerFrame, KlinkerTriplePandasFrame, KlinkerBlockManager
 from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
 
 from .base import Blocker
@@ -38,7 +38,7 @@ def concat_neighbor_attributes(
     rev_rel_frame = reverse_rel(rel_frame)
     with_inv = pd.concat([rel_frame, rev_rel_frame])
     concat_attr = attribute_frame.concat_values().set_index(attribute_frame.id_col)
-    return KlinkerTripleFrame(
+    return KlinkerTriplePandasFrame(
         with_inv.set_index(with_inv.columns[2]).join(concat_attr, how="left").dropna(),
         table_name=attribute_frame.table_name,
         id_col=rel_frame.columns[0],

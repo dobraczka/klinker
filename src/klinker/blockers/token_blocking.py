@@ -5,7 +5,7 @@ from nltk.tokenize import word_tokenize
 
 from .base import SchemaAgnosticBlocker
 from .standard import StandardBlocker
-from ..data import KlinkerFrame
+from ..data import KlinkerFrame, KlinkerPandasFrame
 from ..utils import tokenize_row
 
 
@@ -39,7 +39,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
         tok_list: List[KlinkerFrame] = []
         for tab in [left, right]:
             print(tab)
-            kf = KlinkerFrame(
+            kf = KlinkerPandasFrame(
                 tab.set_index(tab.id_col)[tab.non_id_columns]
                 .apply(self.tokenize, axis=1)
                 .explode(),

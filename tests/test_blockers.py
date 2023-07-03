@@ -17,7 +17,7 @@ from klinker.blockers import (
 )
 from klinker.blockers.base import Blocker
 from klinker.blockers.relation_aware import concat_neighbor_attributes
-from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerTripleFrame
+from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame
 from klinker.encoders.base import _get_ids
 
 
@@ -30,7 +30,7 @@ def example_tables() -> Tuple[
         {id_num: f"a{id_num}" for id_num in range(0, 5)},
         {id_num: f"b{id_num}" for id_num in range(0, 5)},
     )
-    table_A = KlinkerFrame(
+    table_A = KlinkerPandasFrame(
         data=[
             ["a1", "John McExample", "11-12-1973", "USA", "Engineer"],
             ["a2", "Maggie Smith", "02-02-1983", "USA", "Scientist"],
@@ -42,7 +42,7 @@ def example_tables() -> Tuple[
         table_name=dataset_names[0],
     )
 
-    table_B = KlinkerFrame(
+    table_B = KlinkerPandasFrame(
         data=[
             ["b1", "John", "McExample", "11-12-1973", None],
             ["b2", "Maggie", "Smith", "02-02-1983", "USA"],
@@ -75,7 +75,7 @@ def example_triples(
             .apply(lambda row: [val for key, val in row.items()], axis=1)
             .explode()
         )
-        return KlinkerTripleFrame.from_df(
+        return KlinkerTriplePandasFrame.from_df(
             new_df.reset_index(), table_name=df.table_name, id_col=df.id_col
         )
 

@@ -4,12 +4,12 @@ from typing import List, Optional, Tuple, Set
 
 import pandas as pd
 
-from ..data import KlinkerFrame, KlinkerTripleFrame, KlinkerBlockManager
+from ..data import KlinkerFrame, KlinkerTriplePandasFrame, KlinkerBlockManager
 from ..typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
 
 
 def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame]:
-    if isinstance(kf, KlinkerTripleFrame):
+    if isinstance(kf, KlinkerTriplePandasFrame):
         return kf.concat_values()
     return None
 
