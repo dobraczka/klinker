@@ -14,9 +14,6 @@ from .blocker import EmbeddingBlocker
 class DeepBlocker(EmbeddingBlocker):
     def __init__(
         self,
-        wanted_cols: Union[
-            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
-        ] = None,
         frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
         embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
@@ -26,7 +23,6 @@ class DeepBlocker(EmbeddingBlocker):
             frame_encoder, frame_encoder_kwargs
         )
         super().__init__(
-            wanted_cols=wanted_cols,
             frame_encoder=frame_encoder,
             embedding_block_builder=embedding_block_builder,
             embedding_block_builder_kwargs=embedding_block_builder_kwargs,

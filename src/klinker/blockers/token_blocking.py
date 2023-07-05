@@ -13,13 +13,9 @@ class TokenBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
-        wanted_cols: Union[
-            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
-        ] = None,
         min_token_length: int = 3,
     ):
         self.tokenize_fn = tokenize_fn
-        super().__init__(wanted_cols=wanted_cols)
         self.min_token_length = min_token_length
 
     def tokenize(self, x) -> List:

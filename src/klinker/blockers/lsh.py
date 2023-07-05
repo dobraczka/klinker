@@ -17,15 +17,11 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
-        wanted_cols: Union[
-            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
-        ] = None,
     ):
         self.tokenize_fn = tokenize_fn
         self.threshold = threshold
         self.num_perm = num_perm
         self.weights = weights
-        super().__init__(wanted_cols=wanted_cols)
 
     def _inner_encode(self, val: str):
         return [tok.encode("utf-8") for tok in self.tokenize_fn(str(val))]

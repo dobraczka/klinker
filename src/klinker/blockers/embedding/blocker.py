@@ -14,15 +14,11 @@ import warnings
 class EmbeddingBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
-        wanted_cols: Union[
-            str, List[str], Tuple[Union[str, List[str]], Union[str, List[str]]]
-        ] = None,
         frame_encoder: HintOrType[FrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
         embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         embedding_block_builder_kwargs: OptionalKwargs = None,
     ):
-        super().__init__(wanted_cols=wanted_cols)
         self.frame_encoder = frame_encoder_resolver.make(
             frame_encoder, frame_encoder_kwargs
         )
