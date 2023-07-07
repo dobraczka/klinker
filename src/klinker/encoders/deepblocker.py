@@ -16,7 +16,7 @@ from ..models.deepblocker import (
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from ..typing import GeneralVector
+from ..typing import GeneralVector, Frame
 
 FeatureType = TypeVar("FeatureType")
 
@@ -58,16 +58,16 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         raise NotImplementedError
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[FeatureType, torch.Tensor, torch.Tensor]:
         raise NotImplementedError
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         features, left_enc, right_enc = self.create_features(left, right)
         assert self.input_dimension is not None
@@ -119,7 +119,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         return AutoEncoderDeepBlockerModelTrainer
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         left_enc, right_enc = self.inner_encoder._encode_as(
             left, right, return_type="pt"
@@ -164,7 +164,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         self.random_seed = random_seed
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
@@ -242,10 +242,10 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.inner_encoder.prepare(left, right)
         (

@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
-from klinker.data import KlinkerFrame
+from klinker.data import KlinkerFrame, KlinkerPandasFrame
 
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
 from ..base import SchemaAgnosticBlocker
@@ -50,7 +50,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
     ) -> pd.DataFrame:
         assert left.table_name is not None
         assert right.table_name is not None
-        self._check_ids(left, right)
+        if isinstance(left, KlinkerPandasFrame):
+            self._check_ids(left, right)
         left_reduced = left.set_index(left.id_col)[left.non_id_columns]
         right_reduced = right.set_index(right.id_col)[right.non_id_columns]
         # TODO fix typing issue

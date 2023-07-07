@@ -1,4 +1,6 @@
 from typing import Literal, Sequence, Tuple, Union
+import pandas as pd
+import dask.dataframe as dd
 
 import numpy as np
 import torch
@@ -8,6 +10,4 @@ GeneralVector = Union[np.ndarray, torch.Tensor]
 GeneralVectorLiteral = Literal["np", "pt"]
 TorchVectorLiteral: GeneralVectorLiteral = "pt"
 NumpyVectorLiteral: GeneralVectorLiteral = "np"
-ColumnSpecifier = Union[str, Sequence[str]]
-DualColumnSpecifier = Tuple[ColumnSpecifier, ColumnSpecifier]
-SingleOrDualColumnSpecifier = Union[str, Sequence[str], DualColumnSpecifier]
+Frame = Union[pd.DataFrame, dd.DataFrame]

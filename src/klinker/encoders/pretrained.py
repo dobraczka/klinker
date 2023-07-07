@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pystow
@@ -16,7 +17,7 @@ from sklearn.decomposition import TruncatedSVD
 from torch_max_mem import MemoryUtilizationMaximizer
 
 from .base import TokenizedFrameEncoder
-from ..typing import GeneralVector
+from ..typing import Frame, GeneralVector
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
@@ -43,17 +44,17 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.encoder.tokenizer.tokenize
 
-    def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
+    def _encode_side(self, df: Frame) -> GeneralVector:
         return self.encoder.encode_all(
             df[df.columns[0]].values, batch_size=self.batch_size
         )
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         return self._encode_side(left), self._encode_side(right)
 
@@ -162,27 +163,42 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-    def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
+    @staticmethod
+    def _encode_side(df: Frame, twe: TokenizedWordEmbedder) -> GeneralVector:
         embeddings: np.ndarray = torch.nn.init.xavier_normal_(
-            torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
+            torch.empty(len(df), twe.embedding_dim)
         ).numpy()
         # TODO vectorize this?
         for idx, val in enumerate(df[df.columns[0]].values):
-            emb = self.tokenized_word_embedder.embed(val)
+            emb = twe.embed(val)
             if not any(np.isnan(emb)):
                 embeddings[idx] = emb
         return embeddings
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        if isinstance(left, dd.DataFrame):
+            return (
+                left.map_partitions(
+                    AverageEmbeddingTokenizedFrameEncoder._encode_side,
+                    twe=self.tokenized_word_embedder,
+                ).compute(),
+                right.map_partitions(
+                    AverageEmbeddingTokenizedFrameEncoder._encode_side,
+                    twe=self.tokenized_word_embedder,
+                ).compute(),
+            )
+
         return (
-            self._encode_side(left),
-            self._encode_side(right),
+            AverageEmbeddingTokenizedFrameEncoder._encode_side(
+                left, twe=self.tokenized_word_embedder
+            ),
+            self._encode_side(right, twe=self.tokenized_word_embedder),
         )
 
 
@@ -208,9 +224,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-    def prepare(
-        self, left: pd.DataFrame, right: pd.DataFrame
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
         # use this instead of pd.concat in case columns have different
         # names, we already validated both dfs only have 1 column
         left, right = super().prepare(left, right)
@@ -238,7 +252,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.token_weight_dict = token_weight_dict
         return left, right
 
-    def _encode_side(self, df: pd.DataFrame) -> GeneralVector:
+    def _encode_side(self, df: Frame) -> GeneralVector:
         assert self.token_weight_dict is not None
         embeddings: np.ndarray = torch.nn.init.xavier_normal_(
             torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
@@ -265,10 +279,10 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         if self.token_weight_dict is None:
             self.prepare(left, right)

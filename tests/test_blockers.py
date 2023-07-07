@@ -289,12 +289,14 @@ embedding_based_cases.extend(
     "cls, frame_encoder, frame_encoder_kwargs, embedding_block_builder",
     embedding_based_cases,
 )
+@pytest.mark.parametrize("use_dask", [True, False])
 def test_assign_embedding_blocker(
     tables,
     cls,
     frame_encoder,
     frame_encoder_kwargs,
     embedding_block_builder,
+    use_dask,
     request,
     mocker,
 ):
@@ -304,6 +306,9 @@ def test_assign_embedding_blocker(
         MockGensimDownloader(dimension=dimension),
     )
     ta, tb, _, _ = request.getfixturevalue(tables)
+    if use_dask:
+        ta = from_klinker_frame(ta, npartitions=2)
+        tb = from_klinker_frame(tb, npartitions=2)
     eb, eb_kwargs = embedding_block_builder
     block = cls(
         frame_encoder=frame_encoder,
@@ -360,9 +365,15 @@ def test_assign_relation_frame_encoder(
 #         assert postprocess(pp).equals(expected)
 
 
-def test_concat_neighbor_attributes(example_tables, example_rel_triples):
+@pytest.mark.parametrize("use_dask", [True, False])
+def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask):
     ta = example_tables[0]
     rel_ta = example_rel_triples[0]
+
+    if use_dask:
+        ta = from_klinker_frame(ta, npartitions=2)
+        rel_ta = from_klinker_frame(rel_ta, npartitions=2)
+
     all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
     conc_ta = concat_neighbor_attributes(ta, rel_ta)
     assert len(conc_ta) == len(all_ids)

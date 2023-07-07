@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import pandas as pd
+import dask.dataframe as dd
 import torch
 from class_resolver import HintOrType, OptionalKwargs
 from class_resolver.contrib.torch import initializer_resolver
@@ -10,17 +11,17 @@ from sylloge.id_mapped import id_map_rel_triples
 from torch import nn
 
 from ..data import NamedVector
-from ..typing import GeneralVector, GeneralVectorLiteral
+from ..typing import GeneralVector, GeneralVectorLiteral, Frame
 from ..utils import cast_general_vector
 
 
 class FrameEncoder:
     def validate(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ):
         if len(left.columns) != 1 or len(right.columns) != 1:
             raise ValueError(
@@ -28,28 +29,28 @@ class FrameEncoder:
             )
 
     def prepare(
-        self, left: pd.DataFrame, right: pd.DataFrame
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, left: Frame, right: Frame
+    ) -> Tuple[Frame, Frame]:
         return left.fillna(""), right.fillna("")
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         raise NotImplementedError
 
     @overload
     def _encode_as(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
         return_type: Literal["np"],
     ) -> Tuple[np.ndarray, np.ndarray]:
         ...
@@ -57,22 +58,22 @@ class FrameEncoder:
     @overload
     def _encode_as(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
         return_type: Literal["pt"],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         ...
 
     def _encode_as(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[GeneralVector, GeneralVector]:
         left_enc, right_enc = self._encode(
@@ -84,17 +85,15 @@ class FrameEncoder:
 
     def encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[NamedVector, NamedVector]:
         self.validate(left, right)
-        left = left.fillna("")
-        right = right.fillna("")
-        self.prepare(left, right)
+        left, right = self.prepare(left, right)
         start = time.time()
         left_enc, right_enc = self._encode_as(
             left=left,
@@ -105,8 +104,14 @@ class FrameEncoder:
         )
         end = time.time()
         self._encoding_time = end - start
-        return NamedVector(names=left.index.tolist(), vectors=left_enc), NamedVector(
-            names=right.index.tolist(), vectors=right_enc
+        if isinstance(left, dd.DataFrame):
+            left_names = left.index.compute().tolist()
+            right_names = right.index.compute().tolist()
+        else:
+            left_names = left.index.tolist()
+            right_names = right.index.tolist()
+        return NamedVector(names=left_names, vectors=left_enc), NamedVector(
+            names=right_names, vectors=right_enc
         )
 
 
@@ -138,7 +143,7 @@ def initialize_and_fill(
     return nv
 
 
-def _get_ids(attr: pd.DataFrame, rel: pd.DataFrame) -> Set:
+def _get_ids(attr: Frame, rel: Frame) -> Set:
     return set(attr.index).union(set(rel["head"])).union(set(rel["tail"]))
 
 
@@ -147,10 +152,10 @@ class RelationFrameEncoder(FrameEncoder):
 
     def validate(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ):
         super().validate(left=left, right=right)
         if left_rel is None or right_rel is None:
@@ -200,11 +205,11 @@ class RelationFrameEncoder(FrameEncoder):
 
     def encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
+        left: Frame,
+        right: Frame,
         *,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[NamedVector, NamedVector]:
         self.validate(left=left, right=right, left_rel=left_rel, right_rel=right_rel)

@@ -1,17 +1,16 @@
 import abc
-import numpy as np
-from typing import List, Optional, Tuple, Set
+from typing import Optional
 
 import pandas as pd
 
-from ..data import KlinkerFrame, KlinkerTriplePandasFrame, KlinkerBlockManager
-from ..typing import DualColumnSpecifier, SingleOrDualColumnSpecifier
+from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerTriplePandasFrame
 
 
 def transform_triple_frames_if_needed(kf: KlinkerFrame) -> Optional[KlinkerFrame]:
     if isinstance(kf, KlinkerTriplePandasFrame):
         return kf.concat_values()
     return None
+
 
 class Blocker(abc.ABC):
     @abc.abstractmethod
@@ -35,6 +34,7 @@ class Blocker(abc.ABC):
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
         return res
+
 
 class SchemaAgnosticBlocker(Blocker):
     def assign(
