@@ -25,15 +25,15 @@ class QgramsBlocker(StandardBlocker):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
+        assert isinstance(self.blocking_key, str)
         qgramed = []
         for tab in [left, right]:
-            kf = KlinkerPandasFrame(
-                tab.set_index(tab.id_col)[self.blocking_key]
-                .apply(self.qgram_tokenize)
-                .explode(),
+            series = tab.set_index(tab.id_col)[self.blocking_key].apply(self.qgram_tokenize).explode()
+            kf = tab.__class__.upgrade_from_series(
+                series,
                 table_name=tab.table_name,
                 id_col=tab.id_col,
-                columns=[self.blocking_key]
-            ).reset_index(inplace=False)
+                columns=[tab.id_col, self.blocking_key]
+            )
             qgramed.append(kf)
         return super()._assign(left=qgramed[0], right=qgramed[1])

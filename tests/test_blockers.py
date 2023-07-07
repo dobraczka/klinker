@@ -17,7 +17,7 @@ from klinker.blockers import (
 )
 from klinker.blockers.base import Blocker
 from klinker.blockers.relation_aware import concat_neighbor_attributes
-from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame
+from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame, KlinkerDaskFrame, from_klinker_frame
 from klinker.encoders.base import _get_ids
 
 
@@ -114,9 +114,12 @@ def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
 def example_with_expected(
     request,
 ) -> Tuple[KlinkerFrame, KlinkerFrame, pd.DataFrame, Type[Blocker]]:
-    example, (expected, cls, index_prefix), stringify = request.param
+    example, (expected, cls, index_prefix), stringify, use_dask = request.param
     ta, tb, _, _ = request.getfixturevalue(example)
     expected = request.getfixturevalue(expected)
+    if use_dask:
+        ta = from_klinker_frame(ta, npartitions=2)
+        tb = from_klinker_frame(tb, npartitions=2)
     return ta, tb, expected, cls
 
 
@@ -213,14 +216,19 @@ def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
                 ),
             ],
             [True, False],
+            [False, True],
         )
     ),
     indirect=True,
 )
 def test_assign_schema_aware(example_with_expected):
     ta, tb, expected, cls = example_with_expected
-    block = cls(blocking_key="BirthCountry").assign(ta, tb)
-    block == expected
+    if cls == SortedNeighborhoodBlocker and isinstance(ta, KlinkerDaskFrame):
+        with pytest.raises(ValueError):
+            cls(blocking_key="BirthCountry").assign(ta, tb)
+    else:
+        block = cls(blocking_key="BirthCountry").assign(ta, tb)
+        block == expected
 
 
 @pytest.mark.parametrize(
@@ -233,6 +241,7 @@ def test_assign_schema_aware(example_with_expected):
                 ("expected_lsh_blocker", MinHashLSHBlocker, "b"),
             ],
             [True, False],
+            [False, True],
         )
     ),
     indirect=True,

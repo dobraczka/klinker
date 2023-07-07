@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import itertools
 from typing import List, Optional, Type, Union
 
 import dask.dataframe as dd
@@ -44,7 +43,19 @@ class AbstractKlinkerFrame(ABC):
         self,
         new_column_name: str = "_merged_text",
         **kwargs,
-    ):
+    ) -> "KlinkerFrame":
+        ...
+
+    @classmethod
+    @abstractmethod
+    def upgrade_from_series(
+        cls,
+        series,
+        columns: List[str],
+        table_name: Optional[str],
+        id_col: str,
+        reset_index: bool = True,
+    ) -> "KlinkerFrame":
         ...
 
 
@@ -86,14 +97,28 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
         self,
         new_column_name: str = "_merged_text",
         **kwargs,
-    ) -> "KlinkerPandasFrame":
-        wanted = self[self.non_id_columns]
-        if isinstance(wanted, pd.Series):
-            wanted = wanted.to_frame(name=self.non_id_columns)
-        wanted = wanted.astype(str)
-        new_df = self.copy()
-        new_df[new_column_name] = wanted.agg(" ".join, axis=1)
-        return new_df[[self.id_col, new_column_name]]
+    ) -> "KlinkerFrame":
+        self = self.fillna("")
+        result = self.copy()[[self.id_col]]
+        result[new_column_name] = (
+            self[self.non_id_columns].astype(str).agg(" ".join, axis=1).str.strip()
+        )
+        return result
+
+    @classmethod
+    def upgrade_from_series(
+        cls,
+        series,
+        columns: List[str],
+        table_name: Optional[str],
+        id_col: str,
+        reset_index: bool = True,
+    ) -> "KlinkerFrame":
+        kf = KlinkerPandasFrame(series, table_name=table_name, id_col=id_col)
+        if reset_index:
+            kf = kf.reset_index()
+        kf.columns = columns
+        return kf
 
     def __repr__(self) -> str:
         return (
@@ -115,18 +140,17 @@ class KlinkerTriplePandasFrame(KlinkerPandasFrame):
         self,
         new_column_name: str = "_merged_text",
         **kwargs,
-    ) -> KlinkerPandasFrame:
+    ) -> "KlinkerFrame":
         assert self.table_name
-        head_with_tail = [self.id_col, self.columns[2]]
-        df = (
-            self.copy()[head_with_tail]
+        self = self.fillna("")
+        return KlinkerPandasFrame.upgrade_from_series(
+            self[[self.id_col, self.columns[2]]]
             .groupby(self.id_col)
-            .agg(lambda row: " ".join(row.astype(str).values))
-            .reset_index()
-        )
-        df.columns = [self.id_col, new_column_name]
-        return KlinkerPandasFrame.from_df(
-            df, table_name=self.table_name, id_col=self.id_col
+            .agg(lambda row: " ".join(row.astype(str).values).strip()),
+            columns=[self.id_col, new_column_name],
+            table_name=self.table_name,
+            id_col=self.id_col,
+            reset_index=True,
         )
 
 
@@ -148,67 +172,106 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
         meta,
         divisions,
         table_name: Optional[str] = None,
-        id_col: Optional[str] = "id",
+        id_col: str = "id",
     ):
         super().__init__(dsk, name, meta, divisions)
-        self._table_name = table_name
-        assert id_col
-        self._id_col: str = id_col
+        if table_name is None:
+            self._table_name = meta.table_name
+            self._id_col = meta.id_col
+        else:
+            self._table_name = table_name
+            self._id_col = id_col
 
-    def _propagate_klinker_attributes(self, new_object):
-        # see https://github.com/geopandas/dask-geopandas/blob/2d0abad32e324a494b34738ab70feb6d78cc0942/dask_geopandas/core.py#L593
-        new_object.table_name = self.table_name
-        new_object.id_col = self.id_col
+    @staticmethod
+    def _static_propagate_klinker_attributes(
+        new_object: "KlinkerDaskFrame", table_name: str, id_col: str
+    ) -> "KlinkerDaskFrame":
+        new_object.table_name = table_name
+        new_object.id_col = id_col
         return new_object
 
     @property
     def non_id_columns(self) -> List[str]:
         return self._meta.non_id_columns
 
-    @staticmethod
-    def upgrade_from_series(series: dd.Series, columns: List[str], table_name: Optional[str], id_col: str) -> "KlinkerDaskFrame":
-        def _upgrade(ser, columns:List[str], table_name:str, id_col:str) -> KlinkerPandasFrame:
-            kf = KlinkerPandasFrame(ser, table_name=table_name, id_col=id_col).reset_index()
-            kf.columns = columns
-            return kf
-        return series.map_partitions(_upgrade, columns=columns, table_name=table_name, id_col=id_col)
-
+    @classmethod
+    def upgrade_from_series(
+        cls,
+        series,
+        columns: List[str],
+        table_name: Optional[str],
+        id_col: str,
+        reset_index: bool = True,
+        meta=no_default,
+    ) -> "KlinkerFrame":
+        assert table_name
+        kf = series.map_partitions(
+            KlinkerPandasFrame.upgrade_from_series,
+            columns=columns,
+            table_name=table_name,
+            id_col=id_col,
+            reset_index=reset_index,
+            meta=meta,
+        )
+        return KlinkerDaskFrame._static_propagate_klinker_attributes(
+            kf, table_name, id_col
+        )
 
     def concat_values(
         self,
         new_column_name: str = "_merged_text",
         **kwargs,
     ) -> "KlinkerDaskFrame":
+        self = self.fillna("")
+        assert self.table_name
         meta = KlinkerPandasFrame(
             pd.DataFrame([], columns=[self.id_col, new_column_name], dtype="str"),
             table_name=self.table_name,
             id_col=self.id_col,
         )
-        if isinstance(self._meta, KlinkerTriplePandasFrame):
-            result = self.groupby(self.id_col)[self.columns[2]].apply(lambda grp: " ".join(grp))
-            result = KlinkerDaskFrame.upgrade_from_series(result, columns=meta.columns, table_name=self.table_name, id_col=self.id_col)
-        else:
-            result = self.map_partitions(
-                M.concat_values,
-                new_column_name=new_column_name,
-                meta=meta,
-            )
-        return self._propagate_klinker_attributes(result)
+        # if isinstance(self._meta, KlinkerTriplePandasFrame):
+        #     result = self.groupby(self.id_col)[self.columns[2]].apply(
+        #         lambda grp: " ".join(grp.astype(str)).strip()
+        #     )
+        #     import ipdb # noqa: autoimport
+        #     ipdb.set_trace() # BREAKPOINT
+
+        #     result = KlinkerDaskFrame.upgrade_from_series(
+        #         result,
+        #         columns=meta.columns,
+        #         table_name=self.table_name,
+        #         id_col=self.id_col,
+        #         meta=meta,
+        #     )
+        # else:
+        #     result = self.map_partitions(
+        #         M.concat_values,
+        #         new_column_name=new_column_name,
+        #         meta=meta,
+        #     )
+        result = self.map_partitions(
+            M.concat_values,
+            new_column_name=new_column_name,
+            meta=meta,
+        )
+        return KlinkerDaskFrame._static_propagate_klinker_attributes(
+            result, table_name=self.table_name, id_col=self.id_col
+        )
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
-        return self._propagate_klinker_attributes(result)
+        return result
 
     def reset_index(self, drop=False):
         result = super().reset_index(drop=drop)
-        return self._propagate_klinker_attributes(result)
+        return result
 
     @classmethod
     def from_dask_dataframe(
         cls,
         df: dd.DataFrame,
         table_name: str,
-        id_col: Optional[str] = "id",
+        id_col: str,
         meta=no_default,
         construction_class: Type[KlinkerPandasFrame] = KlinkerPandasFrame,
     ) -> "KlinkerDaskFrame":
@@ -228,30 +291,78 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
             id_col=id_col,
         )
 
-    @classmethod
-    def from_klinker_frame(
-        cls, kf: KlinkerPandasFrame, npartitions: int
-    ) -> "KlinkerDaskFrame":
-        if not kf.table_name:
-            raise ValueError("KlinkerFrame needs to have a table_name set!")
-        return cls.from_dask_dataframe(
-            dd.from_pandas(kf, npartitions=npartitions),
-            table_name=kf.table_name,
-            id_col=kf.id_col,
-            meta=kf.head(0),
-            construction_class=kf.__class__,
+    def __repr__(self) -> str:
+        return (
+            super().__repr__()
+            + f"\nTable Name: {self.table_name}, id_col: {self.id_col}"
         )
 
 
+class KlinkerTripleDaskFrame(KlinkerDaskFrame):
+    """Parallel KlinkerTriplePandasFrame
+
+    :param dsk: The dask graph to compute this KlinkerFrame
+    :param name: The key prefix that specifies which keys in the dask comprise this particular KlinkerFrame
+    :param meta: An empty klinkerframe object with names, dtypes, and indices matching the expected output.
+    :param divisions: Values along which we partition our blocks on the index
+    """
+
+    _partition_type = KlinkerTriplePandasFrame
+
+    def concat_values(
+        self,
+        new_column_name: str = "_merged_text",
+        **kwargs,
+    ) -> "KlinkerDaskFrame":
+        self = self.fillna("")
+        assert self.table_name
+        meta = KlinkerPandasFrame(
+            pd.DataFrame([], columns=[self.id_col, new_column_name], dtype="str"),
+            table_name=self.table_name,
+            id_col=self.id_col,
+        )
+        result = self.groupby(self.id_col)[self.columns[2]].apply(
+            lambda grp: " ".join(grp.astype(str)).strip()
+        )
+        result = KlinkerDaskFrame.upgrade_from_series(
+            result,
+            columns=meta.columns,
+            table_name=self.table_name,
+            id_col=self.id_col,
+            meta=meta,
+        )
+        return KlinkerDaskFrame._static_propagate_klinker_attributes(
+            result, table_name=self.table_name, id_col=self.id_col
+        )
+
+
+def from_klinker_frame(kf: KlinkerPandasFrame, npartitions: int) -> "KlinkerDaskFrame":
+    if not kf.table_name:
+        raise ValueError("KlinkerFrame needs to have a table_name set!")
+    cls = (
+        KlinkerTripleDaskFrame
+        if isinstance(kf, KlinkerTriplePandasFrame)
+        else KlinkerDaskFrame
+    )
+    return cls.from_dask_dataframe(
+        dd.from_pandas(kf, npartitions=npartitions),
+        table_name=kf.table_name,
+        id_col=kf.id_col,
+        meta=kf.head(0),
+        construction_class=kf.__class__,
+    )
+
+
 get_parallel_type.register(KlinkerPandasFrame, lambda _: KlinkerDaskFrame)
+get_parallel_type.register(KlinkerTriplePandasFrame, lambda _: KlinkerTripleDaskFrame)
 
 
-@make_meta_dispatch.register(KlinkerPandasFrame)
+@make_meta_dispatch.register((KlinkerPandasFrame, KlinkerTriplePandasFrame))
 def make_meta_klinkerpandasframe(df, index=None):
     return df.head(0)
 
 
-@meta_nonempty.register(KlinkerPandasFrame)
+@meta_nonempty.register((KlinkerPandasFrame, KlinkerTriplePandasFrame))
 def _nonempty_dataframe(df):
     return KlinkerPandasFrame(
         meta_nonempty_dataframe(df), table_name=df.table_name, id_col=df.id_col
@@ -269,6 +380,21 @@ def concat_klinker_pandas(
     **kwargs,
 ):
     return KlinkerPandasFrame(
+        concat_pandas(dfs), table_name=dfs[0].table_name, id_col=dfs[0].id_col
+    )
+
+
+@concat_dispatch.register(KlinkerTriplePandasFrame)
+def concat_klinker_triple_pandas(
+    dfs,
+    axis=0,
+    join="outer",
+    uniform=False,
+    filter_warning=True,
+    ignore_index=False,
+    **kwargs,
+):
+    return KlinkerTriplePandasFrame(
         concat_pandas(dfs), table_name=dfs[0].table_name, id_col=dfs[0].id_col
     )
 

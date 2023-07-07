@@ -2,6 +2,7 @@ import itertools
 from typing import Dict, Generator, Optional, Set, Tuple, Union, ItemsView, ValuesView, KeysView
 
 import pandas as pd
+import dask.dataframe as dd
 
 
 class KlinkerBlockManager:
@@ -163,7 +164,7 @@ class KlinkerBlockManager:
     @classmethod
     def from_pandas(
         cls,
-        pd_blocks: pd.DataFrame,
+        pd_blocks: Union[pd.DataFrame, dd.DataFrame],
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
     ) -> "KlinkerBlockManager":
         def _ensure_set(value) -> Set:
@@ -173,6 +174,8 @@ class KlinkerBlockManager:
                 return {value}
             else:
                 return set(value)
+        if isinstance(pd_blocks, dd.DataFrame):
+            pd_blocks = pd_blocks.compute()
         # remove blocks with only one entry
         max_number_nans = len(pd_blocks.columns) - 1
         pd_blocks = pd_blocks[~(pd_blocks.isnull().sum(axis=1) == max_number_nans)]

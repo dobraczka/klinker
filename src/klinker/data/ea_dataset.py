@@ -78,8 +78,8 @@ class KlinkerDataset:
 
         if clean:
             # remove datatype
-            left["tail"] = left["tail"].str.split(pat=r"\^\^", expand=True)[0]
-            right["tail"] = right["tail"].str.split(pat=r"\^\^", expand=True)[0]
+            left["tail"] = left["tail"].map(lambda x: str(x).split("^^")[0])
+            right["tail"] = right["tail"].map(lambda x: str(x).split("^^")[0])
 
         return cls(
             left=left,

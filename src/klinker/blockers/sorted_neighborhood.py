@@ -1,13 +1,14 @@
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, Tuple
 
 import pandas as pd
+import dask.dataframe as dd
 
 from .standard import StandardBlocker
-from ..data import KlinkerFrame
+from ..data import KlinkerFrame, KlinkerPandasFrame
 
 
 class SortedNeighborhoodBlocker(StandardBlocker):
-    def __init__(self, blocking_key: Union[str, List[str]], window_size: int = 3):
+    def __init__(self, blocking_key: Union[str, Tuple[str, str]], window_size: int = 3):
         self.blocking_key = blocking_key
         self.window_size = window_size
 
@@ -18,6 +19,8 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
+        if not isinstance(left, KlinkerPandasFrame):
+            raise ValueError("Not implemented for Dask!")
         name_id_tuple_col = "name_id_tuple"
         tables = [left, right]
         for tab in tables:
