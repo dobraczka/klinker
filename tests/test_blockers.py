@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from mocks import MockGensimDownloader
 from strawman import dummy_triples
+import dask.dataframe as dd
 
 from klinker.blockers import (
     DeepBlocker,
@@ -309,21 +310,27 @@ def test_assign_embedding_blocker(
     if use_dask:
         ta = from_klinker_frame(ta, npartitions=2)
         tb = from_klinker_frame(tb, npartitions=2)
+
     eb, eb_kwargs = embedding_block_builder
-    block = cls(
+    blocker = cls(
         frame_encoder=frame_encoder,
         frame_encoder_kwargs=frame_encoder_kwargs,
         embedding_block_builder=eb,
         embedding_block_builder_kwargs=eb_kwargs,
-    ).assign(ta, tb)
+    )
+    if use_dask and any([frame_encoder == noimp for noimp in ["CrossTupleTraining", "Hybrid"]]):
+        with pytest.raises(NotImplementedError):
+            block = blocker.assign(ta, tb)
+    else:
+        block = blocker.assign(ta, tb)
 
-    assert block.dataset_names == (ta.table_name, tb.table_name)
-    if eb != "HDBSCANBlockBuilder":
-        assert len(block) == len(ta.concat_values())  # need unique in case of triples
-        assert all(
-            len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]
-            for block_tuple in block.values()
-        )
+        assert block.dataset_names == (ta.table_name, tb.table_name)
+        if eb != "HDBSCANBlockBuilder":
+            assert len(block) == len(ta.concat_values())  # need unique in case of triples
+            assert all(
+                len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]
+                for block_tuple in block.values()
+            )
 
 
 @pytest.mark.parametrize(
@@ -369,11 +376,12 @@ def test_assign_relation_frame_encoder(
 def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask):
     ta = example_tables[0]
     rel_ta = example_rel_triples[0]
+    all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
 
     if use_dask:
         ta = from_klinker_frame(ta, npartitions=2)
-        rel_ta = from_klinker_frame(rel_ta, npartitions=2)
-
-    all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
-    conc_ta = concat_neighbor_attributes(ta, rel_ta)
+        rel_ta = dd.from_pandas(rel_ta, npartitions=2)
+        conc_ta = concat_neighbor_attributes(ta, rel_ta).compute()
+    else:
+        conc_ta = concat_neighbor_attributes(ta, rel_ta)
     assert len(conc_ta) == len(all_ids)

@@ -1,4 +1,4 @@
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import pandas as pd
 
@@ -17,32 +17,17 @@ class StandardBlocker(Blocker):
         table_name = kf.table_name
         assert table_name
 
-        def myapply(x, id_col):
-            if id_col not in x:
-                import ipdb # noqa: autoimport
-                ipdb.set_trace() # BREAKPOINT
-                print("cccc")
-            return set(x[id_col])
-
-
-
-        if id_col not in kf:
-            import ipdb # noqa: autoimport
-            ipdb.set_trace() # BREAKPOINT
-            print("cccc")
-        # blocked = kf[[id_col, self.blocking_key]].groupby(self.blocking_key).agg(set)
         series = (
             kf[[id_col, self.blocking_key]]
             .groupby(self.blocking_key)
-            # .apply(lambda x: set(x[x.id_col]))
-            .apply(myapply, id_col=kf.id_col)
+            .apply(lambda x, id_col: set(x[id_col]), id_col=kf.id_col)
         )
         blocked = kf.__class__.upgrade_from_series(
             series,
             columns=[table_name],
             table_name=table_name,
             id_col=id_col,
-            reset_index=False
+            reset_index=False,
         )
         return blocked
 

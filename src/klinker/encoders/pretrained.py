@@ -18,6 +18,8 @@ from torch_max_mem import MemoryUtilizationMaximizer
 
 from .base import TokenizedFrameEncoder
 from ..typing import Frame, GeneralVector
+from ..data import KlinkerPandasFrame, KlinkerDaskFrame
+from ..utils import concat_frames
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
@@ -146,6 +148,20 @@ tokenized_word_embedder_resolver = ClassResolver(
     [TokenizedWordEmbedder], base=TokenizedWordEmbedder, default=TokenizedWordEmbedder
 )
 
+def encode_frame(df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None) -> np.ndarray:
+    embeddings: np.ndarray = torch.nn.init.xavier_normal_(
+        torch.empty(len(df), twe.embedding_dim)
+    ).numpy()
+    # TODO vectorize this?
+    for idx, val in enumerate(df[df.columns[0]].values):
+        if weight_dict:
+            emb = twe.weighted_embed(val, weight_dict)
+        else:
+            emb = twe.embed(val)
+        if not any(np.isnan(emb)):
+            embeddings[idx] = emb
+    return embeddings
+
 
 # TODO refactor both classes into TokenEmbeddingAggregator and create AggregatedTokenizedFrameEncoder class
 # with tokenized_word_embedder and token_embedding_aggregator
@@ -163,17 +179,6 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-    @staticmethod
-    def _encode_side(df: Frame, twe: TokenizedWordEmbedder) -> GeneralVector:
-        embeddings: np.ndarray = torch.nn.init.xavier_normal_(
-            torch.empty(len(df), twe.embedding_dim)
-        ).numpy()
-        # TODO vectorize this?
-        for idx, val in enumerate(df[df.columns[0]].values):
-            emb = twe.embed(val)
-            if not any(np.isnan(emb)):
-                embeddings[idx] = emb
-        return embeddings
 
     def _encode(
         self,
@@ -185,20 +190,20 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         if isinstance(left, dd.DataFrame):
             return (
                 left.map_partitions(
-                    AverageEmbeddingTokenizedFrameEncoder._encode_side,
+                    encode_frame,
                     twe=self.tokenized_word_embedder,
                 ).compute(),
                 right.map_partitions(
-                    AverageEmbeddingTokenizedFrameEncoder._encode_side,
+                    encode_frame,
                     twe=self.tokenized_word_embedder,
                 ).compute(),
             )
 
         return (
-            AverageEmbeddingTokenizedFrameEncoder._encode_side(
+            encode_frame(
                 left, twe=self.tokenized_word_embedder
             ),
-            self._encode_side(right, twe=self.tokenized_word_embedder),
+            encode_frame(right, twe=self.tokenized_word_embedder),
         )
 
 
@@ -225,13 +230,11 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.tokenized_word_embedder.tokenizer_fn
 
     def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
-        # use this instead of pd.concat in case columns have different
-        # names, we already validated both dfs only have 1 column
         left, right = super().prepare(left, right)
         merged_col = "merged"
-        all_values = pd.DataFrame(
-            np.concatenate([left.values, right.values]), columns=[merged_col]
-        )
+        left.columns = [merged_col]
+        right.columns = [merged_col]
+        all_values = concat_frames([left, right])
 
         value_counts = (
             all_values[merged_col]
@@ -240,31 +243,25 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             .value_counts()
         )
 
-        total_tokens = value_counts.sum()
-
-        token_weight_dict = {}
-        a = self.sif_weighting_param
-        for word, frequency in value_counts.items():
-            if frequency >= self.min_freq:
-                token_weight_dict[word] = a / (a + frequency / total_tokens)
+        def sif_weighting(x, a: float, min_freq: int, total_tokens: int):
+            if x >= min_freq:
+                return a / (a + x / total_tokens)
             else:
-                token_weight_dict[word] = 1.0
-        self.token_weight_dict = token_weight_dict
+                return 1.0
+
+        total_tokens = value_counts.sum()
+        if isinstance(left, KlinkerDaskFrame):
+            total_tokens = total_tokens.compute()
+
+        token_weight_dict = value_counts.apply(sif_weighting, a=self.sif_weighting_param, min_freq=self.min_freq, total_tokens=total_tokens)
+
+        if isinstance(left, KlinkerDaskFrame):
+            token_weight_dict = token_weight_dict.compute()
+
+        self.token_weight_dict = token_weight_dict.to_dict()
         return left, right
 
-    def _encode_side(self, df: Frame) -> GeneralVector:
-        assert self.token_weight_dict is not None
-        embeddings: np.ndarray = torch.nn.init.xavier_normal_(
-            torch.empty(len(df), self.tokenized_word_embedder.embedding_dim)
-        ).numpy()
-        # TODO vectorize this?
-        for idx, val in enumerate(df[df.columns[0]].values):
-            emb = self.tokenized_word_embedder.weighted_embed(
-                val, self.token_weight_dict
-            )
-            if not any(np.isnan(emb)):
-                embeddings[idx] = emb
-
+    def _postprocess(self, embeddings) -> GeneralVector:
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
         if self.remove_pc:
@@ -286,7 +283,17 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     ) -> Tuple[GeneralVector, GeneralVector]:
         if self.token_weight_dict is None:
             self.prepare(left, right)
-        return self._encode_side(left), self._encode_side(right)
+        if isinstance(left, KlinkerDaskFrame):
+            left_enc = left.map_partitions(encode_frame, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict).compute()
+            right_enc = right.map_partitions(encode_frame, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict).compute()
+        else:
+            left_enc = encode_frame(left, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict)
+            right_enc = encode_frame(right, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict)
+        if self.remove_pc:
+            left_enc = self._postprocess(left_enc)
+            right_enc = self._postprocess(right_enc)
+        return left_enc, right_enc
+
 
 
 tokenized_frame_encoder_resolver = ClassResolver(

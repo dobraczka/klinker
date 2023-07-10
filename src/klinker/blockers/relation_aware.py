@@ -4,17 +4,24 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
-from klinker.data import KlinkerFrame, KlinkerTriplePandasFrame, KlinkerBlockManager
-from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
-
 from .base import Blocker
-from .embedding.deepblocker import DeepBlocker
 from .embedding.blockbuilder import EmbeddingBlockBuilder
+from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
 from .token_blocking import TokenBlocker
+from ..data import (
+    KlinkerBlockManager,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    KlinkerTripleDaskFrame,
+    KlinkerTriplePandasFrame,
+)
+from ..encoders.deepblocker import DeepBlockerFrameEncoder
+from ..typing import Frame
+from ..utils import concat_frames
 
 
-def reverse_rel(rel_frame: pd.DataFrame) -> pd.DataFrame:
+def reverse_rel(rel_frame: Frame) -> Frame:
     orig_columns = rel_frame.columns
     rev_rel_frame = rel_frame[rel_frame.columns[::-1]]
     rev_rel_frame[rev_rel_frame.columns[1]] = (
@@ -25,24 +32,36 @@ def reverse_rel(rel_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def concat_neighbor_attributes(
-    attribute_frame: KlinkerFrame, rel_frame: pd.DataFrame
+    attribute_frame: KlinkerFrame, rel_frame: Frame
 ) -> KlinkerFrame:
     """Return concatenated attributes of neighboring entities.
 
     Note:: If an entity does not show up in rel_frame it is not contained in the result! Also, the attributes of the entity itself are also not part of the concatenated attributes!
 
-    :param attribute_frame: DataFrame with entity attributes
-    :param rel_frame: DataFrame with relation triples
+    :param attribute_frame: KlinkerFrame with entity attributes
+    :param rel_frame: Frame with relation triples
     :return: DataFrame with concatenated attribute values of neighboring entities
     """
+    assert attribute_frame.table_name
     rev_rel_frame = reverse_rel(rel_frame)
-    with_inv = pd.concat([rel_frame, rev_rel_frame])
+    with_inv = concat_frames([rel_frame, rev_rel_frame])
     concat_attr = attribute_frame.concat_values().set_index(attribute_frame.id_col)
-    return KlinkerTriplePandasFrame(
-        with_inv.set_index(with_inv.columns[2]).join(concat_attr, how="left").dropna(),
-        table_name=attribute_frame.table_name,
-        id_col=rel_frame.columns[0],
-    ).concat_values()
+    conc_frame = (
+        with_inv.set_index(with_inv.columns[2]).join(concat_attr, how="left").dropna()
+    )
+    if isinstance(attribute_frame, KlinkerPandasFrame):
+        return KlinkerTriplePandasFrame(
+            conc_frame,
+            table_name=attribute_frame.table_name,
+            id_col=rel_frame.columns[0],
+        ).concat_values()
+    else:
+        return KlinkerTripleDaskFrame.from_dask_dataframe(
+            conc_frame,
+            table_name=attribute_frame.table_name,
+            id_col=rel_frame.columns[0],
+            construction_class=KlinkerTriplePandasFrame,
+        ).concat_values()
 
 
 class RelationalBlocker(Blocker):

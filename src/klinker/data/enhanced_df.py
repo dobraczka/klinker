@@ -229,26 +229,6 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
             table_name=self.table_name,
             id_col=self.id_col,
         )
-        # if isinstance(self._meta, KlinkerTriplePandasFrame):
-        #     result = self.groupby(self.id_col)[self.columns[2]].apply(
-        #         lambda grp: " ".join(grp.astype(str)).strip()
-        #     )
-        #     import ipdb # noqa: autoimport
-        #     ipdb.set_trace() # BREAKPOINT
-
-        #     result = KlinkerDaskFrame.upgrade_from_series(
-        #         result,
-        #         columns=meta.columns,
-        #         table_name=self.table_name,
-        #         id_col=self.id_col,
-        #         meta=meta,
-        #     )
-        # else:
-        #     result = self.map_partitions(
-        #         M.concat_values,
-        #         new_column_name=new_column_name,
-        #         meta=meta,
-        #     )
         result = self.map_partitions(
             M.concat_values,
             new_column_name=new_column_name,
@@ -270,7 +250,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
     def from_dask_dataframe(
         cls,
         df: dd.DataFrame,
-        table_name: str,
+        table_name: Optional[str],
         id_col: str,
         meta=no_default,
         construction_class: Type[KlinkerPandasFrame] = KlinkerPandasFrame,

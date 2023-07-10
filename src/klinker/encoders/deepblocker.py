@@ -16,6 +16,7 @@ from ..models.deepblocker import (
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
+from ..data import KlinkerDaskFrame
 from ..typing import GeneralVector, Frame
 
 FeatureType = TypeVar("FeatureType")
@@ -168,6 +169,9 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
+        if isinstance(left, KlinkerDaskFrame):
+            raise NotImplementedError("CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!")
+
         # TODO refactor this function (copy-pasted from deepblocker repo)
         list_of_tuples = pd.DataFrame(
             np.concatenate([left.values, right.values]), columns=["merged"]
