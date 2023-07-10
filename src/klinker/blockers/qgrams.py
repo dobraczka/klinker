@@ -4,7 +4,7 @@ import pandas as pd
 from nltk.util import ngrams
 
 from .standard import StandardBlocker
-from ..data import KlinkerPandasFrame, KlinkerFrame
+from ..data import KlinkerFrame, KlinkerPandasFrame
 
 
 class QgramsBlocker(StandardBlocker):
@@ -28,12 +28,16 @@ class QgramsBlocker(StandardBlocker):
         assert isinstance(self.blocking_key, str)
         qgramed = []
         for tab in [left, right]:
-            series = tab.set_index(tab.id_col)[self.blocking_key].apply(self.qgram_tokenize).explode()
+            series = (
+                tab.set_index(tab.id_col)[self.blocking_key]
+                .apply(self.qgram_tokenize)
+                .explode()
+            )
             kf = tab.__class__.upgrade_from_series(
                 series,
                 table_name=tab.table_name,
                 id_col=tab.id_col,
-                columns=[tab.id_col, self.blocking_key]
+                columns=[tab.id_col, self.blocking_key],
             )
             qgramed.append(kf)
         return super()._assign(left=qgramed[0], right=qgramed[1])

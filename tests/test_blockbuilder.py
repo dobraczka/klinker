@@ -5,7 +5,10 @@ import pandas as pd
 import pytest
 from strawman import dummy_triples
 
-from klinker.blockers.embedding.blockbuilder import HDBSCANBlockBuilder, KiezEmbeddingBlockBuilder
+from klinker.blockers.embedding.blockbuilder import (
+    HDBSCANBlockBuilder,
+    KiezEmbeddingBlockBuilder,
+)
 from klinker.data import KlinkerFrame, NamedVector
 from klinker.typing import GeneralVector
 
@@ -48,7 +51,12 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
     left, right = data[:left_length], data[left_length:]
     left_names = [f"a{idx}" for idx in range(left_length)]
     right_names = [f"b{idx}" for idx in range(right_length)]
-    return NamedVector(names=left_names, vectors=left), NamedVector(names=right_names, vectors=right), "A", "B"
+    return (
+        NamedVector(names=left_names, vectors=left),
+        NamedVector(names=right_names, vectors=right),
+        "A",
+        "B",
+    )
 
 
 @pytest.fixture
@@ -64,6 +72,7 @@ def expected() -> pd.DataFrame:
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANBlockBuilder(min_cluster_size=2).build_blocks(*example)
     blocks == expected
+
 
 def test_nn_block_builder(example):
     blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)

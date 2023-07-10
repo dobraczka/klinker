@@ -17,12 +17,9 @@ def test_named_vector(as_dict, change_names, torchify):
     if torchify:
         vector = torch.from_numpy(vector)
     if as_dict:
-        nv = NamedVector(
-            names=names_mapping, vectors=vector
-        )
+        nv = NamedVector(names=names_mapping, vectors=vector)
     else:
         nv = NamedVector(names=names, vectors=vector)
-
 
     # test entity mapping
     assert nv.entity_id_mapping == names_mapping
@@ -43,8 +40,8 @@ def test_named_vector(as_dict, change_names, torchify):
         # test wrong init
         NamedVector(names=names[:2], vectors=vector)
         NamedVector(names=names, vectors=vector[:3])
-        NamedVector(names=[0,1], vectors=vector[:2])
-        NamedVector(names={"a":0, "b":2}, vectors=vector[:2])
+        NamedVector(names=[0, 1], vectors=vector[:2])
+        NamedVector(names={"a": 0, "b": 2}, vectors=vector[:2])
         # test disallowed item setting
         nv.names = ["a", "a", "a", "a"]
         nv.names = ["a", "b"]
@@ -73,15 +70,15 @@ def test_named_vector(as_dict, change_names, torchify):
 
     # test eq
     assert nv == NamedVector(names=nv.names, vectors=nv.vectors)
-    assert nv != NamedVector(names=["w","r","o","n"], vectors=nv.vectors)
-    assert nv != NamedVector(names=nv.names, vectors=torch.rand(4,10))
+    assert nv != NamedVector(names=["w", "r", "o", "n"], vectors=nv.vectors)
+    assert nv != NamedVector(names=nv.names, vectors=torch.rand(4, 10))
 
     # smoketest repr
     nv.__repr__()
 
     # test concat
-    new_names = ["x","y","z"]
-    new_vectors = np.random.rand(3,10)
+    new_names = ["x", "y", "z"]
+    new_vectors = np.random.rand(3, 10)
     if torchify:
         new_vectors = torch.from_numpy(new_vectors)
     new_nv_sub = NamedVector(names=new_names, vectors=new_vectors)

@@ -11,13 +11,13 @@ from torch.optim import Optimizer
 
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
+from ..data import KlinkerDaskFrame
 from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from ..data import KlinkerDaskFrame
-from ..typing import GeneralVector, Frame
+from ..typing import Frame, GeneralVector
 
 FeatureType = TypeVar("FeatureType")
 
@@ -170,7 +170,9 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
         if isinstance(left, KlinkerDaskFrame):
-            raise NotImplementedError("CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!")
+            raise NotImplementedError(
+                "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!"
+            )
 
         # TODO refactor this function (copy-pasted from deepblocker repo)
         list_of_tuples = pd.DataFrame(

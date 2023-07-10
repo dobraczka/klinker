@@ -1,8 +1,18 @@
 import itertools
-from typing import Dict, Generator, Optional, Set, Tuple, Union, ItemsView, ValuesView, KeysView
+from typing import (
+    Dict,
+    Generator,
+    ItemsView,
+    KeysView,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    ValuesView,
+)
 
-import pandas as pd
 import dask.dataframe as dd
+import pandas as pd
 
 
 class KlinkerBlockManager:
@@ -125,7 +135,7 @@ class KlinkerBlockManager:
             else None,
         )
 
-    def items(self) -> ItemsView[Union[str,int], Tuple[Set[int], ...]]:
+    def items(self) -> ItemsView[Union[str, int], Tuple[Set[int], ...]]:
         return self.blocks.items()
 
     def values(self) -> ValuesView[Tuple[Set[int], ...]]:
@@ -174,6 +184,7 @@ class KlinkerBlockManager:
                 return {value}
             else:
                 return set(value)
+
         if isinstance(pd_blocks, dd.DataFrame):
             pd_blocks = pd_blocks.compute()
         # remove blocks with only one entry

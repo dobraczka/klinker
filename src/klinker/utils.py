@@ -1,23 +1,25 @@
 from typing import Callable, List, Literal, overload
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import torch
-from torch import nn
 from nltk.tokenize import word_tokenize
-import dask.dataframe as dd
+from torch import nn
 
 from .typing import (
+    Frame,
     GeneralVector,
     GeneralVectorLiteral,
     NumpyVectorLiteral,
     TorchVectorLiteral,
-    Frame,
 )
+
 
 @overload
 def concat_frames(frames: List[pd.DataFrame]) -> pd.DataFrame:
     ...
+
 
 @overload
 def concat_frames(frames: List[dd.DataFrame]) -> dd.DataFrame:
@@ -28,6 +30,7 @@ def concat_frames(frames: List[Frame]) -> Frame:
     if isinstance(frames[0], pd.DataFrame):
         return pd.concat(frames)
     return dd.concat(frames)
+
 
 @overload
 def cast_general_vector(

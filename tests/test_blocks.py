@@ -82,13 +82,10 @@ def test_safety_checks():
 
     # check consistent id mappings
     with pytest.raises(ValueError):
-        KlinkerBlockManager(
-                {2: ({1, 2}, {3})}, ("A", "B"), ({1: "1"}, {3: "3"})
-        )
+        KlinkerBlockManager({2: ({1, 2}, {3})}, ("A", "B"), ({1: "1"}, {3: "3"}))
     with pytest.raises(ValueError):
-        KlinkerBlockManager(
-                {2: ({1, 2}, {3})}, ("A", "B"), ({1: "1", 2: "2"}, {})
-        )
+        KlinkerBlockManager({2: ({1, 2}, {3})}, ("A", "B"), ({1: "1", 2: "2"}, {}))
+
 
 def test_block_eq(block_example):
     other = KlinkerBlockManager(

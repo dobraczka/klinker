@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
 from pykeen.utils import resolve_device
-from tqdm import trange
 from sklearn.preprocessing import normalize
+from tqdm import trange
 
 from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
@@ -277,7 +277,12 @@ if __name__ == "__main__":
         algorithm_kwargs=dict(index_key="HNSW32", index_param="efSearch=512"),
     )
     blocker = EmbeddingBlocker(
-        frame_encoder=LightEAFrameEncoder(ent_dim=256, depth=2, mini_dim=16, attribute_encoder="TransformerTokenizedFrameEncoder"),
+        frame_encoder=LightEAFrameEncoder(
+            ent_dim=256,
+            depth=2,
+            mini_dim=16,
+            attribute_encoder="TransformerTokenizedFrameEncoder",
+        ),
         embedding_block_builder=kiez,
     )
 

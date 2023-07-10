@@ -1,15 +1,17 @@
 import pandas as pd
 import pytest
 
-from klinker.eval_metrics import Evaluation
 from klinker import KlinkerBlockManager
+from klinker.eval_metrics import Evaluation
 
 
 @pytest.fixture
 def example():
-    block = KlinkerBlockManager.from_pandas(pd.DataFrame(
-        [[{1, 2}, {1}], [{3, 2, 4}, {4, 5}], [{6}, {5, 7}]], columns=["A", "B"]
-    ))
+    block = KlinkerBlockManager.from_pandas(
+        pd.DataFrame(
+            [[{1, 2}, {1}], [{3, 2, 4}, {4, 5}], [{6}, {5, 7}]], columns=["A", "B"]
+        )
+    )
     gold = pd.DataFrame(
         [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7]], columns=["A", "B"]
     )
@@ -18,9 +20,11 @@ def example():
 
 @pytest.fixture
 def example_nothing_found():
-    block = KlinkerBlockManager.from_pandas(pd.DataFrame(
-        [[{1, 2}, {4}], [{3, 2, 4}, {1, 5}], [{6}, {5, 7}]], columns=["A", "B"]
-    ))
+    block = KlinkerBlockManager.from_pandas(
+        pd.DataFrame(
+            [[{1, 2}, {4}], [{3, 2, 4}, {1, 5}], [{6}, {5, 7}]], columns=["A", "B"]
+        )
+    )
     gold = pd.DataFrame(
         [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7]], columns=["A", "B"]
     )

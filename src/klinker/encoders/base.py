@@ -1,9 +1,9 @@
-from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, overload
 import time
+from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, overload
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-import dask.dataframe as dd
 import torch
 from class_resolver import HintOrType, OptionalKwargs
 from class_resolver.contrib.torch import initializer_resolver
@@ -11,7 +11,7 @@ from sylloge.id_mapped import id_map_rel_triples
 from torch import nn
 
 from ..data import NamedVector
-from ..typing import GeneralVector, GeneralVectorLiteral, Frame
+from ..typing import Frame, GeneralVector, GeneralVectorLiteral
 from ..utils import cast_general_vector
 
 
@@ -28,9 +28,7 @@ class FrameEncoder:
                 "Input DataFrames must consist of single column containing all attribute values!"
             )
 
-    def prepare(
-        self, left: Frame, right: Frame
-    ) -> Tuple[Frame, Frame]:
+    def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
         return left.fillna(""), right.fillna("")
 
     def _encode(

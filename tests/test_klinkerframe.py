@@ -5,7 +5,12 @@ import pytest
 from strawman import dummy_df, dummy_triples
 from test_blockers import example_tables, example_triples  # noqa: isort
 
-from klinker.data import KlinkerDaskFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame, from_klinker_frame
+from klinker.data import (
+    KlinkerDaskFrame,
+    KlinkerPandasFrame,
+    KlinkerTriplePandasFrame,
+    from_klinker_frame,
+)
 
 
 @pytest.fixture

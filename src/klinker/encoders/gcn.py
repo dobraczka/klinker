@@ -13,6 +13,7 @@ from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 from ..data import NamedVector
 from ..typing import GeneralVector
 
+
 # adapted from https://github.com/pyg-team/pytorch_geometric/blob/2463371cf290a106e057c0c1f24f7a5a38318328/torch_geometric/utils/loop.py#L218
 def add_remaining_self_loops(
     edge_index: torch.Tensor,
@@ -138,9 +139,7 @@ class GCNFrameEncoder(RelationFrameEncoder):
         )
 
     def _forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
-        edge_index_with_loops, edge_weights = gcn_norm(
-            edge_index, num_nodes=len(x)
-        )
+        edge_index_with_loops, edge_weights = gcn_norm(edge_index, num_nodes=len(x))
         return sparse_matmul(
             SparseTensor.from_edge_index(edge_index_with_loops, edge_attr=edge_weights),
             x,

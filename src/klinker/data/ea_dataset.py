@@ -4,7 +4,12 @@ from typing import Optional, Union
 import pandas as pd
 from sylloge.base import EADataset
 
-from .enhanced_df import KlinkerFrame,KlinkerDaskFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame
+from .enhanced_df import (
+    KlinkerDaskFrame,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    KlinkerTriplePandasFrame,
+)
 from ..typing import Side, Tuple
 from ..utils import tokenize_row
 

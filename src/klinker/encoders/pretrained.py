@@ -17,8 +17,8 @@ from sklearn.decomposition import TruncatedSVD
 from torch_max_mem import MemoryUtilizationMaximizer
 
 from .base import TokenizedFrameEncoder
+from ..data import KlinkerDaskFrame, KlinkerPandasFrame
 from ..typing import Frame, GeneralVector
-from ..data import KlinkerPandasFrame, KlinkerDaskFrame
 from ..utils import concat_frames
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,10 @@ tokenized_word_embedder_resolver = ClassResolver(
     [TokenizedWordEmbedder], base=TokenizedWordEmbedder, default=TokenizedWordEmbedder
 )
 
-def encode_frame(df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None) -> np.ndarray:
+
+def encode_frame(
+    df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None
+) -> np.ndarray:
     embeddings: np.ndarray = torch.nn.init.xavier_normal_(
         torch.empty(len(df), twe.embedding_dim)
     ).numpy()
@@ -179,7 +182,6 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.tokenized_word_embedder.tokenizer_fn
 
-
     def _encode(
         self,
         left: Frame,
@@ -200,9 +202,7 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             )
 
         return (
-            encode_frame(
-                left, twe=self.tokenized_word_embedder
-            ),
+            encode_frame(left, twe=self.tokenized_word_embedder),
             encode_frame(right, twe=self.tokenized_word_embedder),
         )
 
@@ -253,7 +253,12 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         if isinstance(left, KlinkerDaskFrame):
             total_tokens = total_tokens.compute()
 
-        token_weight_dict = value_counts.apply(sif_weighting, a=self.sif_weighting_param, min_freq=self.min_freq, total_tokens=total_tokens)
+        token_weight_dict = value_counts.apply(
+            sif_weighting,
+            a=self.sif_weighting_param,
+            min_freq=self.min_freq,
+            total_tokens=total_tokens,
+        )
 
         if isinstance(left, KlinkerDaskFrame):
             token_weight_dict = token_weight_dict.compute()
@@ -284,16 +289,31 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         if self.token_weight_dict is None:
             self.prepare(left, right)
         if isinstance(left, KlinkerDaskFrame):
-            left_enc = left.map_partitions(encode_frame, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict).compute()
-            right_enc = right.map_partitions(encode_frame, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict).compute()
+            left_enc = left.map_partitions(
+                encode_frame,
+                twe=self.tokenized_word_embedder,
+                weight_dict=self.token_weight_dict,
+            ).compute()
+            right_enc = right.map_partitions(
+                encode_frame,
+                twe=self.tokenized_word_embedder,
+                weight_dict=self.token_weight_dict,
+            ).compute()
         else:
-            left_enc = encode_frame(left, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict)
-            right_enc = encode_frame(right, twe=self.tokenized_word_embedder, weight_dict=self.token_weight_dict)
+            left_enc = encode_frame(
+                left,
+                twe=self.tokenized_word_embedder,
+                weight_dict=self.token_weight_dict,
+            )
+            right_enc = encode_frame(
+                right,
+                twe=self.tokenized_word_embedder,
+                weight_dict=self.token_weight_dict,
+            )
         if self.remove_pc:
             left_enc = self._postprocess(left_enc)
             right_enc = self._postprocess(right_enc)
         return left_enc, right_enc
-
 
 
 tokenized_frame_encoder_resolver = ClassResolver(

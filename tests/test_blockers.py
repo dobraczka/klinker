@@ -1,11 +1,11 @@
 import itertools
 from typing import Dict, List, Tuple, Type
 
+import dask.dataframe as dd
 import pandas as pd
 import pytest
 from mocks import MockGensimDownloader
 from strawman import dummy_triples
-import dask.dataframe as dd
 
 from klinker.blockers import (
     DeepBlocker,
@@ -18,7 +18,14 @@ from klinker.blockers import (
 )
 from klinker.blockers.base import Blocker
 from klinker.blockers.relation_aware import concat_neighbor_attributes
-from klinker.data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame, KlinkerDaskFrame, from_klinker_frame
+from klinker.data import (
+    KlinkerBlockManager,
+    KlinkerDaskFrame,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    KlinkerTriplePandasFrame,
+    from_klinker_frame,
+)
 from klinker.encoders.base import _get_ids
 
 
@@ -318,7 +325,9 @@ def test_assign_embedding_blocker(
         embedding_block_builder=eb,
         embedding_block_builder_kwargs=eb_kwargs,
     )
-    if use_dask and any([frame_encoder == noimp for noimp in ["CrossTupleTraining", "Hybrid"]]):
+    if use_dask and any(
+        [frame_encoder == noimp for noimp in ["CrossTupleTraining", "Hybrid"]]
+    ):
         with pytest.raises(NotImplementedError):
             block = blocker.assign(ta, tb)
     else:
@@ -326,9 +335,12 @@ def test_assign_embedding_blocker(
 
         assert block.dataset_names == (ta.table_name, tb.table_name)
         if eb != "HDBSCANBlockBuilder":
-            assert len(block) == len(ta.concat_values())  # need unique in case of triples
+            assert len(block) == len(
+                ta.concat_values()
+            )  # need unique in case of triples
             assert all(
-                len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]
+                len(block_tuple[0]) == 1
+                and len(block_tuple[1]) == eb_kwargs["n_neighbors"]
                 for block_tuple in block.values()
             )
 
@@ -364,12 +376,6 @@ def test_assign_relation_frame_encoder(
         len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]
         for block_tuple in block.values()
     )
-
-
-# def test_postprocess(example_prepostprocess):
-#     prepost, expected = example_prepostprocess
-#     for pp in prepost:
-#         assert postprocess(pp).equals(expected)
 
 
 @pytest.mark.parametrize("use_dask", [True, False])

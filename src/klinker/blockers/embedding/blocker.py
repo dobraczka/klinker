@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -8,7 +9,6 @@ from klinker.data import KlinkerFrame, KlinkerPandasFrame
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
 from ..base import SchemaAgnosticBlocker
 from ...encoders import FrameEncoder, frame_encoder_resolver
-import warnings
 
 
 class EmbeddingBlocker(SchemaAgnosticBlocker):
@@ -27,7 +27,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         )
 
     def _check_string_ids(self, id_col: pd.Series):
-        if not id_col.apply(lambda x: isinstance(x,str)).all():
+        if not id_col.apply(lambda x: isinstance(x, str)).all():
             raise ValueError("Ids must be string!")
 
     def _check_ids(self, left: KlinkerFrame, right: KlinkerFrame):
@@ -39,7 +39,9 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         right_ids = set(right_ids_col)
         intersected_ids = left_ids.intersection(right_ids)
         if len(intersected_ids) > 0:
-            warnings.warn(f"Left and right ids are not disjunct! This may be unintentional and lead to problems. Found {len(intersected_ids)} common ids across {len(left)} left ids and {len(right)} right ids.")
+            warnings.warn(
+                f"Left and right ids are not disjunct! This may be unintentional and lead to problems. Found {len(intersected_ids)} common ids across {len(left)} left ids and {len(right)} right ids."
+            )
 
     def _assign(
         self,
@@ -62,5 +64,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
             right_rel=right_rel,
         )  # type: ignore
         return self.embedding_block_builder.build_blocks(
-            left=left_emb, right=right_emb, left_name=left.table_name, right_name=right.table_name
+            left=left_emb,
+            right=right_emb,
+            left_name=left.table_name,
+            right_name=right.table_name,
         )

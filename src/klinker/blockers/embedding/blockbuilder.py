@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple, Type, Union, List
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from ...data import KlinkerFrame, NamedVector, KlinkerBlockManager
+from ...data import KlinkerBlockManager, KlinkerFrame, NamedVector
 from ...typing import GeneralVector
 
 try:
@@ -94,13 +94,10 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
         raise NotImplementedError
 
     @staticmethod
-    def blocks_side(cluster_labels: np.ndarray, names: List[str], data_name: str) -> pd.DataFrame:
-        blocked = (
-            pd.DataFrame([names, cluster_labels])
-            .transpose()
-            .groupby(1)
-            .agg(set)
-        )
+    def blocks_side(
+        cluster_labels: np.ndarray, names: List[str], data_name: str
+    ) -> pd.DataFrame:
+        blocked = pd.DataFrame([names, cluster_labels]).transpose().groupby(1).agg(set)
         blocked.columns = [data_name]
         return blocked
 
@@ -111,8 +108,12 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
         left_name: str,
         right_name: str,
     ) -> pd.DataFrame:
-        left_cluster_labels, right_cluster_labels = self._cluster(left.vectors, right.vectors)
-        left_blocks = ClusteringBlockBuilder.blocks_side(left_cluster_labels, left.names, left_name)
+        left_cluster_labels, right_cluster_labels = self._cluster(
+            left.vectors, right.vectors
+        )
+        left_blocks = ClusteringBlockBuilder.blocks_side(
+            left_cluster_labels, left.names, left_name
+        )
         right_blocks = ClusteringBlockBuilder.blocks_side(
             right_cluster_labels, right.names, right_name
         )

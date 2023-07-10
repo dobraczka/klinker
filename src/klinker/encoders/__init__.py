@@ -1,19 +1,19 @@
 from class_resolver import ClassResolver
 
-from .base import FrameEncoder, TokenizedFrameEncoder, RelationFrameEncoder
+from .base import FrameEncoder, RelationFrameEncoder, TokenizedFrameEncoder
 from .deepblocker import (
     AutoEncoderDeepBlockerFrameEncoder,
     CrossTupleTrainingDeepBlockerFrameEncoder,
     HybridDeepBlockerFrameEncoder,
 )
+from .gcn import GCNFrameEncoder
 from .light_ea import LightEAFrameEncoder
 from .pretrained import (
     AverageEmbeddingTokenizedFrameEncoder,
+    SentenceTransformerTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
     TransformerTokenizedFrameEncoder,
-    SentenceTransformerTokenizedFrameEncoder,
 )
-from .gcn import GCNFrameEncoder
 
 frame_encoder_resolver = ClassResolver(
     [

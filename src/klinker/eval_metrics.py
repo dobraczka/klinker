@@ -2,7 +2,7 @@ from typing import Dict
 
 import pandas as pd
 
-from . import KlinkerDataset, KlinkerBlockManager
+from . import KlinkerBlockManager, KlinkerDataset
 
 
 def harmonic_mean(a: float, b: float) -> float:
