@@ -9,6 +9,7 @@ from .enhanced_df import (
     KlinkerFrame,
     KlinkerPandasFrame,
     KlinkerTriplePandasFrame,
+    KlinkerTripleDaskFrame,
 )
 from ..typing import Side, Tuple
 from ..utils import tokenize_row
@@ -72,10 +73,10 @@ class KlinkerDataset:
                 dataset.attr_triples_right, table_name="right", id_col="head"
             )
         elif dataset.backend == "dask":
-            left = KlinkerDaskFrame.from_dask_dataframe(
+            left = KlinkerTripleDaskFrame.from_dask_dataframe(
                 dataset.attr_triples_left, table_name="left", id_col="head"
             )
-            right = KlinkerDaskFrame.from_dask_dataframe(
+            right = KlinkerTripleDaskFrame.from_dask_dataframe(
                 dataset.attr_triples_right, table_name="right", id_col="head"
             )
         else:

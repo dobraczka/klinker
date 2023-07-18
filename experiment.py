@@ -1,6 +1,7 @@
 import ast
 import hashlib
 import json
+import logging
 import os
 import pickle
 import time
@@ -45,6 +46,8 @@ from klinker.encoders.pretrained import (
 )
 from klinker.eval_metrics import Evaluation
 
+logger = logging.getLogger("KlinkerExperiment")
+
 
 def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
     for _, value in instance.__dict__.items():
@@ -62,7 +65,11 @@ def _create_artifact_path(
 
 
 def _handle_artifacts(
-    blocks: pd.DataFrame, tracker: ResultTracker, params: Dict, artifact_dir: str
+    blocks: pd.DataFrame,
+    tracker: ResultTracker,
+    params: Dict,
+    artifact_dir: str,
+    results: Dict,
 ) -> None:
     if isinstance(tracker, WANDBResultTracker):
         artifact_name = str(tracker.run.id)
@@ -81,6 +88,7 @@ def _handle_artifacts(
         )
         with open(params_artifact_path, "wb") as out_file:
             pickle.dump(params, out_file)
+        logger.info(f"Saved parameters artifact in {params_artifact_path}")
         counter = 0
         while True:
             artifact_name = f"{hashed_config_params}_{counter}"
@@ -90,6 +98,7 @@ def _handle_artifacts(
             else:
                 break
         blocks.to_pickle(artifact_file_path)
+        logger.info(f"Saved blocks artifact in {artifact_file_path}")
 
 
 @click.group(chain=True)
@@ -144,24 +153,25 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         left_rel=klinker_dataset.left_rel,
         right_rel=klinker_dataset.right_rel,
     )
+
     end = time.time()
-    ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     run_time = end - start
     run_time += blocker_creation_time
+    logger.info(f"Execution took: {run_time} seconds")
+    ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     encoder_times: Dict[str, float] = {
         f"encoder_times_{key.lower()}": value
         for key, value in _get_encoder_times(blocker, {}).items()
     }
-    tracker.log_metrics(
-        {
-            **ev.to_dict(),
-            "time_in_s": run_time,
-            "blocker_creation_time": blocker_creation_time,
-            **encoder_times,
-        }
-    )
+    results = {
+        **ev.to_dict(),
+        "time_in_s": run_time,
+        "blocker_creation_time": blocker_creation_time,
+        **encoder_times,
+    }
+    tracker.log_metrics(results)
 
-    _handle_artifacts(blocks, tracker, params, experiment_artifact_dir)
+    _handle_artifacts(blocks, tracker, params, experiment_artifact_dir, results)
     tracker.end_run()
 
 
@@ -169,9 +179,19 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
 @click.option("--graph-pair", type=str, default="D_W")
 @click.option("--size", type=str, default="15K")
 @click.option("--version", type=str, default="V1")
-def open_ea_dataset(graph_pair: str, size: str, version: str) -> Tuple[EADataset, Dict]:
+@click.option("--backend", type=str, default="pandas")
+@click.option("--npartitions", type=int, default=1)
+def open_ea_dataset(
+    graph_pair: str, size: str, version: str, backend: str, npartitions: int
+) -> Tuple[EADataset, Dict]:
     return (
-        OpenEA(graph_pair=graph_pair, size=size, version=version),
+        OpenEA(
+            graph_pair=graph_pair,
+            size=size,
+            version=version,
+            backend=backend,
+            npartitions=npartitions,
+        ),
         click.get_current_context().params,
     )
 
@@ -187,9 +207,11 @@ def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
 
 @cli.command()
 @click.option("--task", type=str, default="starwars-swg")
-def oaei_dataset(task: str) -> Tuple[EADataset, Dict]:
+@click.option("--backend", type=str, default="pandas")
+@click.option("--npartitions", type=int, default=1)
+def oaei_dataset(task: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:
     return (
-        OAEI(task=task, backend="pandas"),
+        OAEI(task=task, backend=backend, npartitions=npartitions),
         click.get_current_context().params,
     )
 
@@ -241,9 +263,11 @@ def relational_lsh_blocker(
 
 
 @cli.command()
-@deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
+@deep_blocker_encoder_resolver.get_option(
+    "--encoder", default="autoencoder", as_string=True
+)
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--num-epochs", type=int, default=50)
@@ -252,7 +276,7 @@ def relational_lsh_blocker(
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
-@block_builder_resolver.get_option("--block-builder", default="kiez")
+@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def deepblocker(
@@ -310,9 +334,11 @@ def deepblocker(
 
 
 @cli.command()
-@deep_blocker_encoder_resolver.get_option("--encoder", default="autoencoder")
+@deep_blocker_encoder_resolver.get_option(
+    "--encoder", default="autoencoder", as_string=True
+)
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--num-epochs", type=int, default=50)
@@ -321,7 +347,7 @@ def deepblocker(
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
-@block_builder_resolver.get_option("--block-builder", default="kiez")
+@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--attr-n-neighbors", type=int, default=100)
 @click.option("--rel-n-neighbors", type=int, default=100)
@@ -413,7 +439,7 @@ def relational_token_blocker(
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--ent-dim", type=int, default=256)
@@ -421,7 +447,7 @@ def relational_token_blocker(
 @click.option("--mini-dim", type=int, default=16)
 @click.option("--rel-dim", type=int)
 @click.option("--batch-size", type=int)
-@block_builder_resolver.get_option("--block-builder", default="kiez")
+@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def light_ea_blocker(
@@ -468,12 +494,12 @@ def light_ea_blocker(
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder"
+    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--depth", type=int, default=2)
 @click.option("--batch-size", type=int)
-@block_builder_resolver.get_option("--block-builder", default="kiez")
+@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def gcn_blocker(
@@ -519,7 +545,7 @@ def gcn_blocker(
     type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"]),
 )
 @click.option("--embeddings", type=str, default="glove")
-@block_builder_resolver.get_option("--block-builder", default="kiez")
+@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 def only_embeddings_blocker(

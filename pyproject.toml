@@ -30,7 +30,7 @@ pandas = "^1.5.3"
 numpy = "^1.24.2"
 datasketch = "^1.5.9"
 kiez = {git = "https://github.com/dobraczka/kiez.git", rev = "main"}
-sylloge = {git = "https://github.com/dobraczka/sylloge", rev = "fix-idmapped"}
+sylloge = {git = "https://github.com/dobraczka/sylloge.git", rev = "main"}
 transformers = "^4.27.3"
 torch = "==2.0.0"
 pykeen = "^1.10.1"
@@ -52,6 +52,7 @@ torch-max-mem = "^0.0.5"
 more-itertools = "^9.1.0"
 nltk = "^3.8.1"
 dask = "^2023.4.1"
+pyarrow = "^12.0.1"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -77,6 +78,7 @@ strawman = "^0.1.2"
 pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-517-approach"}
 jupyter-black = "^0.3.4"
 graphviz = "^0.20.1"
+jupyter-contrib-nbextensions = "^0.7.0"
 
 
 [tool.poetry.extras]

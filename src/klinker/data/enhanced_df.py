@@ -250,7 +250,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
     def from_dask_dataframe(
         cls,
         df: dd.DataFrame,
-        table_name: Optional[str],
+        table_name: str,
         id_col: str,
         meta=no_default,
         construction_class: Type[KlinkerPandasFrame] = KlinkerPandasFrame,
@@ -302,7 +302,7 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
             id_col=self.id_col,
         )
         result = self.groupby(self.id_col)[self.columns[2]].apply(
-            lambda grp: " ".join(grp.astype(str)).strip()
+            lambda grp: " ".join(grp.astype(str)).strip(), meta=pd.Series([], name=self.columns[2], dtype="str")
         )
         result = KlinkerDaskFrame.upgrade_from_series(
             result,
@@ -383,21 +383,9 @@ KlinkerFrame = Union[KlinkerPandasFrame, KlinkerDaskFrame]
 
 
 if __name__ == "__main__":
-    from sylloge import OpenEA
+    from sylloge import OAEI
+    from klinker.data import KlinkerDataset
 
-    ds = OpenEA(backend="dask")
-    tr_left = ds.attr_triples_left
-    kdf_left = KlinkerDaskFrame.from_dask_dataframe(
-        tr_left, table_name="DBpedia", id_col="head"
-    )
-    tr_right = ds.attr_triples_right
-    kdf_right = KlinkerDaskFrame.from_dask_dataframe(
-        tr_right, table_name="Wikidata", id_col="head"
-    )
+    ds = KlinkerDataset.from_sylloge(OAEI(backend="dask", npartitions=10))
     from klinker.blockers import TokenBlocker
-
-    blocks = TokenBlocker().assign(left=kdf_left, right=kdf_right)
-
-    import ipdb  # noqa: autoimport
-
-    ipdb.set_trace()  # BREAKPOINT
+    print(TokenBlocker().assign(left=ds.left, right=ds.right))

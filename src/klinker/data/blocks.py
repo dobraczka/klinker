@@ -1,4 +1,6 @@
 import itertools
+import math
+import pickle
 from typing import (
     Dict,
     Generator,
@@ -11,8 +13,11 @@ from typing import (
     ValuesView,
 )
 
+import dask.bag as db
 import dask.dataframe as dd
 import pandas as pd
+from dask.base import tokenize
+from tlz import partition_all
 
 
 class KlinkerBlockManager:
@@ -54,7 +59,7 @@ class KlinkerBlockManager:
                 for i in range(len(id_mappings)):
                     for ent_id in block_tuple[i]:
                         unique_ids[i].add(ent_id)
-                        if not ent_id in id_mappings[i]:
+                        if ent_id not in id_mappings[i]:
                             raise ValueError(
                                 "If id_mappings are supplied, they have to map all ids"
                             )
@@ -121,6 +126,12 @@ class KlinkerBlockManager:
         )
 
     def __getitem__(self, key):
+        if isinstance(key, list):
+            return KlinkerBlockManager(
+                {k: self.blocks[k] for k in key},
+                dataset_names=self.dataset_names,
+                id_mappings=self.id_mappings,
+            )
         return self.blocks[key]
 
     def __setitem__(self, key, value):
@@ -143,6 +154,9 @@ class KlinkerBlockManager:
 
     def keys(self) -> KeysView[Union[str, int]]:
         return self.blocks.keys()
+
+    def __iter__(self) -> ItemsView[Union[str, int], Tuple[Set[int], ...]]:
+        return self.items()
 
     def __contains__(self, value: Union[str, int]) -> bool:
         return value in self.blocks
@@ -196,3 +210,32 @@ class KlinkerBlockManager:
             dataset_names=tuple(pd_blocks.columns),
             id_mappings=id_mappings,
         )
+
+    def to_pickle(self, path):
+        with open(path, "wb") as out_file:
+            pickle.dump(self, out_file)
+
+    @staticmethod
+    def read_pickle(path) -> "KlinkerBlockManager":
+        with open(path, "rb") as in_file:
+            return pickle.load(in_file)
+
+    def to_bag(
+        self, partition_size: Optional[int] = None, npartitions: Optional[int] = None
+    ) -> db.Bag:
+        if npartitions and not partition_size:
+            partition_size = int(math.ceil(len(self) / npartitions))
+        if npartitions is None and partition_size is None:
+            if len(self) < 100:
+                partition_size = 1
+            else:
+                partition_size = int(len(self) / 100)
+
+        parts = list(partition_all(partition_size, self.blocks))
+        name = "from_sequence-" + tokenize(self, partition_size)
+        if len(parts) > 0:
+            d = {(name, i): self[list(part)] for i, part in enumerate(parts)}
+        else:
+            d = {(name, 0): self[[]]}
+
+        return db.Bag(d, name, len(d))
