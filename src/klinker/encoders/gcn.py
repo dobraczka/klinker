@@ -3,7 +3,7 @@ from typing import List, Optional, Set, Tuple, Union
 import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
-from pykeen.utils import resolve_device
+from klinker.utils import resolve_device
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
 from torch_sparse import matmul as sparse_matmul

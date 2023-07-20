@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import click
 import pandas as pd
-from pykeen.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
+from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 

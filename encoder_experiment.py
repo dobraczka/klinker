@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple, Type, Union
 
 import click
 import numpy as np
-from pykeen.trackers import WANDBResultTracker
+from klinker.trackers import WANDBResultTracker
 from sylloge import OpenEA
 
 from klinker.blockers.embedding import KiezEmbeddingBlockBuilder

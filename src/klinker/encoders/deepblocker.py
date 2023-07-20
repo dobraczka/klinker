@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
-from pykeen.utils import resolve_device
+from klinker.utils import resolve_device
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 
