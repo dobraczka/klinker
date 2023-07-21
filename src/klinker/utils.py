@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Literal, Sequence, Union, overload
+from typing import Callable, List, Literal, Sequence, Union, overload, TypeVar
 
 import dask.dataframe as dd
 import numpy as np
@@ -19,6 +19,7 @@ from .typing import (
 X = TypeVar("X")
 
 logger = logging.getLogger(__name__)
+
 
 # copy-pasted from pykeen
 def resolve_device(device: DeviceHint = None) -> torch.device:
