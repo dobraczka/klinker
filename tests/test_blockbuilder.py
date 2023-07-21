@@ -6,17 +6,17 @@ import pytest
 from strawman import dummy_triples
 
 from klinker.blockers.embedding.blockbuilder import (
-    HDBSCANBlockBuilder,
+    HDBSCANEmbeddingBlockBuilder,
     KiezEmbeddingBlockBuilder,
 )
-from klinker.data import KlinkerFrame, NamedVector
+from klinker.data import KlinkerPandasFrame, NamedVector, KlinkerFrame
 from klinker.typing import GeneralVector
 
 
 def create_dummy_data(
     name: str, id_col: str = "head", length: int = 5, entity_prefix: str = "e"
 ) -> KlinkerFrame:
-    return KlinkerFrame.from_df(
+    return KlinkerPandasFrame.from_df(
         dummy_triples(
             length,
             num_entities=length,
@@ -25,7 +25,7 @@ def create_dummy_data(
         )
         .sort_values(by=id_col)
         .reindex(),
-        name=name,
+        table_name=name,
         id_col=id_col,
     )
 
@@ -70,7 +70,7 @@ def expected() -> pd.DataFrame:
 
 
 def test_cluster_block_builder(example, expected):
-    blocks = HDBSCANBlockBuilder(min_cluster_size=2).build_blocks(*example)
+    blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(*example)
     blocks == expected
 
 

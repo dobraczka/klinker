@@ -45,7 +45,6 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     ) -> KlinkerBlockManager:
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         df = pd.DataFrame(neighbors)
-        tmp = df.applymap(lambda x, right: right.names[x], right=right)
         df[right_name] = df.applymap(
             lambda x, right: right.names[x],
             right=right,
@@ -85,7 +84,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         return neighs
 
 
-class ClusteringBlockBuilder(EmbeddingBlockBuilder):
+class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     def _cluster(
         self,
         left: GeneralVector,
@@ -111,16 +110,16 @@ class ClusteringBlockBuilder(EmbeddingBlockBuilder):
         left_cluster_labels, right_cluster_labels = self._cluster(
             left.vectors, right.vectors
         )
-        left_blocks = ClusteringBlockBuilder.blocks_side(
+        left_blocks = ClusteringEmbeddingBlockBuilder.blocks_side(
             left_cluster_labels, left.names, left_name
         )
-        right_blocks = ClusteringBlockBuilder.blocks_side(
+        right_blocks = ClusteringEmbeddingBlockBuilder.blocks_side(
             right_cluster_labels, right.names, right_name
         )
         return KlinkerBlockManager.from_pandas(left_blocks.join(right_blocks))
 
 
-class HDBSCANBlockBuilder(ClusteringBlockBuilder):
+class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
     def __init__(
         self,
         min_cluster_size: int = 5,
@@ -152,7 +151,7 @@ class HDBSCANBlockBuilder(ClusteringBlockBuilder):
 
 
 block_builder_resolver = ClassResolver(
-    [KiezEmbeddingBlockBuilder, HDBSCANBlockBuilder],
+    [KiezEmbeddingBlockBuilder, HDBSCANEmbeddingBlockBuilder],
     base=EmbeddingBlockBuilder,
     default=KiezEmbeddingBlockBuilder,
 )
