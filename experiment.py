@@ -5,12 +5,17 @@ import logging
 import os
 import pickle
 import time
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
 import pandas as pd
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
+from sylloge.oaei_loader import OAEI_TASK_NAME
+from sylloge.moviegraph_benchmark_loader import GraphPair as movie_graph_pairs
+from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
+from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
+from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
 from sylloge.base import EADataset
 
 from klinker import KlinkerDataset
@@ -176,9 +181,9 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
 
 
 @cli.command()
-@click.option("--graph-pair", type=str, default="D_W")
-@click.option("--size", type=str, default="15K")
-@click.option("--version", type=str, default="V1")
+@click.option("--graph-pair", type=click.Choice(open_ea_graph_pairs), default="D_W")
+@click.option("--size", type=click.Choice(open_ea_graph_sizes), default="15K")
+@click.option("--version", type=click.Choice(open_ea_graph_versions), default="V1")
 @click.option("--backend", type=str, default="pandas")
 @click.option("--npartitions", type=int, default=1)
 def open_ea_dataset(
@@ -197,7 +202,7 @@ def open_ea_dataset(
 
 
 @cli.command()
-@click.option("--graph-pair", type=str, default="imdb-tmdb")
+@click.option("--graph-pair", type=click.Choice(get_args(movie_graph_pairs)), default="imdb-tmdb")
 def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
     return (
         MovieGraphBenchmark(graph_pair=graph_pair),
@@ -206,7 +211,7 @@ def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
 
 
 @cli.command()
-@click.option("--task", type=str, default="starwars-swg")
+@click.option("--task", type=click.Choice(get_args(OAEI_TASK_NAME)), default="starwars-swg")
 @click.option("--backend", type=str, default="pandas")
 @click.option("--npartitions", type=int, default=1)
 def oaei_dataset(task: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:
