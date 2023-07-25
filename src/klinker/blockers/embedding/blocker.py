@@ -1,14 +1,24 @@
+import os
+import pathlib
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import Literal, Optional, Tuple, Union, get_args
 
 import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
-from klinker.data import KlinkerFrame, KlinkerPandasFrame
+from klinker.data import (
+    KlinkerBlockManager,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    NamedVector,
+)
 
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
 from ..base import SchemaAgnosticBlocker
 from ...encoders import FrameEncoder, frame_encoder_resolver
+
+ENC_PREFIX = Literal["left_", "right_"]
+ENC_SUFFIX = "_enc.pkl"
 
 
 class EmbeddingBlocker(SchemaAgnosticBlocker):
@@ -18,6 +28,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         frame_encoder_kwargs: OptionalKwargs = None,
         embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         embedding_block_builder_kwargs: OptionalKwargs = None,
+        save: bool = True,
+        save_dir: Optional[Union[str, pathlib.Path]] = None,
     ):
         self.frame_encoder = frame_encoder_resolver.make(
             frame_encoder, frame_encoder_kwargs
@@ -25,6 +37,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         self.embedding_block_builder = block_builder_resolver.make(
             embedding_block_builder, embedding_block_builder_kwargs
         )
+        self.save = save
+        self.save_dir = save_dir
 
     def _check_string_ids(self, id_col: pd.Series):
         if not id_col.apply(lambda x: isinstance(x, str)).all():
@@ -49,11 +63,21 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         right: KlinkerFrame,
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+    ) -> KlinkerBlockManager:
         assert left.table_name is not None
         assert right.table_name is not None
         if isinstance(left, KlinkerPandasFrame):
             self._check_ids(left, right)
+
+        # handle save dir
+        if self.save:
+            if self.save_dir is None:
+                save_dir = pathlib.Path(".").joinpath(
+                    "{left.table_name}_{right.table_name}_{self.frame_encoder.__class__.__name__}"
+                )
+                self.save_dir = save_dir
+            os.makedirs(self.save_dir)
+
         left_reduced = left.set_index(left.id_col)[left.non_id_columns]
         right_reduced = right.set_index(right.id_col)[right.non_id_columns]
         # TODO fix typing issue
@@ -63,9 +87,68 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
             left_rel=left_rel,
             right_rel=right_rel,
         )  # type: ignore
+        if self.save:
+            assert self.save_dir  # for mypy
+            EmbeddingBlocker.save_encoded(
+                self.save_dir,
+                (left_emb, right_emb),
+                (left.table_name, right.table_name),
+            )
         return self.embedding_block_builder.build_blocks(
             left=left_emb,
             right=right_emb,
             left_name=left.table_name,
             right_name=right.table_name,
+        )
+
+    @staticmethod
+    def save_encoded(
+        save_dir: Union[str, pathlib.Path],
+        encodings: Tuple[NamedVector, NamedVector],
+        table_names: Tuple[str, str],
+    ):
+        if isinstance(save_dir, str):
+            save_dir = pathlib.Path(save_dir)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        for enc, table_name, left_right in zip(
+            encodings, table_names, get_args(ENC_PREFIX)
+        ):
+            enc.to_pickle(save_dir.joinpath(f"{left_right}{table_name}{ENC_SUFFIX}"))
+
+    def _encoding_path_and_table_name_from_dir(
+        self, left_or_right: ENC_PREFIX
+    ) -> Tuple[pathlib.Path, str]:
+        assert self.save_dir  # for mypy
+        if isinstance(self.save_dir, str):
+            self.save_dir = pathlib.Path(self.save_dir)
+        enc_path_list = list(self.save_dir.glob(f"{left_or_right}*{ENC_SUFFIX}"))
+        if len(enc_path_list) > 1:
+            warnings.warn(
+                f"Found multiple encodings {enc_path_list} will choose the first"
+            )
+        elif len(enc_path_list) == 0:
+            raise FileNotFoundError(
+                f"Expected to find encoding pickle in {self.save_dir} for {left_or_right} side!"
+            )
+        enc_path = enc_path_list[0]
+        table_name = (
+            str(enc_path.name).replace(f"{left_or_right}", "").replace(ENC_SUFFIX, "")
+        )
+        return enc_path, table_name
+
+    def from_encoded(
+        self,
+    ) -> KlinkerBlockManager:
+        if self.save_dir is None:
+            raise ValueError("Cannot run `from_encoded` if `self.save_dir` is None!")
+        left_path, left_name = self._encoding_path_and_table_name_from_dir("left_")
+        right_path, right_name = self._encoding_path_and_table_name_from_dir("right_")
+        left_enc = NamedVector.from_pickle(left_path)
+        right_enc = NamedVector.from_pickle(right_path)
+        return self.embedding_block_builder.build_blocks(
+            left=left_enc,
+            right=right_enc,
+            left_name=left_name,
+            right_name=right_name,
         )

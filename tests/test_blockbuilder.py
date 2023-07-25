@@ -9,8 +9,13 @@ from klinker.blockers.embedding.blockbuilder import (
     HDBSCANEmbeddingBlockBuilder,
     KiezEmbeddingBlockBuilder,
 )
-from klinker.data import KlinkerPandasFrame, NamedVector, KlinkerFrame
-from klinker.typing import GeneralVector
+from klinker.blockers.embedding.blocker import EmbeddingBlocker
+from klinker.data import (
+    KlinkerBlockManager,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    NamedVector,
+)
 
 
 def create_dummy_data(
@@ -60,18 +65,20 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
 
 
 @pytest.fixture
-def expected() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "A": {0: {"a0", "a2", "a3"}, 1: {"a4", "a5"}, 2: {"a1"}},
-            "B": {0: {"b2"}, 1: {"b1"}, 2: {"b0", "b3"}},
-        }
+def expected() -> KlinkerBlockManager:
+    return KlinkerBlockManager.from_pandas(
+        pd.DataFrame(
+            {
+                "A": {0: {"a0", "a2", "a3"}, 1: {"a4", "a5"}, 2: {"a1"}},
+                "B": {0: {"b2"}, 1: {"b1"}, 2: {"b0", "b3"}},
+            }
+        )
     )
 
 
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(*example)
-    blocks == expected
+    assert blocks == expected
 
 
 def test_nn_block_builder(example):
@@ -82,3 +89,17 @@ def test_nn_block_builder(example):
         assert len(btuple[1]) == 2
         for bb in btuple[1]:
             assert bb.startswith("b")
+
+
+def test_from_encoded(example, expected, tmp_path):
+    left_enc, right_enc, table_name_a, table_name_b = example
+    block_builder = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2)
+    mydir = tmp_path.joinpath("mysavedir")
+    EmbeddingBlocker.save_encoded(
+        mydir, (left_enc, right_enc), (table_name_a, table_name_b)
+    )
+    blocks = EmbeddingBlocker(
+        embedding_block_builder=block_builder, save_dir=mydir
+    ).from_encoded()
+    print(blocks)
+    assert blocks == expected

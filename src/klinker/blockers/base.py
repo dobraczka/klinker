@@ -21,6 +21,7 @@ class Blocker(abc.ABC):
         left_rel: Optional[pd.DataFrame] = None,
         right_rel: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
+        # TODO we don't need the _assign method anymore the assign method can be abstract
         raise NotImplementedError
 
     def assign(
