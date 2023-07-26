@@ -9,14 +9,13 @@ from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
 import pandas as pd
-from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
-from sylloge.oaei_loader import OAEI_TASK_NAME
+from sylloge.base import EADataset
 from sylloge.moviegraph_benchmark_loader import GraphPair as movie_graph_pairs
+from sylloge.oaei_loader import OAEI_TASK_NAME
 from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
 from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
 from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
-from sylloge.base import EADataset
 
 from klinker import KlinkerDataset
 from klinker.blockers import (
@@ -50,6 +49,7 @@ from klinker.encoders.pretrained import (
     tokenized_frame_encoder_resolver,
 )
 from klinker.eval_metrics import Evaluation
+from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 
 logger = logging.getLogger("KlinkerExperiment")
 
@@ -69,34 +69,35 @@ def _create_artifact_path(
     return os.path.join(os.path.join(artifact_dir, f"{artifact_name}{suffix}"))
 
 
+def _create_artifact_name(tracker: ResultTracker, params: Dict) -> str:
+    if isinstance(tracker, WANDBResultTracker):
+        return str(tracker.run.id)
+    else:
+        # see https://stackoverflow.com/a/22003440
+        return hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
+
+
 def _handle_artifacts(
     blocks: pd.DataFrame,
     tracker: ResultTracker,
     params: Dict,
+    artifact_name: str,
     artifact_dir: str,
     results: Dict,
 ) -> None:
     if isinstance(tracker, WANDBResultTracker):
-        artifact_name = str(tracker.run.id)
         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
         blocks.to_pickle(artifact_file_path)
-        # artifact = wandb.Artifact(name="blocks", type="result")
-        # artifact.add_file(local_path=artifact_file_path)
-        # tracker.run.log_artifact(artifact)
     else:
-        # see https://stackoverflow.com/a/22003440
-        hashed_config_params = hashlib.sha1(
-            json.dumps(params, sort_keys=True).encode()
-        ).hexdigest()
         params_artifact_path = _create_artifact_path(
-            hashed_config_params, artifact_dir, suffix="_params.pkl"
+            artifact_name, artifact_dir, suffix="_params.pkl"
         )
         with open(params_artifact_path, "wb") as out_file:
             pickle.dump(params, out_file)
         logger.info(f"Saved parameters artifact in {params_artifact_path}")
         counter = 0
         while True:
-            artifact_name = f"{hashed_config_params}_{counter}"
+            artifact_name = f"{artifact_name}_{counter}"
             artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
             if os.path.exists(artifact_file_path):
                 counter += 1
@@ -136,7 +137,6 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     params["blocker_name"] = blocker_name
 
     dataset_name = dataset.canonical_name
-    blocker_name = blocker.__class__.__name__
     experiment_artifact_dir = os.path.join(
         "experiment_artifacts", dataset_name, blocker_name
     )
@@ -150,6 +150,14 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     else:
         tracker = ConsoleResultTracker()
     tracker.start_run()
+
+    artifact_name = _create_artifact_name(tracker, params)
+    if isinstance(blocker, EmbeddingBlocker):
+        encodings_dir = _create_artifact_path(
+            artifact_name, experiment_artifact_dir, suffix="_encoded"
+        )
+        blocker.save = True
+        blocker.save_dir = encodings_dir
 
     start = time.time()
     blocks = blocker.assign(
@@ -176,7 +184,14 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     }
     tracker.log_metrics(results)
 
-    _handle_artifacts(blocks, tracker, params, experiment_artifact_dir, results)
+    _handle_artifacts(
+        blocks=blocks,
+        tracker=tracker,
+        params=params,
+        artifact_name=artifact_name,
+        artifact_dir=experiment_artifact_dir,
+        results=results,
+    )
     tracker.end_run()
 
 
@@ -202,7 +217,9 @@ def open_ea_dataset(
 
 
 @cli.command()
-@click.option("--graph-pair", type=click.Choice(get_args(movie_graph_pairs)), default="imdb-tmdb")
+@click.option(
+    "--graph-pair", type=click.Choice(get_args(movie_graph_pairs)), default="imdb-tmdb"
+)
 def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
     return (
         MovieGraphBenchmark(graph_pair=graph_pair),
@@ -211,7 +228,9 @@ def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
 
 
 @cli.command()
-@click.option("--task", type=click.Choice(get_args(OAEI_TASK_NAME)), default="starwars-swg")
+@click.option(
+    "--task", type=click.Choice(get_args(OAEI_TASK_NAME)), default="starwars-swg"
+)
 @click.option("--backend", type=str, default="pandas")
 @click.option("--npartitions", type=int, default=1)
 def oaei_dataset(task: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:

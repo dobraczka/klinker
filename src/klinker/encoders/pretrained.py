@@ -21,7 +21,7 @@ from tqdm.auto import tqdm
 from .base import TokenizedFrameEncoder
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
-from ..utils import concat_frames, upgrade_to_sequence, resolve_device
+from ..utils import concat_frames, upgrade_to_sequence, resolve_device, get_preferred_device
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()

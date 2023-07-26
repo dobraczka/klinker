@@ -1,10 +1,12 @@
 import logging
-from typing import Callable, List, Literal, Sequence, Union, overload, TypeVar
+from typing import Collection, Callable, List, Literal, Sequence, Union, overload, TypeVar
 
+from itertools import chain
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import torch
+from torch import nn
 from nltk.tokenize import word_tokenize
 
 from .typing import (
@@ -20,8 +22,22 @@ X = TypeVar("X")
 
 logger = logging.getLogger(__name__)
 
-
 # copy-pasted from pykeen
+def get_devices(module: nn.Module) -> Collection[torch.device]:
+    """Return the device(s) from each components of the model."""
+    return {tensor.data.device for tensor in chain(module.parameters(), module.buffers())}
+
+def get_preferred_device(module: nn.Module) -> torch.device:
+    """Return the preferred device."""
+    devices = get_devices(module=module)
+    if len(devices) == 0:
+        raise ValueError("Could not infer device, since there are neither parameters nor buffers.")
+    if len(devices) == 1:
+        return next(iter(devices))
+    else:
+        raise ValueError("Could not infer device!")
+
+
 def resolve_device(device: DeviceHint = None) -> torch.device:
     """Resolve a torch.device given a desired device (string)."""
     if device is None or device == "gpu":
