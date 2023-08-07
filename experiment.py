@@ -50,6 +50,7 @@ from klinker.encoders.pretrained import (
 )
 from klinker.eval_metrics import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
+from nephelai import upload
 
 logger = logging.getLogger("KlinkerExperiment")
 
@@ -84,6 +85,8 @@ def _handle_artifacts(
     artifact_name: str,
     artifact_dir: str,
     results: Dict,
+    nextcloud: bool,
+    encodings_dir: Optional[str],
 ) -> None:
     if isinstance(tracker, WANDBResultTracker):
         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
@@ -97,25 +100,32 @@ def _handle_artifacts(
         logger.info(f"Saved parameters artifact in {params_artifact_path}")
         counter = 0
         while True:
-            artifact_name = f"{artifact_name}_{counter}"
-            artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
+            counter_artifact_name = f"{artifact_name}_{counter}"
+            artifact_file_path = _create_artifact_path(
+                counter_artifact_name, artifact_dir
+            )
             if os.path.exists(artifact_file_path):
                 counter += 1
             else:
                 break
         blocks.to_pickle(artifact_file_path)
         logger.info(f"Saved blocks artifact in {artifact_file_path}")
+    if nextcloud:
+        upload(artifact_dir, artifact_dir)
 
 
 @click.group(chain=True)
 @click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
-def cli(clean: bool, wandb: bool):
+@click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
+def cli(clean: bool, wandb: bool, nextcloud: bool):
     pass
 
 
 @cli.result_callback()
-def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
+def process_pipeline(
+    blocker_and_dataset: List, clean: bool, wandb: bool, nextcloud: bool
+):
     assert (
         len(blocker_and_dataset) == 2
     ), "Only 1 dataset and 1 blocker command can be used!"
@@ -152,6 +162,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     tracker.start_run()
 
     artifact_name = _create_artifact_name(tracker, params)
+    encodings_dir = None
     if isinstance(blocker, EmbeddingBlocker):
         encodings_dir = _create_artifact_path(
             artifact_name, experiment_artifact_dir, suffix="_encoded"
@@ -191,6 +202,8 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         artifact_name=artifact_name,
         artifact_dir=experiment_artifact_dir,
         results=results,
+        nextcloud=nextcloud,
+        encodings_dir=encodings_dir,
     )
     tracker.end_run()
 

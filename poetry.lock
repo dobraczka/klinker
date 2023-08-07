@@ -224,6 +224,17 @@ html5lib = ["html5lib"]
 lxml = ["lxml"]
 
 [[package]]
+name = "bitmath"
+version = "1.3.3.1"
+description = "Pythonic module for representing and manipulating file sizes with different prefix notations (file size unit conversion)"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "bitmath-1.3.3.1.tar.gz", hash = "sha256:293325f01e65defe966853111df11d39215eb705a967cb115851da8c4cfa3eb8"},
+]
+
+[[package]]
 name = "black"
 version = "22.12.0"
 description = "The uncompromising code formatter."
@@ -3180,6 +3191,29 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx", "sphinxcontrib-github-al
 test = ["pep440", "pre-commit", "pytest", "testpath"]
 
 [[package]]
+name = "nephelai"
+version = "0.1.0"
+description = "A helper library to transport your data into the (next)cloud"
+category = "main"
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "nephelai-0.1.0-py3-none-any.whl", hash = "sha256:716b72dd296561662a34aeefe583e37d85910df358910da7e2681cbe93f64087"},
+    {file = "nephelai-0.1.0.tar.gz", hash = "sha256:9119d07a60e9205d42f97e009e9f46d2099fa7cc3deaf64c3c611d81195d1cae"},
+]
+
+[package.dependencies]
+bitmath = ">=1.3.3.1,<2.0.0.0"
+pyocclient = ">=0.6,<0.7"
+python-dotenv = ">=1.0.0,<2.0.0"
+tqdm = ">=4.65.0,<5.0.0"
+typer = ">=0.9.0,<0.10.0"
+typing-extensions = ">=4.7.1,<5.0.0"
+
+[package.extras]
+docs = ["mkdocs (>=1.4.2,<2.0.0)", "mkdocs-gen-files (>=0.4.0,<0.5.0)", "mkdocs-literate-nav (>=0.6.0,<0.7.0)", "mkdocs-material (>=9.0.9,<10.0.0)", "mkdocs-section-index (>=0.3.5,<0.4.0)", "mkdocstrings[python] (>=0.20.0,<0.21.0)"]
+
+[[package]]
 name = "nest-asyncio"
 version = "1.5.6"
 description = "Patch asyncio to allow nested event loops"
@@ -4166,6 +4200,21 @@ markdown = ">=3.2"
 pyyaml = "*"
 
 [[package]]
+name = "pyocclient"
+version = "0.6"
+description = "Python client library for ownCloud"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pyocclient-0.6.tar.gz", hash = "sha256:a33ddcbbd2ec22d9bc7d76b71dd77896c557221153d1428759780b5fb8fe8fa3"},
+]
+
+[package.dependencies]
+requests = ">=2.0.1"
+six = "*"
+
+[[package]]
 name = "pyparsing"
 version = "3.0.9"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -4375,6 +4424,21 @@ files = [
 
 [package.dependencies]
 six = ">=1.5"
+
+[[package]]
+name = "python-dotenv"
+version = "1.0.0"
+description = "Read key-value pairs from a .env file and set them as environment variables"
+category = "main"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "python-dotenv-1.0.0.tar.gz", hash = "sha256:a8df96034aae6d2d50a4ebe8216326c61c3eb64836776504fcca410e5937a3ba"},
+    {file = "python_dotenv-1.0.0-py3-none-any.whl", hash = "sha256:f5971a9226b701070a4bf2c38c89e5a3f0d64de8debda981d1db98583009122a"},
+]
+
+[package.extras]
+cli = ["click (>=5.0)"]
 
 [[package]]
 name = "python-json-logger"
@@ -5987,15 +6051,37 @@ files = [
 ]
 
 [[package]]
+name = "typer"
+version = "0.9.0"
+description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "typer-0.9.0-py3-none-any.whl", hash = "sha256:5d96d986a21493606a358cae4461bd8cdf83cbf33a5aa950ae629ca3b51467ee"},
+    {file = "typer-0.9.0.tar.gz", hash = "sha256:50922fd79aea2f4751a8e0408ff10d2662bd0c8bbfa84755a699f3bada2978b2"},
+]
+
+[package.dependencies]
+click = ">=7.1.1,<9.0.0"
+typing-extensions = ">=3.7.4.3"
+
+[package.extras]
+all = ["colorama (>=0.4.3,<0.5.0)", "rich (>=10.11.0,<14.0.0)", "shellingham (>=1.3.0,<2.0.0)"]
+dev = ["autoflake (>=1.3.1,<2.0.0)", "flake8 (>=3.8.3,<4.0.0)", "pre-commit (>=2.17.0,<3.0.0)"]
+doc = ["cairosvg (>=2.5.2,<3.0.0)", "mdx-include (>=1.4.1,<2.0.0)", "mkdocs (>=1.1.2,<2.0.0)", "mkdocs-material (>=8.1.4,<9.0.0)", "pillow (>=9.3.0,<10.0.0)"]
+test = ["black (>=22.3.0,<23.0.0)", "coverage (>=6.2,<7.0)", "isort (>=5.0.6,<6.0.0)", "mypy (==0.910)", "pytest (>=4.4.0,<8.0.0)", "pytest-cov (>=2.10.0,<5.0.0)", "pytest-sugar (>=0.9.4,<0.10.0)", "pytest-xdist (>=1.32.0,<4.0.0)", "rich (>=10.11.0,<14.0.0)", "shellingham (>=1.3.0,<2.0.0)"]
+
+[[package]]
 name = "typing-extensions"
-version = "4.5.0"
+version = "4.7.1"
 description = "Backported and Experimental Type Hints for Python 3.7+"
 category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "typing_extensions-4.5.0-py3-none-any.whl", hash = "sha256:fb33085c39dd998ac16d1431ebc293a8b3eedd00fd4a32de0ff79002c19511b4"},
-    {file = "typing_extensions-4.5.0.tar.gz", hash = "sha256:5cb5f4a79139d699607b3ef622a1dedafa84e115ab0024e0d9c044a9479ca7cb"},
+    {file = "typing_extensions-4.7.1-py3-none-any.whl", hash = "sha256:440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36"},
+    {file = "typing_extensions-4.7.1.tar.gz", hash = "sha256:b75ddc264f0ba5615db7ba217daeb99701ad295353c45f9e95963337ceeeffb2"},
 ]
 
 [[package]]
@@ -6287,4 +6373,4 @@ faiss-gpu = []
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<4.0"
-content-hash = "73ccdc455705b37291ed3b60d971bb2212b88963b9db7ff417df270cd7da2a18"
+content-hash = "e0c412c0ab3b8c585f0f2247813f4d7a9727ed8fcfc58c5db08e3129f76ca0e9"

@@ -53,6 +53,7 @@ more-itertools = "^9.1.0"
 nltk = "^3.8.1"
 dask = "^2023.4.1"
 pyarrow = "^12.0.1"
+nephelai = "^0.1.0"
 
 
 [tool.poetry.group.dev.dependencies]
