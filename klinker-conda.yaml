@@ -1,0 +1,28 @@
+name: klinker-conda
+channels:
+  - defaults
+  - rapidsai 
+  - conda-forge 
+  - nvidia 
+  - pytorch
+  - esri
+dependencies:
+  - pytorch-cuda=11.8
+  - dask
+  - faiss-gpu
+  - cudatoolkit=11.8
+  - pytorch=2.0.0
+  - python=3.10
+  - rapids=23.06
+  - pandas
+  - numpy
+  - transformers
+  - fasttext
+  - gensim
+  - pyarrow
+  - nltk
+  - faiss-gpu
+  - pyg::pytorch-sparse
+  - pyg::pytorch-scatter
+
+prefix: /home/sc.uni-leipzig.de/se302qele/miniconda3/envs/klinker-conda
