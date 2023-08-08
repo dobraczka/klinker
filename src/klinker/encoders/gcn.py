@@ -1,11 +1,17 @@
 from typing import List, Optional, Set, Tuple, Union
+import logging
 
 import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
-from torch_scatter import scatter
-from torch_sparse import SparseTensor
-from torch_sparse import matmul as sparse_matmul
+try:
+    from torch_scatter import scatter
+    from torch_sparse import SparseTensor
+    from torch_sparse import matmul as sparse_matmul
+    TORCH_SCATTER = True
+except ImportError:
+    TORCH_SCATTER = False
+
 
 from klinker.utils import resolve_device
 
@@ -14,6 +20,7 @@ from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 from ..data import NamedVector
 from ..typing import GeneralVector
 
+logger = logging.getLogger(__name__)
 
 # adapted from https://github.com/pyg-team/pytorch_geometric/blob/2463371cf290a106e057c0c1f24f7a5a38318328/torch_geometric/utils/loop.py#L218
 def add_remaining_self_loops(
@@ -133,6 +140,8 @@ class GCNFrameEncoder(RelationFrameEncoder):
         attribute_encoder: HintOrType[TokenizedFrameEncoder] = None,
         attribute_encoder_kwargs: OptionalKwargs = None,
     ):
+        if not TORCH_SCATTER:
+            logger.error("Could not find torch_scatter and/or torch_sparse package!")
         self.depth = depth
         self.device = resolve_device()
         self.attribute_encoder = tokenized_frame_encoder_resolver.make(

@@ -3,9 +3,8 @@ from typing import Callable, Dict, List, Literal, Optional, Set, Tuple, Union, o
 
 import dask.dataframe as dd
 import numpy as np
-import pandas as pd
 import torch
-from class_resolver import HintOrType, OptionalKwargs
+from class_resolver import OptionalKwargs
 from class_resolver.contrib.torch import initializer_resolver
 from sylloge.id_mapped import id_map_rel_triples
 from torch import nn
