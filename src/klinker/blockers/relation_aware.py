@@ -135,16 +135,19 @@ class RelationalDeepBlocker(RelationalBlocker):
         rel_frame_encoder_kwargs: OptionalKwargs = None,
         rel_embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         rel_embedding_block_builder_kwargs: OptionalKwargs = None,
+        force: bool = False,
     ):
         self._attribute_blocker = DeepBlocker(
             frame_encoder=attr_frame_encoder,
             frame_encoder_kwargs=attr_frame_encoder_kwargs,
             embedding_block_builder=attr_embedding_block_builder,
             embedding_block_builder_kwargs=attr_embedding_block_builder_kwargs,
+            force=force,
         )
         self._relation_blocker = DeepBlocker(
             frame_encoder=rel_frame_encoder,
             frame_encoder_kwargs=rel_frame_encoder_kwargs,
             embedding_block_builder=rel_embedding_block_builder,
             embedding_block_builder_kwargs=rel_embedding_block_builder_kwargs,
+            force=force,
         )

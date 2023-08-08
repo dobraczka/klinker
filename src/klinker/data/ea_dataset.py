@@ -8,8 +8,8 @@ from .enhanced_df import (
     KlinkerDaskFrame,
     KlinkerFrame,
     KlinkerPandasFrame,
-    KlinkerTriplePandasFrame,
     KlinkerTripleDaskFrame,
+    KlinkerTriplePandasFrame,
 )
 from ..typing import Side, Tuple
 from ..utils import tokenize_row

@@ -302,7 +302,8 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
             id_col=self.id_col,
         )
         result = self.groupby(self.id_col)[self.columns[2]].apply(
-            lambda grp: " ".join(grp.astype(str)).strip(), meta=pd.Series([], name=self.columns[2], dtype="str")
+            lambda grp: " ".join(grp.astype(str)).strip(),
+            meta=pd.Series([], name=self.columns[2], dtype="str"),
         )
         result = KlinkerDaskFrame.upgrade_from_series(
             result,
@@ -384,8 +385,10 @@ KlinkerFrame = Union[KlinkerPandasFrame, KlinkerDaskFrame]
 
 if __name__ == "__main__":
     from sylloge import OAEI
+
     from klinker.data import KlinkerDataset
 
     ds = KlinkerDataset.from_sylloge(OAEI(backend="dask", npartitions=10))
     from klinker.blockers import TokenBlocker
+
     print(TokenBlocker().assign(left=ds.left, right=ds.right))

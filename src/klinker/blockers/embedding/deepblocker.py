@@ -1,4 +1,5 @@
-from typing import List, Tuple, Union
+import pathlib
+from typing import Optional, Union
 
 from class_resolver import HintOrType, OptionalKwargs
 
@@ -18,6 +19,9 @@ class DeepBlocker(EmbeddingBlocker):
         frame_encoder_kwargs: OptionalKwargs = None,
         embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         embedding_block_builder_kwargs: OptionalKwargs = None,
+        save: bool = True,
+        save_dir: Optional[Union[str, pathlib.Path]] = None,
+        force: bool = False,
     ):
         frame_encoder = deep_blocker_encoder_resolver.make(
             frame_encoder, frame_encoder_kwargs
@@ -26,4 +30,7 @@ class DeepBlocker(EmbeddingBlocker):
             frame_encoder=frame_encoder,
             embedding_block_builder=embedding_block_builder,
             embedding_block_builder_kwargs=embedding_block_builder_kwargs,
+            save=save,
+            save_dir=save_dir,
+            force=force,
         )

@@ -50,6 +50,7 @@ from klinker.encoders.pretrained import (
 )
 from klinker.eval_metrics import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
+from nephelai import upload
 
 logger = logging.getLogger("KlinkerExperiment")
 
@@ -84,6 +85,8 @@ def _handle_artifacts(
     artifact_name: str,
     artifact_dir: str,
     results: Dict,
+    nextcloud: bool,
+    encodings_dir: Optional[str],
 ) -> None:
     if isinstance(tracker, WANDBResultTracker):
         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
@@ -97,25 +100,32 @@ def _handle_artifacts(
         logger.info(f"Saved parameters artifact in {params_artifact_path}")
         counter = 0
         while True:
-            artifact_name = f"{artifact_name}_{counter}"
-            artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
+            counter_artifact_name = f"{artifact_name}_{counter}"
+            artifact_file_path = _create_artifact_path(
+                counter_artifact_name, artifact_dir
+            )
             if os.path.exists(artifact_file_path):
                 counter += 1
             else:
                 break
         blocks.to_pickle(artifact_file_path)
         logger.info(f"Saved blocks artifact in {artifact_file_path}")
+    if nextcloud:
+        upload(artifact_dir, artifact_dir)
 
 
 @click.group(chain=True)
 @click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
-def cli(clean: bool, wandb: bool):
+@click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
+def cli(clean: bool, wandb: bool, nextcloud: bool):
     pass
 
 
 @cli.result_callback()
-def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
+def process_pipeline(
+    blocker_and_dataset: List, clean: bool, wandb: bool, nextcloud: bool
+):
     assert (
         len(blocker_and_dataset) == 2
     ), "Only 1 dataset and 1 blocker command can be used!"
@@ -152,6 +162,7 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
     tracker.start_run()
 
     artifact_name = _create_artifact_name(tracker, params)
+    encodings_dir = None
     if isinstance(blocker, EmbeddingBlocker):
         encodings_dir = _create_artifact_path(
             artifact_name, experiment_artifact_dir, suffix="_encoded"
@@ -191,6 +202,8 @@ def process_pipeline(blocker_and_dataset: List, clean: bool, wandb: bool):
         artifact_name=artifact_name,
         artifact_dir=experiment_artifact_dir,
         results=results,
+        nextcloud=nextcloud,
+        encodings_dir=encodings_dir,
     )
     tracker.end_run()
 
@@ -303,6 +316,7 @@ def relational_lsh_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--force", type=bool, default=True)
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -316,6 +330,7 @@ def deepblocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -352,6 +367,7 @@ def deepblocker(
         frame_encoder_kwargs=encoder_kwargs,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -375,6 +391,7 @@ def deepblocker(
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--attr-n-neighbors", type=int, default=100)
 @click.option("--rel-n-neighbors", type=int, default=100)
+@click.option("--force", type=bool, default=True)
 def relational_deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -389,6 +406,7 @@ def relational_deepblocker(
     block_builder_kwargs: str,
     attr_n_neighbors: int,
     rel_n_neighbors: int,
+    force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -432,6 +450,7 @@ def relational_deepblocker(
         rel_frame_encoder_kwargs=encoder_kwargs,
         rel_embedding_block_builder=block_builder,
         rel_embedding_block_builder_kwargs=rel_bb_kwargs,
+        force=force,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -474,6 +493,7 @@ def relational_token_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--force", type=bool, default=True)
 def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
@@ -485,6 +505,7 @@ def light_ea_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -511,6 +532,7 @@ def light_ea_blocker(
         ),
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -526,6 +548,7 @@ def light_ea_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--force", type=bool, default=True)
 def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
@@ -534,6 +557,7 @@ def gcn_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -558,6 +582,7 @@ def gcn_blocker(
         ),
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -572,12 +597,14 @@ def gcn_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--force", type=bool, default=True)
 def only_embeddings_blocker(
     encoder: str,
     embeddings: str,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     frame_encoder_kwargs = dict(
         tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
@@ -592,6 +619,7 @@ def only_embeddings_blocker(
         frame_encoder_kwargs=frame_encoder_kwargs,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
+        force=force
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)

@@ -3,9 +3,10 @@ from typing import Optional
 import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
-from klinker.utils import resolve_device
 from sklearn.preprocessing import normalize
 from tqdm import trange
+
+from klinker.utils import resolve_device
 
 from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver

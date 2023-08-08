@@ -3,10 +3,11 @@ from typing import List, Optional, Set, Tuple, Union
 import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
-from klinker.utils import resolve_device
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
 from torch_sparse import matmul as sparse_matmul
+
+from klinker.utils import resolve_device
 
 from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
