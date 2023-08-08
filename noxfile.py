@@ -4,7 +4,7 @@ from nox_poetry import Session, session
 @session()
 def tests(session: Session) -> None:
     args = session.posargs or ["--cov", "--cov-report=xml"]
-    session.install(".")
+    session.install(".[all]")
     session.install("strawman")
     session.install("pytest")
     session.install("pytest-cov")

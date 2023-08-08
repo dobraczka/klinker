@@ -21,7 +21,12 @@ from tqdm.auto import tqdm
 from .base import TokenizedFrameEncoder
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
-from ..utils import concat_frames, upgrade_to_sequence, resolve_device, get_preferred_device
+from ..utils import (
+    concat_frames,
+    get_preferred_device,
+    resolve_device,
+    upgrade_to_sequence,
+)
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
@@ -31,7 +36,7 @@ word_embedding_dir = pystow.module("klinker").join("word_embeddings")
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
 
 
-#copy-pasted from pykeen
+# copy-pasted from pykeen
 @memory_utilization_maximizer
 def _encode_all_memory_utilization_optimized(
     encoder: "TextEncoder",

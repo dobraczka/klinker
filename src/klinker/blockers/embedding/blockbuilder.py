@@ -27,6 +27,7 @@ class EmbeddingBlockBuilder:
     ) -> KlinkerBlockManager:
         raise NotImplementedError
 
+
 class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     def _get_neighbors(
         self,

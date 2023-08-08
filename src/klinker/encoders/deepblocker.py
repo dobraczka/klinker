@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
-from klinker.utils import resolve_device
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
+
+from klinker.utils import resolve_device
 
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
