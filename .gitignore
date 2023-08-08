@@ -1,3 +1,5 @@
+# slurm
+slurm-*.out
 ### Python ###
 # cruft
 .cruft.json

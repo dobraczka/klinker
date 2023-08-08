@@ -13,3 +13,12 @@ Usage
 
 Installation
 ============
+Create a mamba environment:
+```
+mamba env create -n klinker-conda --file=klinker-conda.yaml
+```
+Activate it and install the remaining dependencies:
+```
+mamba activate klinker-conda
+pip install -e .
+```
