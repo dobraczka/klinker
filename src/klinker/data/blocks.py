@@ -1,26 +1,35 @@
 import itertools
 import math
+import pathlib
 import pickle
 from typing import (
     Dict,
     Generator,
     ItemsView,
     KeysView,
+    List,
     Optional,
+    Sequence,
     Set,
     Tuple,
+    TypeVar,
     Union,
     ValuesView,
 )
 
 import dask.bag as db
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
+import pyarrow as pa
 from dask.base import tokenize
 from tlz import partition_all
 
+EntityIdTypeVar = TypeVar("EntityIdTypeVar", str, int)
+BlockIdTypeVar = TypeVar("BlockIdTypeVar", str, int)
 
-class KlinkerBlockManager:
+
+class OldKlinkerBlockManager:
     def __init__(
         self,
         blocks: Dict[Union[str, int], Tuple[Set[int], ...]],
@@ -64,6 +73,16 @@ class KlinkerBlockManager:
                                 "If id_mappings are supplied, they have to map all ids"
                             )
 
+    def tuple_id_from_dataset_name(self, dataset_name: str) -> int:
+        tuple_id = -1
+        for possible_tuple_id, ds_name in enumerate(self.dataset_names):
+            if ds_name == dataset_name:
+                tuple_id = possible_tuple_id
+                break
+        if tuple_id == -1:
+            raise ValueError(f"Unknown dataset_name {dataset_name}")
+        return tuple_id
+
     @property
     def block_sizes(self) -> pd.DataFrame:
         return pd.Series(
@@ -77,25 +96,72 @@ class KlinkerBlockManager:
     def mean_block_size(self) -> float:
         return self.block_sizes.mean()
 
-    def to_pairs(
-        self, replace_id_mappings=False
+    def get_ids(self, dataset_name: str) -> Set[Union[int, str]]:
+        tuple_id = self.tuple_id_from_dataset_name(dataset_name)
+        return set(itertools.chain(*(block[tuple_id] for block in self.values())))
+
+    def entity_pairs(
+        self, entity_id: Union[str, int], dataset_name: str
     ) -> Generator[Tuple[Union[int, str], ...], None, None]:
-        for block_name, block in self.blocks.items():
-            for pair in itertools.product(*block):
-                if replace_id_mappings and self.id_mappings is not None:
-                    yield tuple(self.id_mappings[i][pair[i]] for i in range(len(pair)))
-                else:
-                    yield pair
+        cur_blocks = self.find_blocks(entity_id, dataset_name)
+        return (
+            pair
+            for _, blk in cur_blocks.items()
+            for pair in itertools.product({entity_id}, blk[1])
+        )
+
+    def to_pairs(
+        self, replace_id_mappings=False, remove_duplicates=True
+    ) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        def _handle_pair(replace_id_mappings, pair, id_mappings):
+            if replace_id_mappings and id_mappings is not None:
+                yield tuple(id_mappings[i][pair[i]] for i in range(len(pair)))
+            else:
+                yield pair
+
+        if not remove_duplicates:
+            for block_name, block in self.blocks.items():
+                for pair in itertools.product(*block):
+                    return _handle_pair(
+                        replace_id_mappings=replace_id_mappings,
+                        pair=pair,
+                        id_mappings=self.id_mappings,
+                    )
+        else:
+            left_ds_name = self.dataset_names[0]
+            left_ids = self.get_ids(left_ds_name)
+            for cur_id in left_ids:
+                self.find_blocks(cur_id, left_ds_name)
+                for pair in set(self.entity_pairs(cur_id, left_ds_name)):
+                    return _handle_pair(
+                        replace_id_mappings=replace_id_mappings,
+                        pair=pair,
+                        id_mappings=self.id_mappings,
+                    )
+        # empty generator
+        yield from ()
+
+    def count_duplicate_pairs_and_total(self) -> Tuple[int, int]:
+        duplicates = 0
+        total = 0
+        left_ds_name = self.dataset_names[0]
+        left_ids = self.get_ids(left_ds_name)
+        for cur_id in left_ids:
+            self.find_blocks(cur_id, left_ds_name)
+            cur_pairs = list(self.entity_pairs(cur_id, left_ds_name))
+            total += len(cur_pairs)
+            duplicates += len(cur_pairs) - len(set(cur_pairs))
+        return duplicates, total
 
     @classmethod
     def combine(
-        cls, this: "KlinkerBlockManager", other: "KlinkerBlockManager"
-    ) -> "KlinkerBlockManager":
+        cls, this: "OldKlinkerBlockManager", other: "OldKlinkerBlockManager"
+    ) -> "OldKlinkerBlockManager":
         """Combine blocks and id_mappings with preferenc of `this` id_mappings.
 
         :param this: one block manager to combine
         :param other: other block manager to combine
-        :return: Combined KlinkerBlockManager
+        :return: Combined OldKlinkerBlockManager
         """
         if this.dataset_names != other.dataset_names:
             raise ValueError("Cannot combine blocks from different datasets!")
@@ -127,7 +193,7 @@ class KlinkerBlockManager:
 
     def __getitem__(self, key):
         if isinstance(key, list):
-            return KlinkerBlockManager(
+            return OldKlinkerBlockManager(
                 {k: self.blocks[k] for k in key},
                 dataset_names=self.dataset_names,
                 id_mappings=self.id_mappings,
@@ -137,8 +203,8 @@ class KlinkerBlockManager:
     def __setitem__(self, key, value):
         self.blocks[key] = value
 
-    def copy(self) -> "KlinkerBlockManager":
-        return KlinkerBlockManager(
+    def copy(self) -> "OldKlinkerBlockManager":
+        return OldKlinkerBlockManager(
             self.blocks.copy(),
             self.dataset_names,
             (self.id_mappings[0].copy(), self.id_mappings[1].copy())
@@ -174,6 +240,16 @@ class KlinkerBlockManager:
                     return True
         return False
 
+    def find_blocks(
+        self, entity_id: Union[str, int], dataset_name: str
+    ) -> Dict[Union[str, int], Tuple[Set[int], ...]]:
+        tuple_id = self.tuple_id_from_dataset_name(dataset_name)
+        return dict(
+            (block_name, block)
+            for block_name, block in self.blocks.items()
+            if entity_id in block[tuple_id]
+        )
+
     def __repr__(self) -> str:
         repr_str = "\n".join(
             [f"{key} | {block_tuple}" for key, block_tuple in self.blocks.items()]
@@ -190,7 +266,7 @@ class KlinkerBlockManager:
         cls,
         pd_blocks: Union[pd.DataFrame, dd.DataFrame],
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
-    ) -> "KlinkerBlockManager":
+    ) -> "OldKlinkerBlockManager":
         def _ensure_set(value) -> Set:
             if isinstance(value, set):
                 return value
@@ -216,7 +292,7 @@ class KlinkerBlockManager:
             pickle.dump(self, out_file)
 
     @staticmethod
-    def read_pickle(path) -> "KlinkerBlockManager":
+    def read_pickle(path) -> "OldKlinkerBlockManager":
         with open(path, "rb") as in_file:
             return pickle.load(in_file)
 
@@ -239,3 +315,182 @@ class KlinkerBlockManager:
             d = {(name, 0): self[[]]}
 
         return db.Bag(d, name, len(d))
+
+
+class KlinkerBlockManager:
+    def __init__(self, blocks: dd.DataFrame):
+        self.blocks = blocks
+        exploded = []
+        grouped = []
+        for column_name in self.blocks.columns:
+            cur_ex = self.blocks[column_name].explode()
+            exploded.append(cur_ex)
+            grouped.append(cur_ex.to_frame().groupby(by=column_name))
+        self._exploded = tuple(exploded)
+        self._grouped = tuple(grouped)
+
+    def __getitem__(self, key):
+        return self.blocks.loc[key]
+
+    def __eq__(self, other) -> bool:
+        if not len(self) == len(other):
+            return False
+        for blk_name in self.blocks.index:
+            if not self[blk_name].compute().equals(other[blk_name].compute()):
+                return False
+        return True
+
+    def __len__(self) -> int:
+        return len(self.blocks)
+
+    def __repr__(self) -> str:
+        return f"KlinkerBlockManager(blocks=\n{self.blocks.__repr__()})"
+
+    def find_blocks(self, entity_id: Union[str, int], column_id: int) -> np.ndarray:
+        return self._grouped[column_id].get_group(entity_id).index.values.compute()
+
+    def entity_pairs(
+        self, entity_id: Union[str, int], column_id: int
+    ) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        cur_blocks = self.find_blocks(entity_id, column_id)
+        other_column = 0 if column_id == 1 else 1
+        other_column_name = self.blocks.columns[other_column]
+        return (
+            pair
+            for blk_name in cur_blocks
+            for _, blk in self.blocks.loc[blk_name][other_column_name].compute().items()
+            for pair in itertools.product({entity_id}, blk)
+        )
+
+    def all_pairs(self, remove_duplicates: bool = False):
+        if not remove_duplicates:
+            for block_tuple in self.blocks.itertuples(index=False, name=None):
+                for pair in itertools.product(*block_tuple):
+                    yield pair
+        else:
+            for e_id in self._exploded[0].unique():
+                for pair in set(self.entity_pairs(e_id, 0)):
+                    yield pair
+
+    @property
+    def block_sizes(self) -> pd.DataFrame:
+        meta = pd.Series([],dtype="int64",name="block_sizes")
+        return self.blocks.apply(lambda x: sum(len(v) for v in x), axis=1, meta=meta).compute()
+
+
+    @property
+    def mean_block_size(self) -> float:
+        return self.block_sizes.mean()
+
+    @classmethod
+    def combine(
+        cls, this: "KlinkerBlockManager", other: "KlinkerBlockManager"
+    ) -> "KlinkerBlockManager":
+        def _merge_blocks(
+            row: pd.Series, output_names: Sequence[str], left_right_names: Sequence[str]
+        ):
+            nonnull = row[~row.isnull()]
+            if len(nonnull) == 2:  # no block overlap
+                nonnull.index = output_names
+                return nonnull
+            else:
+                A_left = set(nonnull[left_right_names[0]])
+                A_right = set(nonnull[left_right_names[2]])
+                B_left = set(nonnull[left_right_names[1]])
+                B_right = set(nonnull[left_right_names[3]])
+                A = list(A_left.union(A_right))
+                B = list(B_left.union(B_right))
+                return pd.Series([A, B], index=output_names, name=nonnull.name)
+
+        if list(this.blocks.columns) != list(other.blocks.columns):
+            raise ValueError("Cannot combine blocks from different datasets!")
+
+        output_names = this.blocks.columns
+        left_suffix = "left"
+        right_suffix = "right"
+        left_right_names = [
+            col + suffix
+            for col_names, suffix in zip(
+                [this.blocks.columns, other.blocks.columns], [left_suffix, right_suffix]
+            )
+            for col in col_names
+        ]
+        joined = this.blocks.join(
+            other.blocks, how="outer", lsuffix="left", rsuffix="right"
+        )
+
+        meta = pd.DataFrame([], columns=output_names)
+
+        return cls(
+            joined.apply(
+                _merge_blocks,
+                output_names=output_names,
+                left_right_names=left_right_names,
+                axis=1,
+                meta=meta,
+            )
+        )
+
+    def to_parquet(self, path: Union[str, pathlib.Path], **kwargs):
+        if not "schema" in kwargs:
+            left, right = self.blocks.columns[:2]
+            block_type = pa.list_(pa.string())
+            index_type = pa.string() if self.blocks.index.dtype == "O" else pa.int64()
+            schema = {
+                self.blocks.index.name: index_type,
+                left: block_type,
+                right: block_type,
+            }
+        self.blocks.to_parquet(path, schema=schema, **kwargs)
+
+    @classmethod
+    def read_parquet(
+        cls,
+        path: Union[str, pathlib.Path],
+        calculate_divisions: bool = True,
+        **kwargs,
+    ):
+        return cls(
+            dd.read_parquet(
+                path=path,
+                calculate_divisions=calculate_divisions,
+                **kwargs,
+            )
+        )
+
+    @classmethod
+    def from_pandas(
+        cls, df: pd.DataFrame, npartitions: int = 1, **kwargs
+    ) -> "KlinkerBlockManager":
+        return cls(dd.from_pandas(df, npartitions=npartitions, **kwargs))
+
+    @classmethod
+    def from_dict(
+        cls,
+        block_dict: Dict[
+            BlockIdTypeVar, Tuple[List[EntityIdTypeVar], List[EntityIdTypeVar]]
+        ],
+        dataset_names: Tuple[str, str] = ("left", "right"),
+        npartitions: int = 1,
+        **kwargs,
+    ) -> "KlinkerBlockManager":
+        return cls(
+            dd.from_dict(
+                block_dict,
+                orient="index",
+                columns=dataset_names,
+                npartitions=npartitions,
+                **kwargs,
+            )
+        )
+
+    @classmethod
+    def read_pickle(cls, path) -> "KlinkerBlockManager":
+        with open(path, "rb") as in_file:
+            res = pickle.load(in_file)
+            if isinstance(res, dict):
+                return cls.from_dict(res)
+            elif isinstance(res, pd.DataFrame):
+                return cls.from_pandas(res)
+            else:
+                raise ValueError(f"Unknown pickled object of type {type(res)}")

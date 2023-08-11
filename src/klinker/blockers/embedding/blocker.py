@@ -78,7 +78,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         if self.save:
             if self.save_dir is None:
                 save_dir = pathlib.Path(".").joinpath(
-                    "{left.table_name}_{right.table_name}_{self.frame_encoder.__class__.__name__}"
+                    f"{left.table_name}_{right.table_name}_{self.frame_encoder.__class__.__name__}"
                 )
                 self.save_dir = save_dir
             if os.path.exists(self.save_dir):

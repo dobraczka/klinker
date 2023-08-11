@@ -134,78 +134,74 @@ def example_with_expected(
 @pytest.fixture
 def expected_standard_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
-    return KlinkerBlockManager(
-        {"Bulgaria": ({2}, {2}), "USA": ({0, 1}, {1})},
+    return KlinkerBlockManager.from_dict(
+        {"Bulgaria": ([2], [2]), "USA": ([0, 1], [1])},
         dataset_names,
-        id_mappings,
     )
 
 
 @pytest.fixture
 def expected_qgrams_blocker(example_tables) -> pd.DataFrame:
     _, _, dataset_names, id_mappings = example_tables
-    return KlinkerBlockManager(
+    return KlinkerBlockManager.from_dict(
         {
-            "Bul": ({2}, {2}),
-            "Ind": ({3}, {3}),
-            "USA": ({0, 1}, {1}),
-            "ari": ({2}, {2}),
-            "gar": ({2}, {2}),
-            "lga": ({2}, {2}),
-            "ria": ({2}, {2}),
-            "ulg": ({2}, {2}),
+            "Bul": ([2], [2]),
+            "Ind": ([3], [3]),
+            "USA": ([0, 1], [1]),
+            "ari": ([2], [2]),
+            "gar": ([2], [2]),
+            "lga": ([2], [2]),
+            "ria": ([2], [2]),
+            "ulg": ([2], [2]),
         },
         dataset_names,
-        id_mappings,
     )
 
 
 @pytest.fixture
 def expected_sorted_neighborhood_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
-    return KlinkerBlockManager(
+    return KlinkerBlockManager.from_dict(
         {
-            2: ({2}, {2, 4}),
-            3: ({3}, {2, 4}),
-            4: ({3}, {4, 3}),
-            5: ({3, 4}, {3}),
-            6: ({4, 0}, {3}),
-            8: ({0, 1}, {1}),
-            9: ({1}, {1, 0}),
+            2: ([2], [2, 4]),
+            3: ([3], [2, 4]),
+            4: ([3], [4, 3]),
+            5: ([3, 4], [3]),
+            6: ([4, 0], [3]),
+            8: ([0, 1], [1]),
+            9: ([1], [1, 0]),
         },
         dataset_names,
-        id_mappings,
     )
 
 
 @pytest.fixture
 def expected_token_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
-    return KlinkerBlockManager(
+    return KlinkerBlockManager.from_dict(
         {
-            "02-02-1983": ({1}, {1}),
-            "04-12-1990": ({2}, {2, 3}),
-            "11-12-1973": ({0}, {0}),
-            "Bulgaria": ({2}, {2}),
-            "John": ({0}, {0}),
-            "Maggie": ({1}, {1}),
-            "McExample": ({0}, {0}),
-            "None": ({3}, {0}),
-            "Nushi": ({3}, {4}),
-            "Rebecca": ({2}, {2}),
-            "Smith": ({1, 2}, {1, 2}),
-            "USA": ({0, 1}, {1}),
+            "02-02-1983": ([1], [1]),
+            "04-12-1990": ([2], [2, 3]),
+            "11-12-1973": ([0], [0]),
+            "Bulgaria": ([2], [2]),
+            "John": ([0], [0]),
+            "Maggie": ([1], [1]),
+            "McExample": ([0], [0]),
+            "None": ([3], [0]),
+            "Nushi": ([3], [4]),
+            "Rebecca": ([2], [2]),
+            "Smith": ([1, 2], [1, 2]),
+            "USA": ([0, 1], [1]),
         },
         dataset_names,
-        id_mappings,
     )
 
 
 @pytest.fixture
 def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
-    return KlinkerBlockManager(
-        {1: ({0}, {0}), 2: ({1}, {1}), 3: ({2}, {2})}, dataset_names, id_mappings
+    return KlinkerBlockManager.from_dict(
+            {1: ([0], [0]), 2: ([1], [1]), 3: ([2], [2])}, dataset_names
     )
 
 
@@ -333,7 +329,7 @@ def test_assign_embedding_blocker(
     else:
         block = blocker.assign(ta, tb)
 
-        assert block.dataset_names == (ta.table_name, tb.table_name)
+        assert tuple(block.blocks.columns) == (ta.table_name, tb.table_name)
         if eb != "HDBSCANBlockBuilder":
             assert len(block) == len(
                 ta.concat_values()
@@ -370,7 +366,7 @@ def test_assign_relation_frame_encoder(
     ).assign(ta, tb, rel_ta, rel_tb)
 
     a_ids = _get_ids(attr=ta.set_index(ta.id_col), rel=rel_ta)
-    assert block.dataset_names == (ta.table_name, tb.table_name)
+    assert tuple(block.blocks.columns) == (ta.table_name, tb.table_name)
     assert len(block) == len(a_ids)
     assert all(
         len(block_tuple[0]) == 1 and len(block_tuple[1]) == eb_kwargs["n_neighbors"]

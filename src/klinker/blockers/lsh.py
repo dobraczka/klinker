@@ -74,4 +74,4 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                     res = lsh.query(minhash)
                     if len(res) > 0:
                         block_dict[row_id] = (set(res), {row_id})
-        return KlinkerBlockManager(block_dict, (left.table_name, right.table_name))
+        return KlinkerBlockManager.from_dict(block_dict, (left.table_name, right.table_name))

@@ -48,7 +48,7 @@ class Evaluation:
         gold: pd.DataFrame,
         left_data_len: int,
         right_data_len: int,
-        partition_size: int = None,
+        partition_size: Optional[int] = None,
         save_pairs: bool = False,
     ):
         self._check_consistency(blocks, gold)
@@ -57,24 +57,25 @@ class Evaluation:
         right_col = gold.columns[1]
 
         self.gold_pair_set = set(zip(gold[left_col], gold[right_col]))
+        self._calc_tp_fp_fn(blocks)
 
         self.comp_without_blocking = left_data_len * right_data_len
-        self.true_positive, self.false_positive, self.comp_with_blocking, tp_it = (
-            blocks.to_bag(partition_size=partition_size)
-            .map_partitions(
-                calc_tp_fp_comp_with_blocking, self.gold_pair_set, save_pairs
-            )
-            .reduction(lambda x: x, sum_tuple)
-            .compute()
-        )
-        self.tp_set = set(tp_it)
-        self.false_negative = len(self.gold_pair_set) - self.true_positive
+        # self.true_positive, self.false_positive, self.comp_with_blocking, tp_it = (
+        #     blocks.to_bag(partition_size=partition_size)
+        #     .map_partitions(
+        #         calc_tp_fp_comp_with_blocking, self.gold_pair_set, save_pairs
+        #     )
+        #     .reduction(lambda x: x, sum_tuple)
+        #     .compute()
+        # )
+        # self.tp_set = set(tp_it)
+        # self.false_negative = len(self.gold_pair_set) - self.true_positive
         self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
         tp = 0
         fp = 0
-        for pair_number, pair in enumerate(tqdm(blocks.to_pairs()), start=1):
+        for pair_number, pair in enumerate(blocks.all_pairs(), start=1):
             if pair in self.gold_pair_set:
                 tp += 1
             else:
@@ -88,7 +89,7 @@ class Evaluation:
     def _check_consistency(self, blocks: KlinkerBlockManager, gold: pd.DataFrame):
         if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
-        if not set(blocks.dataset_names) == set(gold.columns):
+        if not set(blocks.blocks.columns) == set(gold.columns):
             raise ValueError(
                 "Blocks and gold standard frame need to have the same columns!"
             )
@@ -262,27 +263,3 @@ def multiple_block_comparison(
     )
     seen_pairs.add((b_a_name, b_b_name))
     return result_df
-
-
-if __name__ == "__main__":
-    import pickle
-
-    with open(
-        "experiment_artifacts/moviegraphbenchmark_imdb_tmdb/TokenBlocker/c1950a5d927d224b5203b2535e77ef8f216dd61f_2_blocks.pkl",
-        "rb",
-    ) as infile:
-        blocks1: KlinkerBlockManager = pickle.load(infile)
-
-    with open(
-        "experiment_artifacts/moviegraphbenchmark_imdb_tmdb/MinHashLSHBlocker/82d89cceb44e543a38ddfbd2e5f8d27572fead06_0_blocks.pkl",
-        "rb",
-    ) as infile:
-        blocks2: KlinkerBlockManager = pickle.load(infile)
-
-    from sylloge import MovieGraphBenchmark
-
-    from klinker.data import KlinkerDataset
-
-    ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
-
-    print(compare_blocks(blocks1, blocks2, ds, "h3r"))
