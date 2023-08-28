@@ -1,5 +1,6 @@
 from typing import Optional, Tuple, Union
 
+import dask.dataframe as dd
 import pandas as pd
 
 from .base import Blocker
@@ -20,7 +21,11 @@ class StandardBlocker(Blocker):
         series = (
             kf[[id_col, self.blocking_key]]
             .groupby(self.blocking_key)
-            .apply(lambda x, id_col: set(x[id_col]), id_col=kf.id_col)
+            .apply(
+                lambda x, id_col: list(set(x[id_col])),
+                id_col=kf.id_col,
+                # TODO add in case dask: meta=pd.Series([], dtype=object),
+            )
         )
         blocked = kf.__class__.upgrade_from_series(
             series,
@@ -47,4 +52,6 @@ class StandardBlocker(Blocker):
         left_assign = self._inner_assign(left, left_bk)
         right_assign = self._inner_assign(right, right_bk)
         pd_blocks = left_assign.join(right_assign, how="inner")
+        if isinstance(pd_blocks, dd.DataFrame):
+            return KlinkerBlockManager(pd_blocks)
         return KlinkerBlockManager.from_pandas(pd_blocks)

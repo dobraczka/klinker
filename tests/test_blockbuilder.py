@@ -83,7 +83,7 @@ def test_cluster_block_builder(example, expected):
 
 def test_nn_block_builder(example):
     blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)
-    for bname, btuple in blocks.items():
+    for bname, btuple in blocks.to_dict().items():
         for ba in btuple[0]:
             assert ba.startswith("a")
         assert len(btuple[1]) == 2
@@ -101,5 +101,4 @@ def test_from_encoded(example, expected, tmp_path):
     blocks = EmbeddingBlocker(
         embedding_block_builder=block_builder, save_dir=mydir
     ).from_encoded()
-    print(blocks)
     assert blocks == expected

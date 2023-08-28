@@ -16,7 +16,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         min_token_length: int = 3,
-        use_alternative_dask_impl: bool = False,
+        use_alternative_dask_impl: bool = True,
     ):
         self.tokenize_fn = tokenize_fn
         self.min_token_length = min_token_length

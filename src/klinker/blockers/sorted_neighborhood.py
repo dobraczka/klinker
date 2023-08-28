@@ -4,7 +4,7 @@ import dask.dataframe as dd
 import pandas as pd
 
 from .standard import StandardBlocker
-from ..data import KlinkerFrame, KlinkerPandasFrame
+from ..data import KlinkerFrame, KlinkerPandasFrame, KlinkerBlockManager
 
 
 class SortedNeighborhoodBlocker(StandardBlocker):
@@ -43,4 +43,4 @@ class SortedNeighborhoodBlocker(StandardBlocker):
                         res[entry_ds_name][w_id].add(entry_id)
                     else:
                         res[entry_ds_name][w_id] = {entry_id}
-        return pd.DataFrame(res)
+        return KlinkerBlockManager.from_pandas(pd.DataFrame(res).dropna().applymap(list))

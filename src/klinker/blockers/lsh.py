@@ -35,7 +35,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
 
     def _create_min_hash_tuple_list(
         self, kf: KlinkerFrame
-    ) -> List[Tuple[int, MinHash]]:
+    ) -> List[Tuple[str, MinHash]]:
         minhash = kf.apply(
             lambda row, id_col, non_id_cols: (
                 row[id_col],
@@ -60,7 +60,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         assert left.table_name
         assert right.table_name
 
-        block_dict: Dict[Union[str, int], Tuple[Set[int], ...]] = {}
+        block_dict: Dict[str, Tuple[List[str], List[str]]] = {}
         lsh = MinHashLSH(
             threshold=self.threshold, num_perm=self.num_perm, weights=self.weights
         )
@@ -71,7 +71,8 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                 if number == 0:
                     lsh.insert(row_id, minhash)
                 else:
-                    res = lsh.query(minhash)
+                    res = list(set(lsh.query(minhash)))
                     if len(res) > 0:
-                        block_dict[row_id] = (set(res), {row_id})
+                        block_dict[row_id] = (res, [row_id])
+
         return KlinkerBlockManager.from_dict(block_dict, (left.table_name, right.table_name))

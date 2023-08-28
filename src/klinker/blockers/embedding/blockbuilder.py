@@ -49,7 +49,7 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
             lambda x, right: right.names[x],
             right=right,
         ).values.tolist()
-        df[left_name] = left.names
+        df[left_name] = [[name] for name in left.names]
         return KlinkerBlockManager.from_pandas(df[[left_name, right_name]])
 
 

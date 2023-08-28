@@ -346,6 +346,20 @@ class KlinkerBlockManager:
     def __repr__(self) -> str:
         return f"KlinkerBlockManager(blocks=\n{self.blocks.__repr__()})"
 
+    def to_dict(self) -> Dict[Union[str, int], Tuple[Union[str, int], Union[str, int]]]:
+        """Return blocks as dict.
+
+        The dict has block names as keys and
+        a tuple of sets of entity ids.
+
+        :return: block dict.
+        """
+        return (
+            self.blocks.apply(tuple, axis=1, meta=pd.Series([], dtype=object))
+            .compute()
+            .to_dict()
+        )
+
     def find_blocks(self, entity_id: Union[str, int], column_id: int) -> np.ndarray:
         return self._grouped[column_id].get_group(entity_id).index.values.compute()
 
@@ -374,9 +388,10 @@ class KlinkerBlockManager:
 
     @property
     def block_sizes(self) -> pd.DataFrame:
-        meta = pd.Series([],dtype="int64",name="block_sizes")
-        return self.blocks.apply(lambda x: sum(len(v) for v in x), axis=1, meta=meta).compute()
-
+        meta = pd.Series([], dtype="int64", name="block_sizes")
+        return self.blocks.apply(
+            lambda x: sum(len(v) for v in x), axis=1, meta=meta
+        ).compute()
 
     @property
     def mean_block_size(self) -> float:

@@ -339,17 +339,8 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         if isinstance(left, dd.DataFrame):
-            return (
-                left.map_partitions(
-                    encode_frame,
-                    twe=self.tokenized_word_embedder,
-                ).compute(),
-                right.map_partitions(
-                    encode_frame,
-                    twe=self.tokenized_word_embedder,
-                ).compute(),
-            )
-
+            left = left.compute()
+            right = right.compute()
         return (
             encode_frame(left, twe=self.tokenized_word_embedder),
             encode_frame(right, twe=self.tokenized_word_embedder),
