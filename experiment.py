@@ -670,4 +670,9 @@ def only_embeddings_blocker(
 
 
 if __name__ == "__main__":
+    # import dask
+    # dask.config.set(scheduler='processes')
+    # from dask.distributed import Client, LocalCluster
+    # cluster = LocalCluster()  # Launches a scheduler and workers locally
+    # client = Client(cluster)  # Connect to distributed cluster and override default
     cli()
