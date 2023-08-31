@@ -81,8 +81,6 @@ class Evaluation:
             else:
                 fp += 1
         tp = len(tp_pairs)
-        print(tp_pairs)
-        print(self.gold_pair_set)
         self.false_negative = len(self.gold_pair_set) - tp
         self.true_positive = tp
         self.false_positive = fp

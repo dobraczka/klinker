@@ -5,10 +5,12 @@ import logging
 import os
 import pickle
 import time
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
 import pandas as pd
+from nephelai import upload
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
 from sylloge.moviegraph_benchmark_loader import GraphPair as movie_graph_pairs
@@ -17,7 +19,7 @@ from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
 from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
 from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
 
-from klinker import KlinkerDataset
+from klinker import KlinkerDataset, KlinkerBlockManager
 from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
@@ -50,9 +52,19 @@ from klinker.encoders.pretrained import (
 )
 from klinker.eval_metrics import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
-from nephelai import upload
 
 logger = logging.getLogger("KlinkerExperiment")
+
+
+@dataclass
+class ExperimentInfo:
+    params: Dict
+    tracker: ResultTracker
+    experiment_artifact_dir: str
+    artifact_name: str
+    blocks_path: str
+    encodings_dir: Optional[str]
+    params_artifact_path: Optional[str]
 
 
 def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
@@ -64,9 +76,7 @@ def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
     return known
 
 
-def _create_artifact_path(
-    artifact_name: str, artifact_dir: str, suffix="_blocks.pkl"
-) -> str:
+def _create_artifact_path(artifact_name: str, artifact_dir: str, suffix: str) -> str:
     return os.path.join(os.path.join(artifact_dir, f"{artifact_name}{suffix}"))
 
 
@@ -78,40 +88,101 @@ def _create_artifact_name(tracker: ResultTracker, params: Dict) -> str:
         return hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
 
 
+# def _create_block_artifact_path(artifact_name: str, artifact_dir: str, tracker: ResultTracker, params: Dict) -> str:
+#     if isinstance(tracker, WANDBResultTracker):
+#         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
+#     else:
+#         params_artifact_path = _create_artifact_path(
+#             artifact_name, artifact_dir, suffix="_params.pkl"
+#         )
+#         with open(params_artifact_path, "wb") as out_file:
+#             pickle.dump(params, out_file)
+#         logger.info(f"Saved parameters artifact in {params_artifact_path}")
+#         counter = 0
+#         while True:
+#             counter_artifact_name = f"{artifact_name}_{counter}"
+#             artifact_file_path = _create_artifact_path(
+#                 counter_artifact_name, artifact_dir
+#             )
+#             if os.path.exists(artifact_file_path):
+#                 counter += 1
+#             else:
+#                 break
+#     return artifact_file_path
+
+
 def _handle_artifacts(
-    blocks: pd.DataFrame,
-    tracker: ResultTracker,
+    wandb: bool,
     params: Dict,
     artifact_name: str,
     artifact_dir: str,
-    results: Dict,
     nextcloud: bool,
-    encodings_dir: Optional[str],
 ) -> None:
-    if isinstance(tracker, WANDBResultTracker):
-        artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
-        blocks.to_pickle(artifact_file_path)
-    else:
+    if not wandb:
         params_artifact_path = _create_artifact_path(
             artifact_name, artifact_dir, suffix="_params.pkl"
         )
         with open(params_artifact_path, "wb") as out_file:
             pickle.dump(params, out_file)
         logger.info(f"Saved parameters artifact in {params_artifact_path}")
-        counter = 0
-        while True:
-            counter_artifact_name = f"{artifact_name}_{counter}"
-            artifact_file_path = _create_artifact_path(
-                counter_artifact_name, artifact_dir
-            )
-            if os.path.exists(artifact_file_path):
-                counter += 1
-            else:
-                break
-        blocks.to_pickle(artifact_file_path)
-        logger.info(f"Saved blocks artifact in {artifact_file_path}")
     if nextcloud:
         upload(artifact_dir, artifact_dir)
+
+
+def prepare(blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool) -> ExperimentInfo:
+
+    # clean names
+    blocker_name = blocker.__class__.__name__
+    dataset_name = dataset.canonical_name
+    params["dataset_name"] = dataset.canonical_name
+    if isinstance(blocker, EmbeddingBlocker):
+        blocker_name = blocker.frame_encoder.__class__.__name__.replace(
+            "FrameEncoder", ""
+        )
+    params["blocker_name"] = blocker_name
+
+    # create tracker
+    tracker: ResultTracker
+    params_artifact_path = None
+    if wandb:
+        tracker = WANDBResultTracker(
+            project="klinker", entity="dobraczka", config=params
+        )
+    else:
+        tracker = ConsoleResultTracker()
+
+    # create paths
+    experiment_artifact_dir = os.path.join(
+        "experiment_artifacts", dataset_name, blocker_name
+    )
+    if not os.path.exists(experiment_artifact_dir):
+        os.makedirs(experiment_artifact_dir)
+    artifact_name = _create_artifact_name(tracker, params)
+    encodings_dir = None
+    if isinstance(blocker, EmbeddingBlocker):
+        encodings_dir = _create_artifact_path(
+            artifact_name, experiment_artifact_dir, suffix="_encoded"
+        )
+        blocker.save = True
+        blocker.save_dir = encodings_dir
+
+    params_artifact_path = (
+        _create_artifact_path(artifact_name, experiment_artifact_dir, suffix="_params.pkl")
+        if not wandb
+        else None
+    )
+    blocks_path = _create_artifact_path(
+        artifact_name, experiment_artifact_dir, suffix="_blocks.parquet"
+    )
+    return ExperimentInfo(
+        params=params,
+        tracker=tracker,
+        experiment_artifact_dir=experiment_artifact_dir,
+        artifact_name=artifact_name,
+        blocks_path=blocks_path,
+        params_artifact_path=params_artifact_path,
+        encodings_dir=encodings_dir,
+    )
 
 
 @click.group(chain=True)
@@ -138,37 +209,10 @@ def process_pipeline(
     blocker, bl_params, blocker_creation_time = blocker_with_params
     klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
-    params["dataset_name"] = dataset.canonical_name
-    blocker_name = blocker.__class__.__name__
-    if isinstance(blocker, EmbeddingBlocker):
-        blocker_name = blocker.frame_encoder.__class__.__name__.replace(
-            "FrameEncoder", ""
-        )
-    params["blocker_name"] = blocker_name
 
-    dataset_name = dataset.canonical_name
-    experiment_artifact_dir = os.path.join(
-        "experiment_artifacts", dataset_name, blocker_name
-    )
-    if not os.path.exists(experiment_artifact_dir):
-        os.makedirs(experiment_artifact_dir)
-    tracker: ResultTracker
-    if wandb:
-        tracker = WANDBResultTracker(
-            project="klinker", entity="dobraczka", config=params
-        )
-    else:
-        tracker = ConsoleResultTracker()
+    experiment_info = prepare(blocker=blocker, dataset=dataset, params=params, wandb=wandb)
+    tracker = experiment_info.tracker
     tracker.start_run()
-
-    artifact_name = _create_artifact_name(tracker, params)
-    encodings_dir = None
-    if isinstance(blocker, EmbeddingBlocker):
-        encodings_dir = _create_artifact_path(
-            artifact_name, experiment_artifact_dir, suffix="_encoded"
-        )
-        blocker.save = True
-        blocker.save_dir = encodings_dir
 
     start = time.time()
     blocks = blocker.assign(
@@ -177,11 +221,14 @@ def process_pipeline(
         left_rel=klinker_dataset.left_rel,
         right_rel=klinker_dataset.right_rel,
     )
+    blocks.to_parquet(experiment_info.blocks_path)
 
     end = time.time()
     run_time = end - start
     run_time += blocker_creation_time
     logger.info(f"Execution took: {run_time} seconds")
+    logger.info(f"Wrote blocks to {experiment_info.blocks_path}")
+    blocks = KlinkerBlockManager.read_parquet(experiment_info.blocks_path)
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     encoder_times: Dict[str, float] = {
         f"encoder_times_{key.lower()}": value
@@ -196,14 +243,11 @@ def process_pipeline(
     tracker.log_metrics(results)
 
     _handle_artifacts(
-        blocks=blocks,
-        tracker=tracker,
-        params=params,
-        artifact_name=artifact_name,
-        artifact_dir=experiment_artifact_dir,
-        results=results,
+        wandb=wandb,
+        params=experiment_info.params,
+        artifact_name=experiment_info.artifact_name,
+        artifact_dir=experiment_info.experiment_artifact_dir,
         nextcloud=nextcloud,
-        encodings_dir=encodings_dir,
     )
     tracker.end_run()
 
@@ -619,7 +663,7 @@ def only_embeddings_blocker(
         frame_encoder_kwargs=frame_encoder_kwargs,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
-        force=force
+        force=force,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)

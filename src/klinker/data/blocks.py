@@ -382,7 +382,7 @@ class KlinkerBlockManager:
                 for pair in itertools.product(*block_tuple):
                     yield pair
         else:
-            for e_id in self._exploded[0].unique():
+            for e_id in self._exploded[0].unique().compute():
                 for pair in set(self.entity_pairs(e_id, 0)):
                     yield pair
 
