@@ -73,14 +73,16 @@ class Evaluation:
         self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
-        tp = 0
+        tp_pairs = set()
         fp = 0
         for pair_number, pair in enumerate(blocks.all_pairs(), start=1):
             if pair in self.gold_pair_set:
-                tp += 1
+                tp_pairs.add(pair)
             else:
                 fp += 1
-
+        tp = len(tp_pairs)
+        print(tp_pairs)
+        print(self.gold_pair_set)
         self.false_negative = len(self.gold_pair_set) - tp
         self.true_positive = tp
         self.false_positive = fp
