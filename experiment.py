@@ -157,6 +157,7 @@ def prepare(blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool) -> 
     )
     if not os.path.exists(experiment_artifact_dir):
         os.makedirs(experiment_artifact_dir)
+    tracker.start_run()
     artifact_name = _create_artifact_name(tracker, params)
     encodings_dir = None
     if isinstance(blocker, EmbeddingBlocker):
@@ -212,7 +213,6 @@ def process_pipeline(
 
     experiment_info = prepare(blocker=blocker, dataset=dataset, params=params, wandb=wandb)
     tracker = experiment_info.tracker
-    tracker.start_run()
 
     start = time.time()
     blocks = blocker.assign(
