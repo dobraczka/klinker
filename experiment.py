@@ -277,9 +277,11 @@ def open_ea_dataset(
 @click.option(
     "--graph-pair", type=click.Choice(get_args(movie_graph_pairs)), default="imdb-tmdb"
 )
-def movie_graph_benchmark_dataset(graph_pair: str) -> Tuple[EADataset, Dict]:
+@click.option("--backend", type=str, default="pandas")
+@click.option("--npartitions", type=int, default=1)
+def movie_graph_benchmark_dataset(graph_pair: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:
     return (
-        MovieGraphBenchmark(graph_pair=graph_pair),
+        MovieGraphBenchmark(graph_pair=graph_pair, backend=backend, npartitions=npartitions),
         click.get_current_context().params,
     )
 
