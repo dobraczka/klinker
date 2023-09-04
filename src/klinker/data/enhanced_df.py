@@ -234,6 +234,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
         self = self.fillna("")
         assert self.table_name
         meta = pd.Series([], name=self.table_name, dtype="str")
+        meta.index.name = self.id_col
         return self.map_partitions(
             M.concat_values,
             new_column_name=new_column_name,
@@ -303,6 +304,7 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
             meta=pd.Series([], name=self.columns[2], dtype="str"),
         )
         result.name = self.table_name
+        result._meta.index.name = self.id_col
         return result
 
 

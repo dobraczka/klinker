@@ -7,6 +7,7 @@ from .enhanced_df import (
     KlinkerTripleDaskFrame,
     KlinkerTriplePandasFrame,
     from_klinker_frame,
+    SeriesType,
 )
 from .named_vector import NamedVector
 
@@ -20,4 +21,5 @@ __all__ = [
     "KlinkerBlockManager",
     "from_klinker_frame",
     "KlinkerTripleDaskFrame",
+    "SeriesType",
 ]

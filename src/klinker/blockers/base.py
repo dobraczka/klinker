@@ -3,7 +3,7 @@ from typing import Optional
 
 import pandas as pd
 
-from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerTriplePandasFrame
+from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerTriplePandasFrame, SeriesType
 
 class Blocker(abc.ABC):
     @abc.abstractmethod
@@ -21,8 +21,8 @@ class SchemaAgnosticBlocker(Blocker):
     @abc.abstractmethod
     def _assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
+        left: SeriesType,
+        right: SeriesType,
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
@@ -32,8 +32,8 @@ class SchemaAgnosticBlocker(Blocker):
         self,
         left: KlinkerFrame,
         right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
         left_reduced, right_reduced = left.concat_values(), right.concat_values()
         return self._assign(
