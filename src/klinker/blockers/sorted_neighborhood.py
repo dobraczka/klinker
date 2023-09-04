@@ -12,13 +12,13 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         self.blocking_key = blocking_key
         self.window_size = window_size
 
-    def _assign(
+    def assign(
         self,
         left: KlinkerFrame,
         right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
+    ) -> KlinkerBlockManager:
         if not isinstance(left, KlinkerPandasFrame):
             raise ValueError("Not implemented for Dask!")
         name_id_tuple_col = "name_id_tuple"

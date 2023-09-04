@@ -116,10 +116,13 @@ def test_concat(example, use_dask, request):
     if use_dask:
         kf = from_klinker_frame(kf, npartitions=2)
         concat_kf = kf.concat_values(new_column_name=new_column_name).compute()
-        print(concat_kf)
     else:
         concat_kf = kf.concat_values(new_column_name=new_column_name)
     assert concat_kf.id_col == kf.id_col
     assert concat_kf.table_name == kf.table_name
     assert len(concat_kf.columns) == 2
-    assert set(concat_kf.apply(tuple, axis=1).tolist()) == set(expected)
+
+    res = set(concat_kf.apply(tuple, axis=1).tolist())
+    edict = dict(expected)
+    for eid, val in res:
+        assert sorted(val.split(" ")) == sorted(edict[eid].split(" "))

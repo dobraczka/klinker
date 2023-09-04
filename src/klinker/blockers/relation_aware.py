@@ -68,13 +68,13 @@ class RelationalBlocker(Blocker):
     _attribute_blocker: Blocker
     _relation_blocker: Blocker
 
-    def _assign(
+    def assign(
         self,
         left: KlinkerFrame,
         right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
-    ) -> pd.DataFrame:
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
+    ) -> KlinkerBlockManager:
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
         left_rel_conc = concat_neighbor_attributes(left, left_rel)
         right_rel_conc = concat_neighbor_attributes(right, right_rel)
@@ -122,6 +122,24 @@ class RelationalTokenBlocker(RelationalBlocker):
             tokenize_fn=tokenize_fn,
             min_token_length=rel_min_token_length,
         )
+        # self._relation_blocker = self._attribute_blocker
+
+    # def _assign(
+    #     self,
+    #     left: KlinkerFrame,
+    #     right: KlinkerFrame,
+    #     left_rel: Optional[pd.DataFrame] = None,
+    #     right_rel: Optional[pd.DataFrame] = None,
+    # ) -> pd.DataFrame:
+    #     left_rel_conc = concat_neighbor_attributes(left, left_rel)
+    #     right_rel_conc = concat_neighbor_attributes(right, right_rel)
+    #     import ipdb # noqa: autoimport
+    #     ipdb.set_trace() # BREAKPOINT
+
+    #     attr_blocked = self._attribute_blocker.assign(left=left, right=right)
+    #     rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
+
+    #     return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
 
 
 class RelationalDeepBlocker(RelationalBlocker):

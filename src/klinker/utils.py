@@ -155,4 +155,4 @@ def tokenize_row(
                 )
             )
         )
-    return res
+    return list(set(res))

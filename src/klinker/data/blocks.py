@@ -435,7 +435,6 @@ class KlinkerBlockManager:
         )
 
         meta = pd.DataFrame([], columns=output_names)
-
         return cls(
             joined.apply(
                 _merge_blocks,
@@ -450,12 +449,21 @@ class KlinkerBlockManager:
         if not "schema" in kwargs:
             left, right = self.blocks.columns[:2]
             block_type = pa.list_(pa.string())
-            index_type = pa.string() if self.blocks.index.dtype == "O" else pa.int64()
-            schema = {
-                self.blocks.index.name: index_type,
-                left: block_type,
-                right: block_type,
-            }
+            if not self.blocks.index.name:
+                schema = {
+                    left: block_type,
+                    right: block_type,
+                }
+            else:
+                index_type = pa.string() if self.blocks.index.dtype == "O" else pa.int64()
+                schema = {
+                    self.blocks.index.name: index_type,
+                    left: block_type,
+                    right: block_type,
+                }
+            schema = pa.schema(schema)
+        else:
+            schema = kwargs.pop["schema"] # type: ignore
         self.blocks.to_parquet(path, schema=schema, **kwargs)
 
     @classmethod

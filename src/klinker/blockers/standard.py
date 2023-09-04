@@ -36,12 +36,12 @@ class StandardBlocker(Blocker):
         )
         return blocked
 
-    def _assign(
+    def assign(
         self,
         left: KlinkerFrame,
         right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
         if isinstance(self.blocking_key, tuple):
             left_bk = self.blocking_key[0]
