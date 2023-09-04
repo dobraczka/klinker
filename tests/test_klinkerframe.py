@@ -118,11 +118,8 @@ def test_concat(example, use_dask, request):
         concat_kf = kf.concat_values(new_column_name=new_column_name).compute()
     else:
         concat_kf = kf.concat_values(new_column_name=new_column_name)
-    assert concat_kf.id_col == kf.id_col
-    assert concat_kf.table_name == kf.table_name
-    assert len(concat_kf.columns) == 2
-
-    res = set(concat_kf.apply(tuple, axis=1).tolist())
+    assert isinstance(concat_kf, pd.Series)
+    assert concat_kf.name == kf.table_name
     edict = dict(expected)
-    for eid, val in res:
+    for eid, val in concat_kf.items():
         assert sorted(val.split(" ")) == sorted(edict[eid].split(" "))
