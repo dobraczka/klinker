@@ -14,7 +14,6 @@ from pandas._typing import Axes, Dtype
 
 SeriesType = Union[pd.Series, dd.Series]
 
-
 class AbstractKlinkerFrame(ABC):
     _table_name: Optional[str]
     _id_col: str
@@ -126,7 +125,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
         id_col: str,
         reset_index: bool = True,
     ) -> "KlinkerFrame":
-        kf = KlinkerPandasFrame(series, table_name=table_name, id_col=id_col)
+        kf = KlinkerPandasFrame(series.to_frame(), table_name=table_name, id_col=id_col)
         if reset_index:
             kf = kf.reset_index()
         kf.columns = columns
@@ -370,8 +369,24 @@ def concat_klinker_triple_pandas(
         concat_pandas(dfs), table_name=dfs[0].table_name, id_col=dfs[0].id_col
     )
 
-
 KlinkerFrame = Union[KlinkerPandasFrame, KlinkerDaskFrame]
+
+
+def generic_upgrade_from_series(conc: SeriesType, reset_index: bool = False) -> KlinkerFrame:
+    frame_class: Type[KlinkerFrame]
+    if isinstance(conc, pd.Series):
+        frame_class = KlinkerPandasFrame
+    else:
+        frame_class = KlinkerDaskFrame
+    columns = ["values"] if not reset_index else ["id", "values"]
+    return frame_class.upgrade_from_series(
+        conc,
+        columns=columns,
+        table_name=conc.name,
+        id_col="id",
+        reset_index=reset_index,
+    )
+
 
 
 if __name__ == "__main__":
@@ -383,3 +398,4 @@ if __name__ == "__main__":
     from klinker.blockers import TokenBlocker
 
     print(TokenBlocker().assign(left=ds.left, right=ds.right))
+

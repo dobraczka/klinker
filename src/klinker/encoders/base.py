@@ -9,7 +9,8 @@ from class_resolver.contrib.torch import initializer_resolver
 from sylloge.id_mapped import id_map_rel_triples
 from torch import nn
 
-from ..data import NamedVector
+from ..blockers.base import SeriesType
+from ..data import NamedVector, generic_upgrade_from_series
 from ..typing import Frame, GeneralVector, GeneralVectorLiteral
 from ..utils import cast_general_vector
 
@@ -90,6 +91,8 @@ class FrameEncoder:
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[NamedVector, NamedVector]:
         self.validate(left, right)
+        # TODO check if series can't be used everywhere instead
+        # of upgrading in prepare
         left, right = self.prepare(left, right)
         start = time.time()
         left_enc, right_enc = self._encode_as(
@@ -202,8 +205,8 @@ class RelationFrameEncoder(FrameEncoder):
 
     def encode(
         self,
-        left: Frame,
-        right: Frame,
+        left: SeriesType,
+        right: SeriesType,
         *,
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,

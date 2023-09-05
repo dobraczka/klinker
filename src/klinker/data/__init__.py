@@ -8,6 +8,7 @@ from .enhanced_df import (
     KlinkerTriplePandasFrame,
     from_klinker_frame,
     SeriesType,
+    generic_upgrade_from_series,
 )
 from .named_vector import NamedVector
 
@@ -22,4 +23,5 @@ __all__ = [
     "from_klinker_frame",
     "KlinkerTripleDaskFrame",
     "SeriesType",
+    "generic_upgrade_from_series"
 ]

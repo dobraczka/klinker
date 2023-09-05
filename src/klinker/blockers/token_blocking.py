@@ -7,6 +7,7 @@ from nltk.tokenize import word_tokenize
 from .base import SchemaAgnosticBlocker
 from ..data import KlinkerFrame, SeriesType
 from ..data.blocks import KlinkerBlockManager
+from ..typing import Frame
 
 
 def tokenize_series(x, tokenize_fn, min_token_length):
@@ -22,7 +23,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
         self.tokenize_fn = tokenize_fn
         self.min_token_length = min_token_length
 
-    def _tok_block(self, tab: SeriesType) -> Union[pd.DataFrame, dd.DataFrame]:
+    def _tok_block(self, tab: SeriesType) -> Frame:
         name = tab.name
         id_col_name = tab.index.name
         # TODO figure out why this hack is needed

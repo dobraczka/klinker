@@ -1,12 +1,16 @@
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
-import dask.bag as db
 import pandas as pd
 from datasketch import MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
-from .base import SchemaAgnosticBlocker
-from ..data import KlinkerBlockManager, KlinkerDaskFrame, KlinkerFrame
+from .base import SchemaAgnosticBlocker, SeriesType
+from ..data import (
+    KlinkerBlockManager,
+    KlinkerDaskFrame,
+    KlinkerFrame,
+    generic_upgrade_from_series,
+)
 
 
 class MinHashLSHBlocker(SchemaAgnosticBlocker):
@@ -34,8 +38,11 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         return self._inner_encode(str(row))
 
     def _create_min_hash_tuple_list(
-        self, kf: KlinkerFrame
+        self, conc: SeriesType
     ) -> List[Tuple[str, MinHash]]:
+        frame_class: Type[KlinkerFrame]
+        kf = generic_upgrade_from_series(conc, reset_index=True)
+
         minhash = kf.apply(
             lambda row, id_col, non_id_cols: (
                 row[id_col],
@@ -51,15 +58,11 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
 
     def _assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: SeriesType,
+        right: SeriesType,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
-        # for mypy
-        assert left.table_name
-        assert right.table_name
-
         block_dict: Dict[str, Tuple[List[str], List[str]]] = {}
         lsh = MinHashLSH(
             threshold=self.threshold, num_perm=self.num_perm, weights=self.weights
@@ -75,4 +78,4 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                     if len(res) > 0:
                         block_dict[row_id] = (res, [row_id])
 
-        return KlinkerBlockManager.from_dict(block_dict, (left.table_name, right.table_name))
+        return KlinkerBlockManager.from_dict(block_dict, (left.name, right.name))

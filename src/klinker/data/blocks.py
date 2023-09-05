@@ -24,6 +24,7 @@ import pandas as pd
 import pyarrow as pa
 from dask.base import tokenize
 from tlz import partition_all
+from ..typing import Frame
 
 EntityIdTypeVar = TypeVar("EntityIdTypeVar", str, int)
 BlockIdTypeVar = TypeVar("BlockIdTypeVar", str, int)
@@ -264,7 +265,7 @@ class OldKlinkerBlockManager:
     @classmethod
     def from_pandas(
         cls,
-        pd_blocks: Union[pd.DataFrame, dd.DataFrame],
+        pd_blocks: Frame,
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
     ) -> "OldKlinkerBlockManager":
         def _ensure_set(value) -> Set:

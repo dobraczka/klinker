@@ -15,8 +15,9 @@ from klinker.data import (
 )
 
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
-from ..base import SchemaAgnosticBlocker
+from ..base import SchemaAgnosticBlocker, SeriesType
 from ...encoders import FrameEncoder, frame_encoder_resolver
+from ...data import generic_upgrade_from_series
 
 ENC_PREFIX = Literal["left_", "right_"]
 ENC_SUFFIX = "_enc.pkl"
@@ -49,30 +50,30 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         if not id_col.apply(lambda x: isinstance(x, str)).all():
             raise ValueError("Ids must be string!")
 
-    def _check_ids(self, left: KlinkerFrame, right: KlinkerFrame):
-        left_ids_col = left[left.id_col]
-        right_ids_col = right[right.id_col]
-        self._check_string_ids(left_ids_col)
-        self._check_string_ids(right_ids_col)
-        left_ids = set(left_ids_col)
-        right_ids = set(right_ids_col)
-        intersected_ids = left_ids.intersection(right_ids)
-        if len(intersected_ids) > 0:
-            warnings.warn(
-                f"Left and right ids are not disjunct! This may be unintentional and lead to problems. Found {len(intersected_ids)} common ids across {len(left)} left ids and {len(right)} right ids."
-            )
+    # def _check_ids(self, left: KlinkerFrame, right: KlinkerFrame):
+    #     left_ids_col = left[left.id_col]
+    #     right_ids_col = right[right.id_col]
+    #     self._check_string_ids(left_ids_col)
+    #     self._check_string_ids(right_ids_col)
+    #     left_ids = set(left_ids_col)
+    #     right_ids = set(right_ids_col)
+    #     intersected_ids = left_ids.intersection(right_ids)
+    #     if len(intersected_ids) > 0:
+    #         warnings.warn(
+    #             f"Left and right ids are not disjunct! This may be unintentional and lead to problems. Found {len(intersected_ids)} common ids across {len(left)} left ids and {len(right)} right ids."
+    #         )
 
     def _assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: SeriesType,
+        right: SeriesType,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
-        assert left.table_name is not None
-        assert right.table_name is not None
-        if isinstance(left, KlinkerPandasFrame):
-            self._check_ids(left, right)
+        # if isinstance(left, KlinkerPandasFrame):
+        #     self._check_ids(left, right)
+        left = generic_upgrade_from_series(left, reset_index=False)
+        right = generic_upgrade_from_series(right, reset_index=False)
 
         # handle save dir
         if self.save:
@@ -105,12 +106,10 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
                             right_name=right_name,
                         )
 
-        left_reduced = left.set_index(left.id_col)[left.non_id_columns]
-        right_reduced = right.set_index(right.id_col)[right.non_id_columns]
         # TODO fix typing issue
         left_emb, right_emb = self.frame_encoder.encode(
-            left=left_reduced,
-            right=right_reduced,
+            left=left,
+            right=right,
             left_rel=left_rel,
             right_rel=right_rel,
         )  # type: ignore
