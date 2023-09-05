@@ -95,17 +95,12 @@ def test_klinker_triple_frame(triple_example, use_dask):
     assert ktf.id_col == id_col
     assert ktf.non_id_columns == ["tail"]
 
-    new_column_name = "_merged_text"
-    concated = ktf.concat_values(new_column_name=new_column_name)
-    assert concated.table_name == name
-    assert concated.id_col == id_col
-    assert concated.non_id_columns == [new_column_name]
+    concated = ktf.concat_values()
     if use_dask:
         concated = concated.compute()
-        assert concated.table_name == name
-        assert concated.id_col == id_col
-        assert concated.non_id_columns == [new_column_name]
-    assert len(concated[concated.id_col].unique()) == len(concated)
+    assert concated.name == name
+    assert concated.index.name == id_col
+    assert len(concated.index.unique()) == len(concated)
 
 
 @pytest.mark.parametrize("example", ["concat_example", "concat_triple_example"])

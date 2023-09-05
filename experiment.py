@@ -27,6 +27,7 @@ from klinker.blockers import (
     RelationalDeepBlocker,
     RelationalMinHashLSHBlocker,
     RelationalTokenBlocker,
+    SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
@@ -221,7 +222,7 @@ def process_pipeline(
         left_rel=klinker_dataset.left_rel,
         right_rel=klinker_dataset.right_rel,
     )
-    blocks.to_parquet(experiment_info.blocks_path)
+    blocks.to_parquet(experiment_info.blocks_path, overwrite=True)
 
     end = time.time()
     run_time = end - start
@@ -512,15 +513,13 @@ def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
 
 
 @cli.command()
-@click.option("--attr-min-token-length", type=int, default=3)
-@click.option("--rel-min-token-length", type=int, default=3)
+@click.option("--min-token-length", type=int, default=3)
 def relational_token_blocker(
-    attr_min_token_length: int, rel_min_token_length: int
+    min_token_length: int
 ) -> Tuple[Blocker, Dict, float]:
     start = time.time()
-    blocker = RelationalTokenBlocker(
-        attr_min_token_length=attr_min_token_length,
-        rel_min_token_length=rel_min_token_length,
+    blocker = SimpleRelationalTokenBlocker(
+        min_token_length=min_token_length,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)

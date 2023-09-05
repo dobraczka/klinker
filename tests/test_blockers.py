@@ -1,5 +1,4 @@
 import itertools
-import numpy as np
 from typing import Dict, List, Tuple, Type
 
 import dask.dataframe as dd
@@ -383,15 +382,19 @@ def test_assign_relation_frame_encoder(
 
 
 @pytest.mark.parametrize("use_dask", [True, False])
-def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask):
+@pytest.mark.parametrize("include_own_attributes", [True, False])
+def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask, include_own_attributes):
     ta = example_tables[0]
     rel_ta = example_rel_triples[0]
     all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
+    if include_own_attributes:
+        all_ids |= set(ta["id"].values)
 
     if use_dask:
         ta = from_klinker_frame(ta, npartitions=2)
         rel_ta = dd.from_pandas(rel_ta, npartitions=2)
-        conc_ta = concat_neighbor_attributes(ta, rel_ta).compute()
+        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes).compute()
     else:
-        conc_ta = concat_neighbor_attributes(ta, rel_ta)
+        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes)
     assert len(conc_ta) == len(all_ids)
+    assert set(conc_ta.index) == all_ids
