@@ -116,9 +116,24 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
     ):
         self._blocker = TokenBlocker(tokenize_fn=tokenize_fn, min_token_length=min_token_length)
 
+class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
+    def __init__(
+        self,
+        tokenize_fn: Callable = word_tokenize,
+        threshold: float = 0.5,
+        num_perm: int = 128,
+        weights: Tuple[float, float] = (0.5, 0.5),
+    ):
+        self._blocker = MinHashLSHBlocker(
+            tokenize_fn=tokenize_fn,
+            threshold=threshold,
+            num_perm=num_perm,
+            weights=weights,
+        )
+
 class RelationalBlocker(Blocker):
-    _attribute_blocker: Blocker
-    _relation_blocker: Blocker
+    _attribute_blocker: SchemaAgnosticBlocker
+    _relation_blocker: SchemaAgnosticBlocker
 
     def assign(
         self,
@@ -128,9 +143,9 @@ class RelationalBlocker(Blocker):
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
-        left_rel_conc = concat_neighbor_attributes(left, left_rel)
-        right_rel_conc = concat_neighbor_attributes(right, right_rel)
-        rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
+        left_rel_conc = concat_neighbor_attributes(left, left_rel, include_own_attributes=False)
+        right_rel_conc = concat_neighbor_attributes(right, right_rel, include_own_attributes=False)
+        rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
         return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
 
 

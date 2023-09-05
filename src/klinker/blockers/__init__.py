@@ -7,6 +7,7 @@ from .relation_aware import (
     RelationalMinHashLSHBlocker,
     RelationalTokenBlocker,
     SimpleRelationalTokenBlocker,
+    SimpleRelationalMinHashLSHBlocker,
 )
 from .sorted_neighborhood import SortedNeighborhoodBlocker
 from .standard import StandardBlocker
@@ -24,4 +25,5 @@ __all__ = [
     "RelationalTokenBlocker",
     "RelationalDeepBlocker",
     "SimpleRelationalTokenBlocker",
+    "SimpleRelationalMinHashLSHBlocker",
 ]
