@@ -1,5 +1,4 @@
-import abc
-from typing import Callable, List, Optional, Tuple, TypeVar, Generic
+from typing import Callable, List, Optional, Tuple, TypeVar
 
 import dask.dataframe as dd
 import pandas as pd
@@ -11,7 +10,14 @@ from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
 from .token_blocking import TokenBlocker
-from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame, SeriesType, KlinkerDaskFrame, KlinkerTripleDaskFrame, KlinkerTriplePandasFrame
+from ..data import (
+    KlinkerBlockManager,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    KlinkerTripleDaskFrame,
+    KlinkerTriplePandasFrame,
+    SeriesType,
+)
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
 from ..typing import Frame
 from ..utils import concat_frames
@@ -28,11 +34,14 @@ def reverse_rel(rel_frame: Frame) -> Frame:
     rev_rel_frame.columns = orig_columns
     return rev_rel_frame
 
+
 def _upgrade_to_triple(concat_attr: FrameType, conc_frame: FrameType) -> FrameType:
     # make into triple frame
     concat_attr[conc_frame.columns[1]] = "dummy_relation"
     # reorder for common triple format (because relation was added as last col)
-    concat_attr = concat_attr[[concat_attr.columns[0], concat_attr.columns[2], concat_attr.columns[1]]]
+    concat_attr = concat_attr[
+        [concat_attr.columns[0], concat_attr.columns[2], concat_attr.columns[1]]
+    ]
     # common column names for concat
     concat_attr.columns = conc_frame.columns
     return concat_attr
@@ -53,7 +62,9 @@ def concat_neighbor_attributes(
     with_inv = concat_frames([rel_frame, rev_rel_frame])
     concat_attr = attribute_frame.concat_values().to_frame().reset_index()
     if isinstance(concat_attr, dd.DataFrame):
-        concat_attr._meta = pd.DataFrame([],columns=[attribute_frame.id_col,attribute_frame.table_name],dtype=str)
+        concat_attr._meta = pd.DataFrame(
+            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
+        )
 
     conc_frame = (
         with_inv.set_index(with_inv.columns[2])
@@ -92,8 +103,12 @@ class BaseSimpleRelationalBlocker(Blocker):
         left_rel: KlinkerFrame,
         right_rel: KlinkerFrame,
     ) -> Tuple[SeriesType, SeriesType]:
-        left_conc = concat_neighbor_attributes(left, left_rel, include_own_attributes=True)
-        right_conc = concat_neighbor_attributes(right, right_rel, include_own_attributes=True)
+        left_conc = concat_neighbor_attributes(
+            left, left_rel, include_own_attributes=True
+        )
+        right_conc = concat_neighbor_attributes(
+            right, right_rel, include_own_attributes=True
+        )
         return left_conc, right_conc
 
     def assign(
@@ -110,13 +125,20 @@ class BaseSimpleRelationalBlocker(Blocker):
         )
         return self._blocker._assign(left=left_conc, right=right_conc)
 
+
 class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         min_token_length: int = 3,
+        intermediate_saving: bool = False,
     ):
-        self._blocker = TokenBlocker(tokenize_fn=tokenize_fn, min_token_length=min_token_length)
+        self._blocker = TokenBlocker(
+            tokenize_fn=tokenize_fn,
+            min_token_length=min_token_length,
+            intermediate_saving=intermediate_saving,
+        )
+
 
 class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
     def __init__(
@@ -133,6 +155,7 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
             weights=weights,
         )
 
+
 class RelationalBlocker(Blocker):
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
@@ -145,8 +168,12 @@ class RelationalBlocker(Blocker):
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
-        left_rel_conc = concat_neighbor_attributes(left, left_rel, include_own_attributes=False)
-        right_rel_conc = concat_neighbor_attributes(right, right_rel, include_own_attributes=False)
+        left_rel_conc = concat_neighbor_attributes(
+            left, left_rel, include_own_attributes=False
+        )
+        right_rel_conc = concat_neighbor_attributes(
+            right, right_rel, include_own_attributes=False
+        )
         rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
         return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
 

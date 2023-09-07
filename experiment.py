@@ -1,4 +1,5 @@
 import ast
+import shutil
 import hashlib
 import json
 import logging
@@ -9,7 +10,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
-import pandas as pd
 from nephelai import upload
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
@@ -19,14 +19,13 @@ from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
 from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
 from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
 
-from klinker import KlinkerDataset, KlinkerBlockManager
+from klinker import KlinkerBlockManager, KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
     MinHashLSHBlocker,
     RelationalDeepBlocker,
     RelationalMinHashLSHBlocker,
-    RelationalTokenBlocker,
     SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
@@ -130,7 +129,9 @@ def _handle_artifacts(
         upload(artifact_dir, artifact_dir)
 
 
-def prepare(blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool) -> ExperimentInfo:
+def prepare(
+    blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool
+) -> ExperimentInfo:
 
     # clean names
     blocker_name = blocker.__class__.__name__
@@ -169,7 +170,9 @@ def prepare(blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool) -> 
         blocker.save_dir = encodings_dir
 
     params_artifact_path = (
-        _create_artifact_path(artifact_name, experiment_artifact_dir, suffix="_params.pkl")
+        _create_artifact_path(
+            artifact_name, experiment_artifact_dir, suffix="_params.pkl"
+        )
         if not wandb
         else None
     )
@@ -212,7 +215,9 @@ def process_pipeline(
     klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
     params = {**ds_params, **bl_params}
 
-    experiment_info = prepare(blocker=blocker, dataset=dataset, params=params, wandb=wandb)
+    experiment_info = prepare(
+        blocker=blocker, dataset=dataset, params=params, wandb=wandb
+    )
     tracker = experiment_info.tracker
 
     start = time.time()
@@ -250,6 +255,10 @@ def process_pipeline(
         artifact_dir=experiment_info.experiment_artifact_dir,
         nextcloud=nextcloud,
     )
+    # cleanup
+    if os.path.exists("/tmp/left/"):
+        shutil.rmtree("/tmp/left")
+        shutil.rmtree("/tmp/right")
     tracker.end_run()
 
 
@@ -280,9 +289,13 @@ def open_ea_dataset(
 )
 @click.option("--backend", type=str, default="pandas")
 @click.option("--npartitions", type=int, default=1)
-def movie_graph_benchmark_dataset(graph_pair: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:
+def movie_graph_benchmark_dataset(
+    graph_pair: str, backend: str, npartitions: int
+) -> Tuple[EADataset, Dict]:
     return (
-        MovieGraphBenchmark(graph_pair=graph_pair, backend=backend, npartitions=npartitions),
+        MovieGraphBenchmark(
+            graph_pair=graph_pair, backend=backend, npartitions=npartitions
+        ),
         click.get_current_context().params,
     )
 
@@ -505,21 +518,27 @@ def relational_deepblocker(
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
-def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
+@click.option("--intermediate-saving", type=bool, default=False)
+def token_blocker(
+    min_token_length: int, intermediate_saving: bool
+) -> Tuple[Blocker, Dict, float]:
     start = time.time()
-    blocker = TokenBlocker(min_token_length=min_token_length)
+    blocker = TokenBlocker(
+        min_token_length=min_token_length, intermediate_saving=intermediate_saving
+    )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
+@click.option("--intermediate-saving", type=bool, default=False)
 def relational_token_blocker(
-    min_token_length: int
+    min_token_length: int, intermediate_saving: bool
 ) -> Tuple[Blocker, Dict, float]:
     start = time.time()
     blocker = SimpleRelationalTokenBlocker(
-        min_token_length=min_token_length,
+        min_token_length=min_token_length, intermediate_saving=intermediate_saving
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
