@@ -52,6 +52,8 @@ def concat_neighbor_attributes(
     rev_rel_frame = reverse_rel(rel_frame)
     with_inv = concat_frames([rel_frame, rev_rel_frame])
     concat_attr = attribute_frame.concat_values().to_frame().reset_index()
+    if isinstance(concat_attr, dd.DataFrame):
+        concat_attr._meta = pd.DataFrame([],columns=[attribute_frame.id_col,attribute_frame.table_name],dtype=str)
 
     conc_frame = (
         with_inv.set_index(with_inv.columns[2])

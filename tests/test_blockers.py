@@ -17,7 +17,7 @@ from klinker.blockers import (
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
-from klinker.blockers.relation_aware import concat_neighbor_attributes
+from klinker.blockers.relation_aware import concat_neighbor_attributes, SimpleRelationalTokenBlocker
 from klinker.data import (
     KlinkerBlockManager,
     KlinkerDaskFrame,
@@ -398,3 +398,12 @@ def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_das
         conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes)
     assert len(conc_ta) == len(all_ids)
     assert set(conc_ta.index) == all_ids
+
+
+@pytest.mark.parametrize("use_dask", [True, False])
+def test_relational_token_blocker(example_tables, example_rel_triples, use_dask):
+    ta, tb,_,_ = example_tables
+    rel_ta, rel_tb = example_rel_triples
+    blocks = SimpleRelationalTokenBlocker().assign(ta,tb,rel_ta,rel_tb)
+    if use_dask:
+        blocks.blocks.compute()
