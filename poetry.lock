@@ -5131,14 +5131,14 @@ resolved_reference = "11e74a50e8763cab91f6cd67313dba56903c0f25"
 
 [[package]]
 name = "sylloge"
-version = "0.2.0"
+version = "0.2.1"
 description = "Small library to simplify collecting and loading of entity alignment benchmark datasets"
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "sylloge-0.2.0-py3-none-any.whl", hash = "sha256:4c2475f0a9d2ed0ddd24a3df82a97352c9cc3dad349fbefd77e390aaee742d83"},
-    {file = "sylloge-0.2.0.tar.gz", hash = "sha256:df525122203d85279edda94d3e52bd3d97b82b3b335d2c79990671461159d068"},
+    {file = "sylloge-0.2.1-py3-none-any.whl", hash = "sha256:c6d65c05579e92f0142bc56ac3517a1ced0cadd22951f87f4dfda820c8c638e9"},
+    {file = "sylloge-0.2.1.tar.gz", hash = "sha256:db612d5bfb28e01e174e1ba5d5d84cd441257aa5b4645e2fc587ce0e0dfba0f4"},
 ]
 
 [package.dependencies]
@@ -5979,4 +5979,4 @@ docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkd
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "4c58d725dcf82008f983369f5c9ec976e5241a331eedcf3e8ad9e64cfd7e6f91"
+content-hash = "b2576b7125f1df38575ad2209a24d920e1d89d7b624da5f973620c1f8372d0f4"
