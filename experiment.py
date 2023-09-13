@@ -657,7 +657,7 @@ def gcn_blocker(
     "--encoder",
     type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"]),
 )
-@click.option("--embeddings", type=str, default="glove")
+@click.option("--embeddings", type=str, default="fasttext")
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)

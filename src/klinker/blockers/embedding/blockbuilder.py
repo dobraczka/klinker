@@ -98,6 +98,7 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     ) -> pd.DataFrame:
         blocked = pd.DataFrame([names, cluster_labels]).transpose().groupby(1).agg(set)
         blocked.columns = [data_name]
+        blocked.index.name = "cluster"
         return blocked
 
     def build_blocks(

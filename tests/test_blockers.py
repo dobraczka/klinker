@@ -196,6 +196,11 @@ def expected_token_blocker(example_tables) -> KlinkerBlockManager:
         dataset_names,
     )
 
+def assert_parquet(block: KlinkerBlockManager, tmp_dir):
+    block.to_parquet(tmp_dir)
+    block_pq = block.read_parquet(tmp_dir)
+    block == block_pq
+
 
 @pytest.fixture
 def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
@@ -226,13 +231,14 @@ def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
     ),
     indirect=True,
 )
-def test_assign_schema_aware(example_with_expected):
+def test_assign_schema_aware(example_with_expected, tmpdir):
     ta, tb, expected, cls = example_with_expected
     if cls == SortedNeighborhoodBlocker and isinstance(ta, KlinkerDaskFrame):
         with pytest.raises(ValueError):
             cls(blocking_key="BirthCountry").assign(ta, tb)
     else:
         block = cls(blocking_key="BirthCountry").assign(ta, tb)
+        assert_parquet(block, tmpdir)
         block == expected
 
 
@@ -251,9 +257,10 @@ def test_assign_schema_aware(example_with_expected):
     ),
     indirect=True,
 )
-def test_assign_schema_agnostic(example_with_expected):
+def test_assign_schema_agnostic(example_with_expected, tmpdir):
     ta, tb, expected, cls = example_with_expected
     block = cls().assign(ta, tb)
+    assert_parquet(block, tmpdir)
     block == expected
 
 
@@ -304,6 +311,7 @@ def test_assign_embedding_blocker(
     use_dask,
     request,
     mocker,
+    tmpdir,
 ):
     dimension = 3
     mock_kv_cls = MockKeyedVector
@@ -332,6 +340,7 @@ def test_assign_embedding_blocker(
             block = blocker.assign(ta, tb)
     else:
         block = blocker.assign(ta, tb)
+        assert_parquet(block, tmpdir)
 
         assert tuple(block.blocks.columns) == (ta.table_name, tb.table_name)
         if eb != "hdbscan":
@@ -354,6 +363,7 @@ def test_assign_relation_frame_encoder(
     example_triples,
     example_rel_triples,
     mocker,
+    tmpdir,
 ):
     dimension = 3
     mock_kv_cls = MockKeyedVector
@@ -371,6 +381,8 @@ def test_assign_relation_frame_encoder(
         embedding_block_builder_kwargs=eb_kwargs,
         save=False,
     ).assign(ta, tb, rel_ta, rel_tb)
+
+    assert_parquet(block, tmpdir)
 
     a_ids = _get_ids(attr=ta.set_index(ta.id_col), rel=rel_ta)
     assert tuple(block.blocks.columns) == (ta.table_name, tb.table_name)
@@ -401,9 +413,10 @@ def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_das
 
 
 @pytest.mark.parametrize("use_dask", [True, False])
-def test_relational_token_blocker(example_tables, example_rel_triples, use_dask):
+def test_relational_token_blocker(example_tables, example_rel_triples, use_dask, tmpdir):
     ta, tb,_,_ = example_tables
     rel_ta, rel_tb = example_rel_triples
     blocks = SimpleRelationalTokenBlocker().assign(ta,tb,rel_ta,rel_tb)
+    assert_parquet(blocks, tmpdir)
     if use_dask:
         blocks.blocks.compute()
