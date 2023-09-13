@@ -117,7 +117,7 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         right_blocks = ClusteringEmbeddingBlockBuilder.blocks_side(
             right_cluster_labels, right.names, right_name
         )
-        return KlinkerBlockManager.from_pandas(left_blocks.join(right_blocks))
+        return KlinkerBlockManager.from_pandas(left_blocks.join(right_blocks,how="inner"))
 
 
 class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):

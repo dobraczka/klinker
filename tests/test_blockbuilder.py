@@ -63,6 +63,25 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
         "B",
     )
 
+@pytest.fixture
+def example_some_non_overlapping_clusters() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, str]:
+    # create non-overlapping clusters
+    left = np.random.normal(3, 1, size=(10, 4))
+    right = np.random.normal(10, 1, size=(10, 4))
+
+    # create common point
+    left[5] = np.array([0.0,0.0,0.0,0.0])
+    right[5] = np.array([0.0,0.0,0.0,0.0])
+
+    left_names = [f"a{idx}" for idx in range(len(left))]
+    right_names = [f"b{idx}" for idx in range(len(right))]
+    return (
+        NamedVector(names=left_names, vectors=left),
+        NamedVector(names=right_names, vectors=right),
+        "A",
+        "B",
+    )
+
 
 @pytest.fixture
 def expected() -> KlinkerBlockManager:
@@ -102,3 +121,12 @@ def test_from_encoded(example, expected, tmp_path):
         embedding_block_builder=block_builder, save_dir=mydir
     ).from_encoded()
     assert blocks == expected
+
+def test_some_non_overlapping_clusters(example_some_non_overlapping_clusters):
+    left_v, right_v, lname, rname = example_some_non_overlapping_clusters
+    blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(left=left_v, right=right_v, left_name=lname, right_name=rname)
+    final_blocks = blocks.blocks.compute()
+    assert len(final_blocks) == 1
+    assert final_blocks["A"].values[0] == {"a5"}
+    assert final_blocks["B"].values[0] == {"b5"}
+
