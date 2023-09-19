@@ -377,15 +377,23 @@ class KlinkerBlockManager:
             for pair in itertools.product({entity_id}, blk)
         )
 
-    def all_pairs(self, remove_duplicates: bool = False):
+    def all_pairs(self, remove_duplicates: bool = False) -> Union[Generator[Tuple[Union[int, str], ...], None, None], Set[Tuple[Union[int,str],...]]]:
         if not remove_duplicates:
             for block_tuple in self.blocks.itertuples(index=False, name=None):
                 for pair in itertools.product(*block_tuple):
                     yield pair
         else:
-            for e_id in self._exploded[0].unique().compute():
-                for pair in set(self.entity_pairs(e_id, 0)):
-                    yield pair
+            return set(pair for block_tuple in self.blocks.itertuples(index=False, name=None) for pair in itertools.product(*block_tuple))
+            # version 1
+            # for e_id in self._exploded[0].unique().compute():
+            #     for pair in set(self.entity_pairs(e_id, 0)):
+            #         yield pair
+
+            # version2
+            # exploded = self.blocks.explode(column=self.blocks.columns[0]).explode(column=self.blocks.columns[1])
+            # for pair in set(zip(exploded[self.blocks.columns[0]], exploded[self.blocks.columns[1]])):
+            #     yield pair
+
 
     @property
     def block_sizes(self) -> pd.DataFrame:

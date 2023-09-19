@@ -14,22 +14,22 @@ def harmonic_mean(a: float, b: float) -> float:
     return 2 * ((a * b) / (a + b))
 
 
-def calc_tp_fp_comp_with_blocking(
-    blocks: KlinkerBlockManager, gold_pair_set: Set[Tuple[str, str]], save_pairs: bool
-):
-    tp = 0
-    fp = 0
-    pair_number = 0
-    tp_set: Set[Tuple[Union[int, str], ...]] = set()
-    for pair_number, pair in enumerate(blocks.to_pairs(), start=1):
-        if pair in gold_pair_set:
-            tp += 1
-            if save_pairs:
-                tp_set.add(pair)
-        else:
-            fp += 1
-    comp_with_blocking = pair_number
-    return tp, fp, comp_with_blocking, tp_set
+# def calc_tp_fp_comp_with_blocking(
+#     blocks: KlinkerBlockManager, gold_pair_set: Set[Tuple[str, str]], save_pairs: bool
+# ):
+#     tp = 0
+#     fp = 0
+#     pair_number = 0
+#     tp_set: Set[Tuple[Union[int, str], ...]] = set()
+#     for pair_number, pair in enumerate(blocks.to_pairs(), start=1):
+#         if pair in gold_pair_set:
+#             tp += 1
+#             if save_pairs:
+#                 tp_set.add(pair)
+#         else:
+#             fp += 1
+#     comp_with_blocking = pair_number
+#     return tp, fp, comp_with_blocking, tp_set
 
 
 def sum_tuple(x):
@@ -81,6 +81,7 @@ class Evaluation:
             else:
                 fp += 1
         tp = len(tp_pairs)
+        self.tp_set = tp_pairs
         self.false_negative = len(self.gold_pair_set) - tp
         self.true_positive = tp
         self.false_positive = fp
