@@ -49,7 +49,6 @@ nltk = "^3.8.1"
 dask = {extras = ["distributed"], version = "^2023.8.1"}
 pyarrow = "*"
 nephelai = "^0.1.0"
-bokeh = {version = ">=2.4.2,<3.0.0 || >=3.1.0", optional = true}
 
 
 [tool.poetry.group.dev.dependencies]
@@ -76,11 +75,12 @@ pyroma = {git = "https://github.com/CAM-Gerlach/pyroma.git", rev = "improve-pep-
 jupyter-black = "^0.3.4"
 graphviz = "^0.20.1"
 jupyter-contrib-nbextensions = "^0.7.0"
+memray = "^1.9.1"
 
 
 [tool.poetry.extras]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
-all = ["transformers","torch","fasttext-wheel","gensim","click","wandb","matplotlib","seaborn","jupyter","ipython","dask","pyarrow","bokeh"]
+all = ["transformers","torch","fasttext-wheel","gensim","click","wandb","matplotlib","seaborn","jupyter","ipython","dask","pyarrow"]
 
 
 [build-system]

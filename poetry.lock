@@ -268,29 +268,6 @@ webencodings = "*"
 css = ["tinycss2 (>=1.1.0,<1.2)"]
 
 [[package]]
-name = "bokeh"
-version = "3.2.2"
-description = "Interactive plots and applications in the browser from Python"
-category = "main"
-optional = true
-python-versions = ">=3.9"
-files = [
-    {file = "bokeh-3.2.2-py3-none-any.whl", hash = "sha256:e31670a013e1ff15c3d4d04f587c8162c4cc9fe1af507fd741d295e6c4e1225b"},
-    {file = "bokeh-3.2.2.tar.gz", hash = "sha256:b2959b8524d69ec4e7886bc36407445f0a92e1f19530d3bfc4045236a1b7a6ff"},
-]
-
-[package.dependencies]
-contourpy = ">=1"
-Jinja2 = ">=2.9"
-numpy = ">=1.16"
-packaging = ">=16.8"
-pandas = ">=1.2"
-pillow = ">=7.1.0"
-PyYAML = ">=3.10"
-tornado = ">=5.1"
-xyzservices = ">=2021.09.1"
-
-[[package]]
 name = "build"
 version = "0.10.0"
 description = "A simple, correct Python build frontend"
@@ -2437,6 +2414,31 @@ importlib-metadata = {version = ">=4.4", markers = "python_version < \"3.10\""}
 testing = ["coverage", "pyyaml"]
 
 [[package]]
+name = "markdown-it-py"
+version = "3.0.0"
+description = "Python port of markdown-it. Markdown parsing, done right!"
+category = "dev"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "markdown-it-py-3.0.0.tar.gz", hash = "sha256:e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb"},
+    {file = "markdown_it_py-3.0.0-py3-none-any.whl", hash = "sha256:355216845c60bd96232cd8d8c40e8f9765cc86f46880e43a8fd22dc1a1a8cab1"},
+]
+
+[package.dependencies]
+mdurl = ">=0.1,<1.0"
+
+[package.extras]
+benchmarking = ["psutil", "pytest", "pytest-benchmark"]
+code-style = ["pre-commit (>=3.0,<4.0)"]
+compare = ["commonmark (>=0.9,<1.0)", "markdown (>=3.4,<4.0)", "mistletoe (>=1.0,<2.0)", "mistune (>=2.0,<3.0)", "panflute (>=2.3,<3.0)"]
+linkify = ["linkify-it-py (>=1,<3)"]
+plugins = ["mdit-py-plugins"]
+profiling = ["gprof2dot"]
+rtd = ["jupyter_sphinx", "mdit-py-plugins", "myst-parser", "pyyaml", "sphinx", "sphinx-copybutton", "sphinx-design", "sphinx_book_theme"]
+testing = ["coverage", "pytest", "pytest-cov", "pytest-regressions"]
+
+[[package]]
 name = "markupsafe"
 version = "2.1.2"
 description = "Safely add untrusted strings to HTML/XML markup."
@@ -2585,6 +2587,73 @@ files = [
     {file = "mccabe-0.6.1-py2.py3-none-any.whl", hash = "sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42"},
     {file = "mccabe-0.6.1.tar.gz", hash = "sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f"},
 ]
+
+[[package]]
+name = "mdurl"
+version = "0.1.2"
+description = "Markdown URL utilities"
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8"},
+    {file = "mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"},
+]
+
+[[package]]
+name = "memray"
+version = "1.9.1"
+description = "A memory profiler for Python applications"
+category = "dev"
+optional = false
+python-versions = ">=3.7.0"
+files = [
+    {file = "memray-1.9.1-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:aae3c2b79b4814183ce60e1b6abedc5f56969dcab3f0a8f00d91f9964ae72727"},
+    {file = "memray-1.9.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:152d4b6b501a83a4cdafe5bd757a0940ebc5ac2b2b091f6f7c306ac9a8209da5"},
+    {file = "memray-1.9.1-cp310-cp310-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:bf96d09c7c160ce2c05fa3a077da2563b299985e0542833b70f8b19350df5df8"},
+    {file = "memray-1.9.1-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:3837aed792d90e90743448feae98c3a8a3b4da389aab49c359c9014dfdb8bff9"},
+    {file = "memray-1.9.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a773c0e0a28be72e4df8dbb00cfc0cff40f992fa413e078b861bf0740910c958"},
+    {file = "memray-1.9.1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:939270ede80b6c2e0e56dd75edb6a97b44a80bad977c81c68f32fdb3200ff2d5"},
+    {file = "memray-1.9.1-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:1fad0e170264f6f71b7ed83843f896a7a9a4efe5684aa40fe48892dc546c5017"},
+    {file = "memray-1.9.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7af9677277d62b1c59ce8e3d493a9f95f1eea1cb6ac362de1b1faad7bfbb18de"},
+    {file = "memray-1.9.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6512866eb49cea99fd0915d8c86d21cad4bf40050092a986e32c2c8c4d6e0d8f"},
+    {file = "memray-1.9.1-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:3b3c634dac856f5e5d899a944509116f53c36638559f43dda6255333068274b8"},
+    {file = "memray-1.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b80f09e178edbc0de6d41d55592ec209936cccb611638b3e7da2c45693433e2b"},
+    {file = "memray-1.9.1-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:c602969b1e6dc9502a6911b721536a0209423e798b6cdc690fa0f5b8de02653c"},
+    {file = "memray-1.9.1-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:7efaa1da4c768e14423eb89391aa597f3be1b38f91fe0da7b10d38e332e546c6"},
+    {file = "memray-1.9.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a92b0d3bf7ef3106653d8b803675dc92a3fc0fd4d1e9bd8f219890bd195bf8af"},
+    {file = "memray-1.9.1-cp312-cp312-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:010cc51f2f6cb18f4aee52eb36de5d8c361e792a181cb7026add2fe78f32dd77"},
+    {file = "memray-1.9.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:06f9c6ff1ff6fe577f6168fff9b3afa6221fd5dfdcac42e99d504131765a28a2"},
+    {file = "memray-1.9.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:04724ab90e9614df0efbf8ef90a15f46e2b8bd2dfbed887eff8e3de9953621a3"},
+    {file = "memray-1.9.1-cp37-cp37m-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:c2a0a4b6d48f7a6ac18ba475a1deaba3f1c237ee37547a34680ee449c393aacc"},
+    {file = "memray-1.9.1-cp37-cp37m-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:a47a39af7ea6960a54a80069bc912b6879046f6e8310d46d6286568c76aea50a"},
+    {file = "memray-1.9.1-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3aed29f34bac1a1a6b5ea47700123b3fc2cee2c9c21fe7bc245edcf704d556fd"},
+    {file = "memray-1.9.1-cp37-cp37m-musllinux_1_1_x86_64.whl", hash = "sha256:16dcd1ddb01826dbbacc91fd6b3b01791263e60bde91901d60e48364480aa127"},
+    {file = "memray-1.9.1-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:caec236f873b097eeacc192d20f6fc0490988f37176ea27f0bdf697331353b3b"},
+    {file = "memray-1.9.1-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:facfee26da17dfcfbb0b62ff2b7041169ad6017c9747e762d7a7e17725e55124"},
+    {file = "memray-1.9.1-cp38-cp38-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:f647168ee77af4c447ff73e2584a2e3f3d8e13655aa6c0d33f02fa19947d5cc3"},
+    {file = "memray-1.9.1-cp38-cp38-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:9ac8f6e249395b24b7f7773b791e9686557216f5f12c4cbe97d0e0c8b0494d7e"},
+    {file = "memray-1.9.1-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4a3ce139c103435c3e366ea515d4081a3144a48cf3aae4a5c7bcf2ca7bd35285"},
+    {file = "memray-1.9.1-cp38-cp38-musllinux_1_1_x86_64.whl", hash = "sha256:3015a28fe6e8cf1d0cd741085da58cc0091ed895161ecacc6a159c14af7a5a35"},
+    {file = "memray-1.9.1-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:0e9532a9046554fa1b5166c4a02c54d35775e745a0a895e33c5b3ce6288116d3"},
+    {file = "memray-1.9.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:c37d2d34b0426051f98597a3732167e3f82e9d37251a1cd73c23b7384e4f842c"},
+    {file = "memray-1.9.1-cp39-cp39-manylinux_2_12_i686.manylinux2010_i686.whl", hash = "sha256:f81dede3d702f4d2030f7985caad145f5ff7f33eddc31b09caa49b42071ba275"},
+    {file = "memray-1.9.1-cp39-cp39-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:aab379c26255bdb4e1d455620f8b8ace1c4e9a91f51de176bfcf9b09e357a7ea"},
+    {file = "memray-1.9.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:320ff2aca8e12001563a5895f40349a1a16751e56c168e84f8f76274e591cf42"},
+    {file = "memray-1.9.1-cp39-cp39-musllinux_1_1_x86_64.whl", hash = "sha256:a8a56e6bc88037c99e899697f312540171042e097e5d2f5688fccaa6bc9008d4"},
+    {file = "memray-1.9.1.tar.gz", hash = "sha256:d676ae40ef8ae9c41bf3a27f5fa89c1e9f80d9ba8e9f7e1e7073b5f90b3f265b"},
+]
+
+[package.dependencies]
+jinja2 = ">=2.9"
+rich = ">=11.2.0"
+
+[package.extras]
+benchmark = ["asv"]
+dev = ["Cython", "IPython", "asv", "black", "bump2version", "check-manifest", "flake8", "furo", "greenlet", "ipython", "isort", "mypy", "pytest", "pytest-cov", "setuptools", "sphinx", "sphinx-argparse", "towncrier"]
+docs = ["IPython", "bump2version", "furo", "sphinx", "sphinx-argparse", "towncrier"]
+lint = ["black", "check-manifest", "flake8", "isort", "mypy"]
+test = ["Cython", "greenlet", "ipython", "pytest", "pytest-cov", "setuptools"]
 
 [[package]]
 name = "mergedeep"
@@ -4650,6 +4719,25 @@ files = [
 ]
 
 [[package]]
+name = "rich"
+version = "13.5.3"
+description = "Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal"
+category = "dev"
+optional = false
+python-versions = ">=3.7.0"
+files = [
+    {file = "rich-13.5.3-py3-none-any.whl", hash = "sha256:9257b468badc3d347e146a4faa268ff229039d4c2d176ab0cffb4c4fbc73d5d9"},
+    {file = "rich-13.5.3.tar.gz", hash = "sha256:87b43e0543149efa1253f485cd845bb7ee54df16c9617b8a893650ab84b4acb6"},
+]
+
+[package.dependencies]
+markdown-it-py = ">=2.2.0"
+pygments = ">=2.13.0,<3.0.0"
+
+[package.extras]
+jupyter = ["ipywidgets (>=7.5.1,<9)"]
+
+[[package]]
 name = "scikit-learn"
 version = "1.2.2"
 description = "A set of python modules for machine learning and data mining"
@@ -5933,18 +6021,6 @@ tests-binary-strict = ["cmake (==3.21.2)", "cmake (==3.25.0)", "ninja (==1.10.2)
 tests-strict = ["codecov (==2.0.15)", "pytest (==4.6.0)", "pytest (==4.6.0)", "pytest (==6.2.5)", "pytest-cov (==3.0.0)", "typing (==3.7.4)"]
 
 [[package]]
-name = "xyzservices"
-version = "2023.7.0"
-description = "Source of XYZ tiles providers"
-category = "main"
-optional = true
-python-versions = ">=3.8"
-files = [
-    {file = "xyzservices-2023.7.0-py3-none-any.whl", hash = "sha256:88e9cbf22b31a2f9c1b242e2b18690f5c705f0e539c9bfd37a10399e1037731b"},
-    {file = "xyzservices-2023.7.0.tar.gz", hash = "sha256:0ec928742227d6f5d4367ea7b457fcfed943429f4de2949b5b02a82cdf5569d6"},
-]
-
-[[package]]
 name = "zict"
 version = "3.0.0"
 description = "Mutable mapping tools"
@@ -5973,10 +6049,10 @@ docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker
 testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)"]
 
 [extras]
-all = ["transformers", "torch", "fasttext-wheel", "gensim", "click", "wandb", "matplotlib", "seaborn", "jupyter", "ipython", "dask", "pyarrow", "bokeh"]
+all = ["transformers", "torch", "fasttext-wheel", "gensim", "click", "wandb", "matplotlib", "seaborn", "jupyter", "ipython", "dask", "pyarrow"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "b2576b7125f1df38575ad2209a24d920e1d89d7b624da5f973620c1f8372d0f4"
+content-hash = "3cce0cd4a82a0718330062f7b548820909b670758e486cfca67b829c88a0c79f"

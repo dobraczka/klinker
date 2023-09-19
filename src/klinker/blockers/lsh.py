@@ -1,7 +1,8 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import dask.dataframe as dd
 import pandas as pd
-from datasketch import MinHash, MinHashLSH
+from datasketch import LeanMinHash, MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
 from .base import SchemaAgnosticBlocker, SeriesType
@@ -13,6 +14,35 @@ from ..data import (
 )
 
 
+def _insert(ser_part: pd.Series, lsh: MinHashLSH, encode_fn: Callable):
+    with lsh.insertion_session() as session:
+        for key, val in ser_part.items():
+            msh = MinHash(num_perm=lsh.h)
+            msh.update_batch(encode_fn(val))
+            final_msh = LeanMinHash(msh)
+            session.insert(key, final_msh)
+    return ser_part.index
+
+
+def _query(
+    ser_part: pd.Series,
+    lsh: MinHashLSH,
+    encode_fn: Callable,
+    left_name: str,
+    right_name: str,
+):
+    cur_block: Dict[str, List] = {left_name: [], right_name: []}
+    for key, val in ser_part.items():
+        msh = MinHash(num_perm=lsh.h)
+        msh.update_batch(encode_fn(val))
+        final_msh = LeanMinHash(msh)
+        res = lsh.query(final_msh)
+        if len(res) > 0:
+            cur_block[left_name].append(list(res))
+            cur_block[right_name].append([key])
+    return pd.DataFrame(cur_block)
+
+
 class MinHashLSHBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
@@ -20,11 +50,13 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
+        new_impl: bool = True,
     ):
         self.tokenize_fn = tokenize_fn
         self.threshold = threshold
         self.num_perm = num_perm
         self.weights = weights
+        self.new_impl = new_impl
 
     def _inner_encode(self, val: str):
         return [tok.encode("utf-8") for tok in self.tokenize_fn(str(val))]
@@ -40,7 +72,6 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
     def _create_min_hash_tuple_list(
         self, conc: SeriesType
     ) -> List[Tuple[str, MinHash]]:
-        frame_class: Type[KlinkerFrame]
         kf = generic_upgrade_from_series(conc, reset_index=True)
 
         minhash = kf.apply(
@@ -63,19 +94,34 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
-        block_dict: Dict[str, Tuple[List[str], List[str]]] = {}
         lsh = MinHashLSH(
-            threshold=self.threshold, num_perm=self.num_perm, weights=self.weights
+            threshold=self.threshold,
+            num_perm=self.num_perm,
+            weights=self.weights,
         )
-        for number, tab in enumerate([left, right]):
-            mh_tuple = self._create_min_hash_tuple_list(tab)
-
-            for row_id, minhash in mh_tuple:
-                if number == 0:
-                    lsh.insert(row_id, minhash)
-                else:
-                    res = list(set(lsh.query(minhash)))
-                    if len(res) > 0:
-                        block_dict[row_id] = (res, [row_id])
-
-        return KlinkerBlockManager.from_dict(block_dict, (left.name, right.name))
+        if isinstance(left, dd.Series):
+            left.map_partitions(
+                _insert,
+                lsh=lsh,
+                encode_fn=self._inner_encode,
+                meta=left._meta.index,
+            ).compute()
+            blocks = right.map_partitions(
+                _query,
+                lsh=lsh,
+                encode_fn=self._inner_encode,
+                left_name=left.name,
+                right_name=right.name,
+                meta=pd.DataFrame([], columns=[left.name, right.name], dtype="O"),
+            )
+            return KlinkerBlockManager(blocks)
+        else:
+            _insert(left, lsh=lsh, encode_fn=self._inner_encode)
+            blocks = _query(
+                right,
+                lsh=lsh,
+                encode_fn=self._inner_encode,
+                left_name=left.name,
+                right_name=right.name,
+            )
+            return KlinkerBlockManager.from_pandas(blocks)
