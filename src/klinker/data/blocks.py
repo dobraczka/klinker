@@ -24,6 +24,7 @@ import pandas as pd
 import pyarrow as pa
 from dask.base import tokenize
 from tlz import partition_all
+
 from ..typing import Frame
 
 EntityIdTypeVar = TypeVar("EntityIdTypeVar", str, int)
@@ -321,13 +322,10 @@ class OldKlinkerBlockManager:
 class KlinkerBlockManager:
     def __init__(self, blocks: dd.DataFrame):
         self.blocks = blocks
-        exploded = []
         grouped = []
         for column_name in self.blocks.columns:
             cur_ex = self.blocks[column_name].explode()
-            exploded.append(cur_ex)
             grouped.append(cur_ex.to_frame().groupby(by=column_name))
-        self._exploded = tuple(exploded)
         self._grouped = tuple(grouped)
 
     def __getitem__(self, key):
@@ -377,23 +375,10 @@ class KlinkerBlockManager:
             for pair in itertools.product({entity_id}, blk)
         )
 
-    def all_pairs(self, remove_duplicates: bool = False) -> Union[Generator[Tuple[Union[int, str], ...], None, None], Set[Tuple[Union[int,str],...]]]:
-        if not remove_duplicates:
-            for block_tuple in self.blocks.itertuples(index=False, name=None):
-                for pair in itertools.product(*block_tuple):
-                    yield pair
-        else:
-            return set(pair for block_tuple in self.blocks.itertuples(index=False, name=None) for pair in itertools.product(*block_tuple))
-            # version 1
-            # for e_id in self._exploded[0].unique().compute():
-            #     for pair in set(self.entity_pairs(e_id, 0)):
-            #         yield pair
-
-            # version2
-            # exploded = self.blocks.explode(column=self.blocks.columns[0]).explode(column=self.blocks.columns[1])
-            # for pair in set(zip(exploded[self.blocks.columns[0]], exploded[self.blocks.columns[1]])):
-            #     yield pair
-
+    def all_pairs(self) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        for block_tuple in self.blocks.itertuples(index=False, name=None):
+            for pair in itertools.product(*block_tuple):
+                yield pair
 
     @property
     def block_sizes(self) -> pd.DataFrame:
@@ -464,7 +449,9 @@ class KlinkerBlockManager:
                     right: block_type,
                 }
             else:
-                index_type = pa.string() if self.blocks.index.dtype == "O" else pa.int64()
+                index_type = (
+                    pa.string() if self.blocks.index.dtype == "O" else pa.int64()
+                )
                 schema = {
                     self.blocks.index.name: index_type,
                     left: block_type,
@@ -472,7 +459,7 @@ class KlinkerBlockManager:
                 }
             schema = pa.schema(schema)
         else:
-            schema = kwargs.pop["schema"] # type: ignore
+            schema = kwargs.pop["schema"]  # type: ignore
         self.blocks.to_parquet(path, schema=schema, **kwargs)
 
     @classmethod

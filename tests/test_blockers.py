@@ -206,7 +206,7 @@ def assert_parquet(block: KlinkerBlockManager, tmp_dir):
 def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
-        {"b1": (["a1"], ["b1"]), "b2": (["a2"], ["b2"]), "b3": (["a3"], ["b3"])},
+        {0: (["a1"], ["b1"]), 1: (["a2"], ["b2"]), 2: (["a3"], ["b3"])},
         dataset_names,
     )
 

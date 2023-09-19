@@ -121,7 +121,6 @@ def test_block_to_pairs(block_example):
     block = block_example.blocks
     pairs = block_example.pairs
     assert sorted(pairs) == sorted(list(block.all_pairs()))
-    assert sorted(list(set(pairs))) == sorted(list(block.all_pairs(remove_duplicates=True)))
 
 
 def test_combine_blocks(block_combine_example):
