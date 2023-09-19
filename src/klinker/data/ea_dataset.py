@@ -1,10 +1,16 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 from sylloge.base import EADataset
 
-from .enhanced_df import KlinkerFrame, KlinkerTripleFrame
+from .enhanced_df import (
+    KlinkerDaskFrame,
+    KlinkerFrame,
+    KlinkerPandasFrame,
+    KlinkerTripleDaskFrame,
+    KlinkerTriplePandasFrame,
+)
 from ..typing import Side, Tuple
 from ..utils import tokenize_row
 
@@ -57,16 +63,29 @@ class KlinkerDataset:
 
     @classmethod
     def from_sylloge(cls, dataset: EADataset, clean: bool = False) -> "KlinkerDataset":
-        left = KlinkerTripleFrame.from_df(
-            dataset.attr_triples_left, name="left", id_col="head"
-        )
-        right = KlinkerTripleFrame.from_df(
-            dataset.attr_triples_right, name="right", id_col="head"
-        )
+        left: Union[KlinkerDaskFrame, KlinkerPandasFrame]
+        right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
+        if dataset.backend == "pandas":
+            left = KlinkerTriplePandasFrame.from_df(
+                dataset.attr_triples_left, table_name="left", id_col="head"
+            )
+            right = KlinkerTriplePandasFrame.from_df(
+                dataset.attr_triples_right, table_name="right", id_col="head"
+            )
+        elif dataset.backend == "dask":
+            left = KlinkerTripleDaskFrame.from_dask_dataframe(
+                dataset.attr_triples_left, table_name="left", id_col="head"
+            )
+            right = KlinkerTripleDaskFrame.from_dask_dataframe(
+                dataset.attr_triples_right, table_name="right", id_col="head"
+            )
+        else:
+            raise ValueError(f"Unknown dataset backend {dataset.backend}")
+
         if clean:
             # remove datatype
-            left["tail"] = left["tail"].str.split(pat=r"\^\^", expand=True)[0]
-            right["tail"] = right["tail"].str.split(pat=r"\^\^", expand=True)[0]
+            left["tail"] = left["tail"].map(lambda x: str(x).split("^^")[0])
+            right["tail"] = right["tail"].map(lambda x: str(x).split("^^")[0])
 
         return cls(
             left=left,

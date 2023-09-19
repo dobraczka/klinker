@@ -1,11 +1,12 @@
 from typing import Optional
 
-import faiss
 import numpy as np
 import torch
 from class_resolver import HintOrType, OptionalKwargs
-from pykeen.utils import resolve_device
+from sklearn.preprocessing import normalize
 from tqdm import trange
+
+from klinker.utils import resolve_device
 
 from .base import RelationFrameEncoder
 from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
@@ -171,6 +172,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_rel,
         ent_feature,
     ):
+        # delayed import to avoid faiss logging message always
         ent_feature = ent_feature.to(self.device)
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)
         ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple = map(
@@ -254,8 +256,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             if len(temp_list):
                 features_list.append(np.concatenate(temp_list, axis=-1))
         features = np.concatenate(features_list, axis=-1)
-
-        faiss.normalize_L2(features)
+        features = normalize(features)
         features = np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
         return features
 
@@ -277,7 +278,12 @@ if __name__ == "__main__":
         algorithm_kwargs=dict(index_key="HNSW32", index_param="efSearch=512"),
     )
     blocker = EmbeddingBlocker(
-        frame_encoder=LightEAFrameEncoder(ent_dim=256, depth=2, mini_dim=16, attribute_encoder="TransformerTokenizedFrameEncoder"),
+        frame_encoder=LightEAFrameEncoder(
+            ent_dim=256,
+            depth=2,
+            mini_dim=16,
+            attribute_encoder="TransformerTokenizedFrameEncoder",
+        ),
         embedding_block_builder=kiez,
     )
 

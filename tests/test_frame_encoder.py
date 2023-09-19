@@ -2,9 +2,9 @@ import pandas as pd
 import pytest
 import torch
 
-from klinker.encoders import FrameEncoder
-from klinker.encoders.light_ea import initialize_and_fill
 from klinker.data import NamedVector
+from klinker.encoders import FrameEncoder
+from klinker.encoders.base import initialize_and_fill
 
 
 @pytest.fixture
@@ -43,4 +43,4 @@ def test_initialize_and_fill():
     assert (nv[["b", "d"]] == known_vectors).all()
     assert nv.vectors.shape == (len(all_names), 10)
     with pytest.raises(ValueError):
-        initialize_and_fill(known=known, all_names=["l","m","n"])
+        initialize_and_fill(known=known, all_names=["l", "m", "n"])

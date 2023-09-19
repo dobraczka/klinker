@@ -1,17 +1,18 @@
 from class_resolver import ClassResolver
 
-from .base import FrameEncoder, TokenizedFrameEncoder, RelationFrameEncoder
+from .base import FrameEncoder, RelationFrameEncoder, TokenizedFrameEncoder
 from .deepblocker import (
     AutoEncoderDeepBlockerFrameEncoder,
     CrossTupleTrainingDeepBlockerFrameEncoder,
     HybridDeepBlockerFrameEncoder,
 )
+from .gcn import GCNFrameEncoder
 from .light_ea import LightEAFrameEncoder
 from .pretrained import (
     AverageEmbeddingTokenizedFrameEncoder,
+    SentenceTransformerTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
     TransformerTokenizedFrameEncoder,
-    SentenceTransformerTokenizedFrameEncoder,
 )
 
 frame_encoder_resolver = ClassResolver(
@@ -23,6 +24,8 @@ frame_encoder_resolver = ClassResolver(
         CrossTupleTrainingDeepBlockerFrameEncoder,
         HybridDeepBlockerFrameEncoder,
         LightEAFrameEncoder,
+        GCNFrameEncoder,
+        SentenceTransformerTokenizedFrameEncoder,
     ],
     base=FrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
@@ -42,6 +45,7 @@ __all__ = [
     "CrossTupleTrainingDeepBlockerFrameEncoder",
     "HybridDeepBlockerFrameEncoder",
     "LightEAFrameEncoder",
+    "GCNFrameEncoder",
     # resolver
     "frame_encoder_resolver",
 ]

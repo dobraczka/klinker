@@ -8,17 +8,18 @@ from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 
+from klinker.utils import resolve_device
+
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
+from ..data import KlinkerDaskFrame
 from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from ..typing import GeneralVector
-from ..utils import cast_general_vector
+from ..typing import Frame, GeneralVector
 
-from class_resolver import HintOrType, OptionalKwargs
 FeatureType = TypeVar("FeatureType")
 
 
@@ -59,16 +60,16 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         raise NotImplementedError
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[FeatureType, torch.Tensor, torch.Tensor]:
         raise NotImplementedError
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         features, left_enc, right_enc = self.create_features(left, right)
         assert self.input_dimension is not None
@@ -81,10 +82,16 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
             optimizer=self._optimizer_hint,
             optimizer_kwargs=self._optimizer_kwargs,
         )
+        device = resolve_device()
         self.model = trainer.train(
-            features, num_epochs=self.num_epochs, batch_size=self.batch_size
+            features,
+            num_epochs=self.num_epochs,
+            batch_size=self.batch_size,
+            device=device,
         )
-        return self.model.encode_side(left_enc), self.model.encode_side(right_enc)
+        return self.model.encode_side(left_enc, device), self.model.encode_side(
+            right_enc, device
+        )
 
 
 class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
@@ -114,9 +121,11 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         return AutoEncoderDeepBlockerModelTrainer
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        left_enc, right_enc = self.inner_encoder._encode_as(left, right, return_type="pt")
+        left_enc, right_enc = self.inner_encoder._encode_as(
+            left, right, return_type="pt"
+        )
         left_enc = left_enc.float()
         right_enc = right_enc.float()
 
@@ -157,10 +166,15 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         self.random_seed = random_seed
 
     def create_features(
-        self, left: pd.DataFrame, right: pd.DataFrame
+        self, left: Frame, right: Frame
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
+        if isinstance(left, KlinkerDaskFrame):
+            raise NotImplementedError(
+                "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!"
+            )
+
         # TODO refactor this function (copy-pasted from deepblocker repo)
         list_of_tuples = pd.DataFrame(
             np.concatenate([left.values, right.values]), columns=["merged"]
@@ -217,15 +231,16 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
                 label_list[training_data_index] = 0
                 training_data_index += 1
 
-
         left_train_enc, right_train_enc = self.inner_encoder._encode_as(
             pd.DataFrame(left_tuple_list),
             pd.DataFrame(right_tuple_list),
-            return_type="pt"
+            return_type="pt",
         )
         self.input_dimension = left_train_enc.shape[1]
 
-        left_enc, right_enc = self.inner_encoder._encode_as(left, right, return_type="pt")
+        left_enc, right_enc = self.inner_encoder._encode_as(
+            left, right, return_type="pt"
+        )
         return (
             (left_train_enc.float(), right_train_enc.float(), torch.tensor(label_list)),
             left_enc.float(),
@@ -234,10 +249,10 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
 
     def _encode(
         self,
-        left: pd.DataFrame,
-        right: pd.DataFrame,
-        left_rel: Optional[pd.DataFrame] = None,
-        right_rel: Optional[pd.DataFrame] = None,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.inner_encoder.prepare(left, right)
         (
@@ -253,14 +268,16 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
             learning_rate=self.learning_rate,
         )
         features = (left_train, right_train, torch.tensor(label_list))
+        device = resolve_device()
         self.ctt_model = trainer.train(
             features=features,
             num_epochs=self.num_epochs,
             batch_size=self.batch_size,
+            device=device,
         )
 
-        return self.ctt_model.encode_side(left_enc), self.ctt_model.encode_side(
-            right_enc
+        return self.ctt_model.encode_side(left_enc, device), self.ctt_model.encode_side(
+            right_enc, device
         )
 
 
