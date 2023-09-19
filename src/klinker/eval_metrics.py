@@ -13,25 +13,6 @@ def harmonic_mean(a: float, b: float) -> float:
         return 0
     return 2 * ((a * b) / (a + b))
 
-
-# def calc_tp_fp_comp_with_blocking(
-#     blocks: KlinkerBlockManager, gold_pair_set: Set[Tuple[str, str]], save_pairs: bool
-# ):
-#     tp = 0
-#     fp = 0
-#     pair_number = 0
-#     tp_set: Set[Tuple[Union[int, str], ...]] = set()
-#     for pair_number, pair in enumerate(blocks.to_pairs(), start=1):
-#         if pair in gold_pair_set:
-#             tp += 1
-#             if save_pairs:
-#                 tp_set.add(pair)
-#         else:
-#             fp += 1
-#     comp_with_blocking = pair_number
-#     return tp, fp, comp_with_blocking, tp_set
-
-
 def sum_tuple(x):
     return tuple(
         map(
@@ -48,8 +29,6 @@ class Evaluation:
         gold: pd.DataFrame,
         left_data_len: int,
         right_data_len: int,
-        partition_size: Optional[int] = None,
-        save_pairs: bool = False,
     ):
         self._check_consistency(blocks, gold)
 
@@ -60,16 +39,6 @@ class Evaluation:
         self._calc_tp_fp_fn(blocks)
 
         self.comp_without_blocking = left_data_len * right_data_len
-        # self.true_positive, self.false_positive, self.comp_with_blocking, tp_it = (
-        #     blocks.to_bag(partition_size=partition_size)
-        #     .map_partitions(
-        #         calc_tp_fp_comp_with_blocking, self.gold_pair_set, save_pairs
-        #     )
-        #     .reduction(lambda x: x, sum_tuple)
-        #     .compute()
-        # )
-        # self.tp_set = set(tp_it)
-        # self.false_negative = len(self.gold_pair_set) - self.true_positive
         self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
@@ -100,16 +69,12 @@ class Evaluation:
         cls,
         blocks: KlinkerBlockManager,
         dataset: KlinkerDataset,
-        partition_size: Optional[int] = None,
-        save_pairs: bool = False,
     ) -> "Evaluation":
         return cls(
             blocks=blocks,
             gold=dataset.gold,
             left_data_len=len(dataset.left),
             right_data_len=len(dataset.right),
-            partition_size=partition_size,
-            save_pairs=save_pairs,
         )
 
     @property
@@ -169,8 +134,7 @@ def compare_blocks_from_eval(
     dice_tp = dice(eval_a.tp_set, eval_b.tp_set)
 
     eval_both = Evaluation.from_dataset(
-        blocks=blocks_both, dataset=dataset, save_pairs=True, partition_size=500
-    )
+        blocks=blocks_both, dataset=dataset)
     eval_both_metric = eval_both.to_dict()[improvement_metric]
     improvement_a = percent_improvement(
         eval_both_metric, eval_a.to_dict()[improvement_metric]
@@ -195,11 +159,9 @@ def compare_blocks(
     improvement_metric: str = "h3r",
 ) -> Dict:
     eval_a = Evaluation.from_dataset(
-        blocks=blocks_a, dataset=dataset, save_pairs=True, partition_size=500
-    )
+        blocks=blocks_a, dataset=dataset)
     eval_b = Evaluation.from_dataset(
-        blocks=blocks_b, dataset=dataset, save_pairs=True, partition_size=500
-    )
+        blocks=blocks_b, dataset=dataset)
     return compare_blocks_from_eval(
         blocks_a=blocks_a,
         blocks_b=blocks_b,
@@ -220,8 +182,7 @@ def multiple_block_comparison(
             name: (
                 blk,
                 Evaluation.from_dataset(
-                    blocks=blk, dataset=dataset, save_pairs=True, partition_size=500
-                ),
+                    blocks=blk, dataset=dataset),
             )
             for name, blk in blocks.items()
         }
