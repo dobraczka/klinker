@@ -20,7 +20,17 @@ def flatten_dictionary(
     prefix: Optional[str] = None,
     sep: str = ".",
 ) -> Dict[str, Any]:
-    """Flatten a nested dictionary."""
+    """Flatten a nested dictionary.
+
+    Args:
+      dictionary: Mapping[str: 
+      Any]: 
+      prefix: Optional[str]:  (Default value = None)
+      sep: str:  (Default value = ".")
+
+    Returns:
+
+    """
     real_prefix = tuple() if prefix is None else (prefix,)
     partial_result = _flatten_dictionary(dictionary=dictionary, prefix=real_prefix)
     return {sep.join(map(str, k)): v for k, v in partial_result.items()}
@@ -30,7 +40,17 @@ def _flatten_dictionary(
     dictionary: Mapping[str, Any],
     prefix: Tuple[str, ...],
 ) -> Dict[Tuple[str, ...], Any]:
-    """Help flatten a nested dictionary."""
+    """Help flatten a nested dictionary.
+
+    Args:
+      dictionary: Mapping[str: 
+      Any]: 
+      prefix: Tuple[str: 
+      ...]: 
+
+    Returns:
+
+    """
     result = {}
     for k, v in dictionary.items():
         new_prefix = prefix + (k,)
@@ -45,12 +65,28 @@ class ResultTracker:
     """A class that tracks the results from a pipeline run."""
 
     def start_run(self, run_name: Optional[str] = None) -> None:
-        """Start a run with an optional name."""
+        """Start a run with an optional name.
+
+        Args:
+          run_name: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
 
     def log_params(
         self, params: Mapping[str, Any], prefix: Optional[str] = None
     ) -> None:
-        """Log parameters to result store."""
+        """Log parameters to result store.
+
+        Args:
+          params: Mapping[str: 
+          Any]: 
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
 
     def log_metrics(
         self,
@@ -60,18 +96,30 @@ class ResultTracker:
     ) -> None:
         """Log metrics to result store.
 
-        :param metrics: The metrics to log.
-        :param step: An optional step to attach the metrics to (e.g. the epoch).
-        :param prefix: An optional prefix to prepend to every key in metrics.
+        Args:
+          metrics: The metrics to log.
+          step: An optional step to attach the metrics to (e.g. the epoch).
+          prefix: An optional prefix to prepend to every key in metrics.
+          metrics: Mapping[str: 
+          float]: 
+          step: Optional[int]:  (Default value = None)
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
         """
 
     def end_run(self, success: bool = True) -> None:
         """End a run.
-
+        
         HAS to be called after the experiment is finished.
 
-        :param success:
-            Can be used to signal failed runs. May be ignored.
+        Args:
+          success: Can be used to signal failed runs. May be ignored.
+          success: bool:  (Default value = True)
+
+        Returns:
+
         """
 
 
@@ -125,6 +173,14 @@ class ConsoleResultTracker(ResultTracker):
 
     # docstr-coverage: inherited
     def start_run(self, run_name: Optional[str] = None) -> None:  # noqa: D102
+        """
+
+        Args:
+          run_name: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
         if run_name is not None and self.start_end_run:
             self.write(f"Starting run: {run_name}")
 
@@ -133,6 +189,16 @@ class ConsoleResultTracker(ResultTracker):
         self, params: Mapping[str, Any], prefix: Optional[str] = None
     ) -> None:  # noqa: D102
         if not self.track_parameters:
+        """
+
+        Args:
+          params: Mapping[str: 
+          Any]: 
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
             return
 
         for key, value in flatten_dictionary(dictionary=params).items():
@@ -147,6 +213,17 @@ class ConsoleResultTracker(ResultTracker):
         prefix: Optional[str] = None,
     ) -> None:  # noqa: D102
         if not self.track_metrics:
+        """
+
+        Args:
+          metrics: Mapping[str: 
+          float]: 
+          step: Optional[int]:  (Default value = None)
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
             return
 
         self.write(f"Step: {step}")
@@ -156,6 +233,14 @@ class ConsoleResultTracker(ResultTracker):
 
     # docstr-coverage: inherited
     def end_run(self, success: bool = True) -> None:  # noqa: D102
+        """
+
+        Args:
+          success: bool:  (Default value = True)
+
+        Returns:
+
+        """
         if not success:
             self.write("Run failed.")
         if self.start_end_run:
@@ -164,8 +249,13 @@ class ConsoleResultTracker(ResultTracker):
 
 class WANDBResultTracker(ResultTracker):
     """A tracker for Weights and Biases.
-
+    
     Note that you have to perform wandb login beforehand.
+
+    Args:
+
+    Returns:
+
     """
 
     #: The WANDB run
@@ -202,10 +292,26 @@ class WANDBResultTracker(ResultTracker):
 
     # docstr-coverage: inherited
     def start_run(self, run_name: Optional[str] = None) -> None:  # noqa: D102
+        """
+
+        Args:
+          run_name: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
         self.run = self.wandb.init(project=self.project, name=run_name, **self.kwargs)  # type: ignore
 
     # docstr-coverage: inherited
     def end_run(self, success: bool = True) -> None:  # noqa: D102
+        """
+
+        Args:
+          success: bool:  (Default value = True)
+
+        Returns:
+
+        """
         self.run.finish(exit_code=0 if success else -1)
         self.run = None
 
@@ -217,6 +323,17 @@ class WANDBResultTracker(ResultTracker):
         prefix: Optional[str] = None,
     ) -> None:  # noqa: D102
         if self.run is None:
+        """
+
+        Args:
+          metrics: Mapping[str: 
+          float]: 
+          step: Optional[int]:  (Default value = None)
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
             raise AssertionError("start_run must be called before logging any metrics")
         metrics = flatten_dictionary(dictionary=metrics, prefix=prefix)
         self.run.log(metrics, step=step)
@@ -226,6 +343,16 @@ class WANDBResultTracker(ResultTracker):
         self, params: Mapping[str, Any], prefix: Optional[str] = None
     ) -> None:  # noqa: D102
         if self.run is None:
+        """
+
+        Args:
+          params: Mapping[str: 
+          Any]: 
+          prefix: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
             raise AssertionError("start_run must be called before logging any metrics")
         params = flatten_dictionary(dictionary=params, prefix=prefix)
         self.run.config.update(params)

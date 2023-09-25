@@ -18,6 +18,7 @@ except ImportError:
 
 
 class EmbeddingBlockBuilder:
+    """Base class for building blocks from embeddings."""
     def build_blocks(
         self,
         left: NamedVector,
@@ -25,15 +26,36 @@ class EmbeddingBlockBuilder:
         left_name: str,
         right_name: str,
     ) -> KlinkerBlockManager:
+        """Build blocks from given embeddings.
+
+        Args:
+          left: NamedVector: Left embeddings.
+          right: NamedVector: Right embeddings.
+          left_name: str: Name of left dataset.
+          right_name: str: Name of right dataset.
+
+        Returns:
+            Blocks
+        """
         raise NotImplementedError
 
 
 class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
+    """Build blocks from embeddings by using n-nearest neigbors as blocks."""
     def _get_neighbors(
         self,
         left: GeneralVector,
         right: GeneralVector,
     ) -> np.ndarray:
+        """Get nearest neighbors of of left entities in right embeddings.
+
+        Args:
+          left: GeneralVector: Left embeddings.
+          right: GeneralVector: Right embeddings.
+
+        Returns:
+            nearest neighbors
+        """
         raise NotImplementedError
 
     def build_blocks(
@@ -43,6 +65,17 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         left_name: str,
         right_name: str,
     ) -> KlinkerBlockManager:
+        """Build blocks from given embeddings.
+
+        Args:
+          left: NamedVector: Left embeddings.
+          right: NamedVector: Right embeddings.
+          left_name: str: Name of left dataset.
+          right_name: str: Name of right dataset.
+
+        Returns:
+            Blocks
+        """
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         df = pd.DataFrame(neighbors)
         df[right_name] = df.applymap(
@@ -54,6 +87,32 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
 
 
 class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
+    """Use kiez for nearest neighbor calculation.
+
+    Args:
+        n_neighbors: number k nearest neighbors.
+        algorithm: nearest neighbor algorithm.
+        algorithm_kwargs: keyword arguments for initialising nearest neighbor algorithm.
+        hubness: hubness reduction method if wanted.
+        hubness_kwargs: keyword arguments for initialising hubness reduction.
+
+    Example:
+        >>> import numpy as np
+        >>> from klinker.data import NamedVector
+        >>> from klinker.blockers.embedding import KiezEmbeddingBlockBuilder
+        >>> left = np.random.rand(50,2)
+        >>> right = np.random.rand(50,2)
+        >>> left_names = [f"left_{i}" for i in range(10)]
+        >>> left_names = [f"left_{i}" for i in range(len(left))]
+        >>> right_names = [f"right_{i}" for i in range(len(right))]
+        >>> left_v = NamedVector(left_names, left)
+        >>> right_v = NamedVector(right_names, right)
+        >>> emb_bb = KiezEmbeddingBlockBuilder()
+        >>> blocks = emb_bb.build_blocks(left_v, right_v, "left", "right")
+        >>> blocks[0].compute() # doctest:+SKIP
+                       left                                              right
+        0  [left_0]  [right_3, right_24, right_11, right_46, right_37]
+    """
     def __init__(
         self,
         n_neighbors: int = 5,
@@ -75,6 +134,15 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         left: GeneralVector,
         right: GeneralVector,
     ) -> np.ndarray:
+        """Get nearest neighbors of of left entities in right embeddings.
+
+        Args:
+          left: GeneralVector: Left embeddings.
+          right: GeneralVector: Right embeddings.
+
+        Returns:
+            nearest neighbors
+        """
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
             left = left.detach().cpu().numpy()
             right = right.detach().cpu().numpy()
@@ -85,17 +153,37 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
 
 
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
+    """Use clustering of embeddings for blockbuilding."""
     def _cluster(
         self,
         left: GeneralVector,
         right: GeneralVector,
     ) -> Tuple[np.ndarray, np.ndarray]:
+        """Cluster embeddings.
+
+        Args:
+          left: GeneralVector: left embeddings.
+          right: GeneralVector: right embeddings.
+
+        Returns:
+            cluster labels of left/right
+        """
         raise NotImplementedError
 
     @staticmethod
     def blocks_side(
         cluster_labels: np.ndarray, names: List[str], data_name: str
     ) -> pd.DataFrame:
+        """Create blocks form cluster labels for one side.
+
+        Args:
+          cluster_labels: np.ndarray: Cluster labels.
+          names: List[str]: Entity names.
+          data_name: str: Name of dataset.
+
+        Returns:
+            Blocks for one side as pandas DataFrame
+        """
         blocked = pd.DataFrame([names, cluster_labels]).transpose().groupby(1).agg(set)
         blocked.columns = [data_name]
         blocked.index.name = "cluster"
@@ -108,6 +196,17 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         left_name: str,
         right_name: str,
     ) -> pd.DataFrame:
+        """Build blocks from given embeddings.
+
+        Args:
+          left: NamedVector: Left embeddings.
+          right: NamedVector: Right embeddings.
+          left_name: str: Name of left dataset.
+          right_name: str: Name of right dataset.
+
+        Returns:
+            Blocks
+        """
         left_cluster_labels, right_cluster_labels = self._cluster(
             left.vectors, right.vectors
         )
@@ -121,6 +220,37 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
 
 
 class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
+    """Use HDBSCAN clustering for block building.
+
+    For information about parameter selection visit <https://hdbscan.readthedocs.io/en/latest/parameter_selection.html>.
+
+    Args:
+        min_cluster_size: The minimum size of clusters.
+        min_samples: The number of samples in a neighbourhood for a point to be considered a core point.
+        cluster_selection_epsilon: A distance threshold. Clusters below this value will be merged.
+        metric: Distance metric to use.
+        alpha: A distance scaling parameter as used in robust single linkage.
+        p: p value to use if using the minkowski metric.
+        cluster_selection_method: The method used to select clusters from the condensed tree.
+        kwargs: Arguments passed to the distance metric
+
+    Example:
+        >>> import numpy as np
+        >>> from klinker.data import NamedVector
+        >>> from klinker.blockers.embedding.blockbuilder import HDBSCANEmbeddingBlockBuilder
+        >>> left = np.random.rand(50,2)
+        >>> right = np.random.rand(50,2)
+        >>> left_names = [f"left_{i}" for i in range(len(left))]
+        >>> right_names = [f"right_{i}" for i in range(len(right))]
+        >>> left_v = NamedVector(left_names, left)
+        >>> right_v = NamedVector(right_names, right)
+        >>> emb_bb = HDBSCANEmbeddingBlockBuilder()
+        >>> blocks = emb_bb.build_blocks(left_v, right_v, "left", "right")
+        >>> blocks[0].compute() #doctest: +SKIP
+                                      left                right
+        cluster
+        0        {left_22, left_3, left_7}  {right_6, right_27}
+    """
     def __init__(
         self,
         min_cluster_size: int = 5,
@@ -147,6 +277,15 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         left: GeneralVector,
         right: GeneralVector,
     ) -> Tuple[np.ndarray, np.ndarray]:
+        """Cluster embeddings.
+
+        Args:
+          left: GeneralVector: left embeddings.
+          right: GeneralVector: right embeddings.
+
+        Returns:
+            cluster labels of left/right
+        """
         cluster_labels = self.clusterer.fit_predict(np.concatenate([left, right]))
         return cluster_labels[: len(left)], cluster_labels[len(left) :]
 

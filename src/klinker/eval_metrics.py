@@ -9,11 +9,28 @@ from . import KlinkerBlockManager, KlinkerDataset
 
 
 def harmonic_mean(a: float, b: float) -> float:
+    """
+
+    Args:
+      a: float: 
+      b: float: 
+
+    Returns:
+
+    """
     if a + b == 0:
         return 0
     return 2 * ((a * b) / (a + b))
 
 def sum_tuple(x):
+    """
+
+    Args:
+      x: 
+
+    Returns:
+
+    """
     return tuple(
         map(
             lambda x: sum(x) if isinstance(x[0], int) else chain.from_iterable(x),
@@ -23,6 +40,7 @@ def sum_tuple(x):
 
 
 class Evaluation:
+    """ """
     def __init__(
         self,
         blocks: KlinkerBlockManager,
@@ -42,6 +60,14 @@ class Evaluation:
         self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
+        """
+
+        Args:
+          blocks: KlinkerBlockManager: 
+
+        Returns:
+
+        """
         tp_pairs = set()
         fp = 0
         for pair_number, pair in enumerate(blocks.all_pairs(), start=1):
@@ -57,6 +83,15 @@ class Evaluation:
         self.comp_with_blocking = pair_number
 
     def _check_consistency(self, blocks: KlinkerBlockManager, gold: pd.DataFrame):
+        """
+
+        Args:
+          blocks: KlinkerBlockManager: 
+          gold: pd.DataFrame: 
+
+        Returns:
+
+        """
         if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
         if not set(blocks.blocks.columns) == set(gold.columns):
@@ -70,6 +105,15 @@ class Evaluation:
         blocks: KlinkerBlockManager,
         dataset: KlinkerDataset,
     ) -> "Evaluation":
+        """
+
+        Args:
+          blocks: KlinkerBlockManager: 
+          dataset: KlinkerDataset: 
+
+        Returns:
+
+        """
         return cls(
             blocks=blocks,
             gold=dataset.gold,
@@ -79,24 +123,29 @@ class Evaluation:
 
     @property
     def recall(self) -> float:
+        """ """
         return self.true_positive / (self.true_positive + self.false_negative)
 
     @property
     def precision(self) -> float:
+        """ """
         return self.true_positive / (self.true_positive + self.false_positive)
 
     @property
     def f_measure(self) -> float:
+        """ """
         rec = self.recall
         prec = self.precision
         return harmonic_mean(a=rec, b=prec)
 
     @property
     def reduction_ratio(self) -> float:
+        """ """
         return 1 - (self.comp_with_blocking / self.comp_without_blocking)
 
     @property
     def h3r(self) -> float:
+        """ """
         rr = self.reduction_ratio
         rec = self.recall
         return harmonic_mean(a=rr, b=rec)
@@ -105,6 +154,7 @@ class Evaluation:
         return f"Evaluation: {self.to_dict()}"
 
     def to_dict(self) -> Dict[str, float]:
+        """ """
         return {
             "recall": self.recall,
             "precision": self.precision,
@@ -116,6 +166,15 @@ class Evaluation:
 
 
 def dice(a: Set, b: Set) -> float:
+    """
+
+    Args:
+      a: Set: 
+      b: Set: 
+
+    Returns:
+
+    """
     return (2 * len(a.intersection(b))) / (len(a) + len(b))
 
 
@@ -127,7 +186,29 @@ def compare_blocks_from_eval(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> Dict:
+    """
+
+    Args:
+      blocks_a: KlinkerBlockManager: 
+      blocks_b: KlinkerBlockManager: 
+      eval_a: Evaluation: 
+      eval_b: Evaluation: 
+      dataset: KlinkerDataset: 
+      improvement_metric: str:  (Default value = "h3r")
+
+    Returns:
+
+    """
     def percent_improvement(new: float, old: float):
+        """
+
+        Args:
+          new: float: 
+          old: float: 
+
+        Returns:
+
+        """
         return (new - old) / old
 
     blocks_both = KlinkerBlockManager.combine(blocks_a, blocks_b)
@@ -158,6 +239,17 @@ def compare_blocks(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> Dict:
+    """
+
+    Args:
+      blocks_a: KlinkerBlockManager: 
+      blocks_b: KlinkerBlockManager: 
+      dataset: KlinkerDataset: 
+      improvement_metric: str:  (Default value = "h3r")
+
+    Returns:
+
+    """
     eval_a = Evaluation.from_dataset(
         blocks=blocks_a, dataset=dataset)
     eval_b = Evaluation.from_dataset(
@@ -177,6 +269,17 @@ def multiple_block_comparison(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> pd.DataFrame:
+    """
+
+    Args:
+      blocks: Dict[str: 
+      KlinkerBlockManager]: 
+      dataset: KlinkerDataset: 
+      improvement_metric: str:  (Default value = "h3r")
+
+    Returns:
+
+    """
     blocks_with_eval = OrderedDict(
         {
             name: (

@@ -24,6 +24,7 @@ FeatureType = TypeVar("FeatureType")
 
 
 class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
+    """ """
     inner_encoder: TokenizedFrameEncoder
 
     def __init__(
@@ -53,15 +54,26 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        """ """
         return self.inner_encoder.tokenizer_fn
 
     @property
     def trainer_cls(self) -> Type[DeepBlockerModelTrainer[FeatureType]]:
+        """ """
         raise NotImplementedError
 
     def create_features(
         self, left: Frame, right: Frame
     ) -> Tuple[FeatureType, torch.Tensor, torch.Tensor]:
+        """
+
+        Args:
+          left: Frame: 
+          right: Frame: 
+
+        Returns:
+
+        """
         raise NotImplementedError
 
     def _encode(
@@ -71,6 +83,17 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        """
+
+        Args:
+          left: Frame: 
+          right: Frame: 
+          left_rel: Optional[Frame]:  (Default value = None)
+          right_rel: Optional[Frame]:  (Default value = None)
+
+        Returns:
+
+        """
         features, left_enc, right_enc = self.create_features(left, right)
         assert self.input_dimension is not None
         assert self.hidden_dimensions is not None
@@ -95,6 +118,7 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
 
 
 class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
+    """ """
     def __init__(
         self,
         hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
@@ -118,11 +142,21 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
 
     @property
     def trainer_cls(self) -> Type[DeepBlockerModelTrainer[torch.Tensor]]:
+        """ """
         return AutoEncoderDeepBlockerModelTrainer
 
     def create_features(
         self, left: Frame, right: Frame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+
+        Args:
+          left: Frame: 
+          right: Frame: 
+
+        Returns:
+
+        """
         left_enc, right_enc = self.inner_encoder._encode_as(
             left, right, return_type="pt"
         )
@@ -138,6 +172,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
 
 
 class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
+    """ """
     def __init__(
         self,
         hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
@@ -170,6 +205,15 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
+        """
+
+        Args:
+          left: Frame: 
+          right: Frame: 
+
+        Returns:
+
+        """
         if isinstance(left, KlinkerDaskFrame):
             raise NotImplementedError(
                 "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!"
@@ -254,6 +298,17 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        """
+
+        Args:
+          left: Frame: 
+          right: Frame: 
+          left_rel: Optional[Frame]:  (Default value = None)
+          right_rel: Optional[Frame]:  (Default value = None)
+
+        Returns:
+
+        """
         self.inner_encoder.prepare(left, right)
         (
             (left_train, right_train, label_list),
@@ -282,6 +337,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
 
 
 class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
+    """ """
     def __init__(
         self,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,

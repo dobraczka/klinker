@@ -26,6 +26,24 @@ logger = logging.getLogger("klinker")
 
 
 class EmbeddingBlocker(SchemaAgnosticBlocker):
+    """Base class for embedding-based blocking approaches.
+
+    Args:
+        frame_encoder: Encoder class to use for embedding the datasets.
+        frame_encoder_kwargs: keyword arguments for initialising encoder class.
+        embedding_block_builder: Block building class to create blocks from embeddings.
+        embedding_block_builder_kwargs: keyword arguments for initalising blockbuilder.
+        save: If true saves the embeddings before using blockbuilding.
+        save_dir: Directory where to save the embeddings.
+        force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
+
+    Attributes:
+        frame_encoder: Encoder class to use for embedding the datasets.
+        embedding_block_builder: Block building class to create blocks from embeddings.
+        save: If true saves the embeddings before using blockbuilding.
+        save_dir: Directory where to save the embeddings.
+        force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
+    """
     def __init__(
         self,
         frame_encoder: HintOrType[FrameEncoder] = None,
@@ -46,23 +64,6 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         self.save_dir = save_dir
         self.force = force
 
-    def _check_string_ids(self, id_col: pd.Series):
-        if not id_col.apply(lambda x: isinstance(x, str)).all():
-            raise ValueError("Ids must be string!")
-
-    # def _check_ids(self, left: KlinkerFrame, right: KlinkerFrame):
-    #     left_ids_col = left[left.id_col]
-    #     right_ids_col = right[right.id_col]
-    #     self._check_string_ids(left_ids_col)
-    #     self._check_string_ids(right_ids_col)
-    #     left_ids = set(left_ids_col)
-    #     right_ids = set(right_ids_col)
-    #     intersected_ids = left_ids.intersection(right_ids)
-    #     if len(intersected_ids) > 0:
-    #         warnings.warn(
-    #             f"Left and right ids are not disjunct! This may be unintentional and lead to problems. Found {len(intersected_ids)} common ids across {len(left)} left ids and {len(right)} right ids."
-    #         )
-
     def _assign(
         self,
         left: SeriesType,
@@ -70,8 +71,17 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
-        # if isinstance(left, KlinkerPandasFrame):
-        #     self._check_ids(left, right)
+        """
+
+        Args:
+          left: SeriesType:
+          right: SeriesType:
+          left_rel: Optional[KlinkerFrame]:  (Default value = None)
+          right_rel: Optional[KlinkerFrame]:  (Default value = None)
+
+        Returns:
+
+        """
         left = generic_upgrade_from_series(left, reset_index=False)
         right = generic_upgrade_from_series(right, reset_index=False)
 
@@ -133,6 +143,14 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         encodings: Tuple[NamedVector, NamedVector],
         table_names: Tuple[str, str],
     ):
+        """Save embeddings.
+
+        Args:
+          save_dir: Union[str, pathlib.Path]: Directory to save into.
+          encodings: Tuple[NamedVector, NamedVector]: Tuple of named embeddings.
+          table_names: Tuple[str, str]: Name of left/right dataset.
+
+        """
         if isinstance(save_dir, str):
             save_dir = pathlib.Path(save_dir)
         if not os.path.exists(save_dir):
@@ -182,6 +200,17 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         left_name=None,
         right_name=None,
     ) -> KlinkerBlockManager:
+        """Apply blockbuilding strategy from precalculated embeddings.
+
+        Args:
+          left_path: path of left encoding.
+          right_path: path of right encoding.
+          left_name: Name of left dataset.
+          right_name: Name of right dataset.
+
+        Returns:
+          Calculated blocks.
+        """
         if self.save_dir is None:
             raise ValueError("Cannot run `from_encoded` if `self.save_dir` is None!")
         if left_path is None:

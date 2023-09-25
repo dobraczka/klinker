@@ -4,29 +4,54 @@ import dask.dataframe as dd
 import pandas as pd
 
 from .base import Blocker
-from ..data import KlinkerBlockManager, KlinkerFrame
+from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerDaskFrame
 
 
 class StandardBlocker(Blocker):
-    """Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210."""
+    """Block on same values of a specific column.
+
+
+    Reference: Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210.
+    """
 
     def __init__(self, blocking_key: Union[str, Tuple[str, str]]):
         self.blocking_key = blocking_key
 
     def _inner_assign(self, kf: KlinkerFrame, blocking_key: str) -> pd.DataFrame:
+        """
+
+        Args:
+          kf: KlinkerFrame:
+          blocking_key: str:
+
+        Returns:
+
+        """
         id_col = kf.id_col
         table_name = kf.table_name
         assert table_name
 
-        series = (
-            kf[[id_col, self.blocking_key]]
-            .groupby(self.blocking_key)
-            .apply(
-                lambda x, id_col: list(set(x[id_col])),
-                id_col=kf.id_col,
-                # TODO add in case dask: meta=pd.Series([], dtype=object),
+        #TODO address code duplication
+        if isinstance(kf, KlinkerDaskFrame):
+            series = (
+                kf[[id_col, self.blocking_key]]
+                .groupby(self.blocking_key)
+                .apply(
+                    lambda x, id_col: list(set(x[id_col])),
+                    id_col=kf.id_col,
+                    meta=pd.Series([], dtype=object),
+                )
             )
-        )
+        else:
+            series = (
+                kf[[id_col, self.blocking_key]]
+                .groupby(self.blocking_key)
+                .apply(
+                    lambda x, id_col: list(set(x[id_col])),
+                    id_col=kf.id_col,
+                    # TODO add in case dask: meta=pd.Series([], dtype=object),
+                )
+            )
         blocked = kf.__class__.upgrade_from_series(
             series,
             columns=[table_name],
@@ -43,6 +68,17 @@ class StandardBlocker(Blocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
+        """Assign entity ids to blocks.
+
+        Args:
+          left: KlinkerFrame: Contains entity attribute information of left dataset.
+          right: KlinkerFrame: Contains entity attribute information of right dataset.
+          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+
+        Returns:
+            KlinkerBlockManager: instance holding the resulting blocks.
+        """
         if isinstance(self.blocking_key, tuple):
             left_bk = self.blocking_key[0]
             right_bk = self.blocking_key[0]

@@ -29,37 +29,45 @@ def add_remaining_self_loops(
     edge_attr: Optional[torch.Tensor] = None,
     fill_value: Optional[Union[float, torch.Tensor, str]] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
-    r"""Adds remaining self-loop :math:`(i,i) \in \mathcal{E}` to every node
+    """r"""Adds remaining self-loop :math:`(i,i) \in \mathcal{E}` to every node
     :math:`i \in \mathcal{V}` in the graph given by :attr:`edge_index`.
     In case the graph is weighted or has multi-dimensional edge features
     (:obj:`edge_attr != None`), edge features of non-existing self-loops will
     be added according to :obj:`fill_value`.
 
-    :param edge_index: The edge indices.
-    :param edge_attr: Edge weights or multi-dimensional edge
-        features.
-    :param fill_value: The way to generate
-        edge features of self-loops (in case :obj:`edge_attr != None`).
-        If given as :obj:`float` or :class:`torch.Tensor`, edge features of
-        self-loops will be directly given by :obj:`fill_value`.
-        If given as :obj:`str`, edge features of self-loops are computed by
-        aggregating all features of edges that point to the specific node,
-        according to a reduce operation. (:obj:`"add"`, :obj:`"mean"`,
-        :obj:`"min"`, :obj:`"max"`, :obj:`"mul"`). (default: :obj:`1.`)
+    Args:
+      edge_index: The edge indices.
+      edge_attr: Edge weights or multi-dimensional edge
+    features.
+      fill_value: The way to generate
+    edge features of self-loops (in case :obj:`edge_attr != None`).
+    If given as :obj:`float` or :class:`torch.Tensor`, edge features of
+    self-loops will be directly given by :obj:`fill_value`.
+    If given as :obj:`str`, edge features of self-loops are computed by
+    aggregating all features of edges that point to the specific node,
+    according to a reduce operation. (:obj:`"add"`, :obj:`"mean"`,
+    :obj:`"min"`, :obj:`"max"`, :obj:`"mul"`). (default: :obj:`1.`)
     num_nodes (int, optional): The number of nodes, *i.e.*
-        :obj:`max_val + 1` of :attr:`edge_index`. (default: :obj:`None`)
-    :return: edge index with self-loops and edge attr if given
+    :obj:`max_val + 1` of :attr:`edge_index`. (default: :obj:`None`)
+      edge_index: torch.Tensor: 
+      num_nodes: int: 
+      edge_attr: Optional[torch.Tensor]:  (Default value = None)
+      fill_value: Optional[Union[float: 
+      torch.Tensor: 
+      str]]:  (Default value = None)
 
-    Example:
+    Returns:
+      edge index with self-loops and edge attr if given
+      
+      Example:
 
-        >>> edge_index = torch.tensor([[0, 1],
+    >>> edge_index = torch.tensor([[0, 1],
         ...                            [1, 0]])
         >>> edge_weight = torch.tensor([0.5, 0.5])
         >>> add_remaining_self_loops(edge_index, edge_weight)
         (tensor([[0, 1, 0, 1],
                 [1, 0, 0, 1]]),
         tensor([0.5000, 0.5000, 1.0000, 1.0000]))
-    """
     N = num_nodes
     mask = edge_index[0] != edge_index[1]
 
@@ -105,6 +113,20 @@ def gcn_norm(
     flow="source_to_target",
     dtype=None,
 ):
+    """
+
+    Args:
+      edge_index: 
+      num_nodes: int: 
+      edge_weight:  (Default value = None)
+      improved:  (Default value = True)
+      add_self_loops:  (Default value = True)
+      flow:  (Default value = "source_to_target")
+      dtype:  (Default value = None)
+
+    Returns:
+
+    """
 
     fill_value = 2.0 if improved else 1.0
     assert flow in ["source_to_target", "target_to_source"]
@@ -134,6 +156,7 @@ def gcn_norm(
 
 
 class GCNFrameEncoder(RelationFrameEncoder):
+    """ """
     def __init__(
         self,
         depth: int = 2,
@@ -149,6 +172,15 @@ class GCNFrameEncoder(RelationFrameEncoder):
         )
 
     def _forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        """
+
+        Args:
+          x: torch.Tensor: 
+          edge_index: torch.Tensor: 
+
+        Returns:
+
+        """
         edge_index_with_loops, edge_weights = gcn_norm(edge_index, num_nodes=len(x))
         return sparse_matmul(
             SparseTensor.from_edge_index(edge_index_with_loops, edge_attr=edge_weights),
@@ -161,6 +193,16 @@ class GCNFrameEncoder(RelationFrameEncoder):
         rel_triples_right: np.ndarray,
         ent_features: NamedVector,
     ) -> GeneralVector:
+        """
+
+        Args:
+          rel_triples_left: np.ndarray: 
+          rel_triples_right: np.ndarray: 
+          ent_features: NamedVector: 
+
+        Returns:
+
+        """
         full_graph = np.concatenate([rel_triples_left, rel_triples_right])
         edge_index = torch.from_numpy(full_graph[:, [0, 2]]).t()
         x = ent_features.vectors

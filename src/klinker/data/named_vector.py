@@ -12,6 +12,14 @@ T = TypeVar("T", np.ndarray, torch.Tensor)
 
 
 def _shorten_tensor_repr(tensor: GeneralVector) -> str:
+    """
+
+    Args:
+      tensor: GeneralVector:
+
+    Returns:
+
+    """
     t_repr = tensor.__repr__()
     first_bracket_idx = t_repr.find("[")
     last_bracket_idx = t_repr.rfind("]") + 1
@@ -19,6 +27,30 @@ def _shorten_tensor_repr(tensor: GeneralVector) -> str:
 
 
 class NamedVector(Generic[T]):
+    """Class for holding named embeddings.
+
+    Args:
+        names: Names of embedding rows.
+        vectors: Embeddings.
+
+    Example:
+        >>> import numpy as np
+        >>> from klinker.data import NamedVector
+        >>> emb = np.random.rand(5,2)
+        >>> names = [f"e_{i}" for i in range(len(emb))]
+        >>> nv = NamedVector(names, emb)
+        >>> nv # doctest: +SKIP
+        NamedVector(0|"e_0": [0.8307803 , 0.48443226],
+                1|"e_1": [0.4887014 , 0.94833375],
+                2|"e_2": [0.5665754 , 0.03836854],
+                3|"e_3": [0.16981838, 0.22991864],
+                4|"e_4": [0.23473072, 0.11225217],
+                dtype=float64)
+        >>> nv[0] # doctest: +SKIP
+        array([0.8307803 , 0.48443226])
+        >>> nv["e_0"]  # doctest: +SKIP
+        array([0.8307803 , 0.48443226])
+    """
     _vectors: T
     _names: pd.Series
 
@@ -45,10 +77,12 @@ class NamedVector(Generic[T]):
 
     @property
     def _tensor_lib(self) -> ModuleType:
+        """ """
         return np if isinstance(self.vectors, np.ndarray) else torch
 
     @property
     def names(self) -> List[str]:
+        """List of names"""
         return self._names.index.tolist()
 
     @names.setter
@@ -59,6 +93,7 @@ class NamedVector(Generic[T]):
 
     @property
     def vectors(self) -> T:
+        """Embeddings."""
         return self._vectors
 
     @vectors.setter
@@ -69,10 +104,12 @@ class NamedVector(Generic[T]):
 
     @property
     def entity_id_mapping(self) -> Dict[str, int]:
+        """Mapping of entity names to ids"""
         return self._names.to_dict()
 
     @property
     def id_entity_mapping(self) -> Dict[int, str]:
+        """Mapping of vectors indices to entity names"""
         return pd.Series(self._names.index.values, index=self._names).to_dict()
 
     def _key_handling(
@@ -140,22 +177,86 @@ class NamedVector(Generic[T]):
         return True
 
     def concat(self, other: "NamedVector") -> "NamedVector":
+        """Concatenate two NamedVector objects.
+
+        Args:
+          other: "NamedVector": Other instances to append.
+
+        Returns:
+            Concatenated named vector.
+
+        Example:
+        >>> import numpy as np
+        >>> from klinker.data import NamedVector
+        >>> emb = np.random.rand(5,2)
+        >>> names = [f"e_{i}" for i in range(len(emb))]
+        >>> nv = NamedVector(names, emb)
+        >>> emb2 = np.random.rand(2,2)
+        >>> nv2 = NamedVector(["e_5","e_6"],emb2)
+        >>> nv.concat(nv2)
+        NamedVector(0|"e_0": [0.8307803 , 0.48443226],
+                1|"e_1": [0.4887014 , 0.94833375],
+                2|"e_2": [0.5665754 , 0.03836854],
+                3|"e_3": [0.16981838, 0.22991864],
+                4|"e_4": [0.23473072, 0.11225217],
+                5|"e_5": [0.83645295, 0.78669799],
+                6|"e_6": [0.77684827, 0.4350322 ],
+                dtype=float64)
+        """
         new_vectors = self._tensor_lib.concatenate([self.vectors, other.vectors])
         new_names = self.names + other.names
         return NamedVector(names=new_names, vectors=new_vectors)
 
     def subset(self, key: Union[str, List[str]]) -> "NamedVector":
+        """Return a subset as new object instance.
+
+        Args:
+          key: Union[str:
+          List[str]]:
+
+        Returns:
+            Specified subset of this instance.
+
+        >>> import numpy as np
+        >>> from klinker.data import NamedVector
+        >>> emb = np.random.rand(5,2)
+        >>> names = [f"e_{i}" for i in range(len(emb))]
+        >>> nv = NamedVector(names, emb)
+        >>> nv.subset(["e_1","e_3"])
+        NamedVector(0|"e_1": [0.4887014 , 0.94833375],
+                1|"e_3": [0.16981838, 0.22991864],
+                dtype=float64)
+        """
+        if isinstance(key, str):
+            key = [key]
         sub_names = self._names.loc[key]
         sub_vectors = self._vectors[sub_names]
         # need to cast to list to ensure contiguous ids
         return NamedVector(names=sub_names.index.tolist(), vectors=sub_vectors)
 
     def to_pickle(self, path):
+        """Save as pickle.
+
+        See: `read_pickle`
+
+        Args:
+          path: Path where to save.
+        """
         with open(path, "wb") as file_handle:
             pickle.dump((self.names, self.vectors), file_handle)
 
     @classmethod
     def from_pickle(cls, path) -> "NamedVector":
+        """Read from pickle.
+
+        See: `to_pickle`
+
+        Args:
+          path: Path from where to load.
+
+        Returns:
+            Loaded named vector
+        """
         with open(path, "rb") as file_handle:
             names, vectors = pickle.load(file_handle)
         return cls(names, vectors)

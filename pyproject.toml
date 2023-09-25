@@ -76,6 +76,7 @@ jupyter-black = "^0.3.4"
 graphviz = "^0.20.1"
 jupyter-contrib-nbextensions = "^0.7.0"
 memray = "^1.9.1"
+deprecated = "^1.2.14"
 
 
 [tool.poetry.extras]

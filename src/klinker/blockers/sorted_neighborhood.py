@@ -8,6 +8,7 @@ from ..data import KlinkerFrame, KlinkerPandasFrame, KlinkerBlockManager
 
 
 class SortedNeighborhoodBlocker(StandardBlocker):
+    """Uses sorted neighborhood blocking"""
     def __init__(self, blocking_key: Union[str, Tuple[str, str]], window_size: int = 3):
         self.blocking_key = blocking_key
         self.window_size = window_size
@@ -19,8 +20,25 @@ class SortedNeighborhoodBlocker(StandardBlocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
+        """Assign entity ids to blocks.
+
+        Note:
+            not implemented for Dask.
+
+        Args:
+          left: KlinkerFrame: Contains entity attribute information of left dataset.
+          right: KlinkerFrame: Contains entity attribute information of right dataset.
+          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+
+        Returns:
+            KlinkerBlockManager: instance holding the resulting blocks.
+
+        Raises:
+            NotImplementedError if frames are using dask.
+        """
         if not isinstance(left, KlinkerPandasFrame):
-            raise ValueError("Not implemented for Dask!")
+            raise NotImplementedError("Not implemented for Dask!")
         name_id_tuple_col = "name_id_tuple"
         tables = [left, right]
         for tab in tables:

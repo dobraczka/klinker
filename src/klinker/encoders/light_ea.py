@@ -16,12 +16,29 @@ from ..typing import GeneralVector
 
 @torch.no_grad()
 def my_norm(x):
+    """
+
+    Args:
+      x: 
+
+    Returns:
+
+    """
     x /= torch.norm(x, p=2, dim=-1).view(-1, 1) + 1e-8
     return x
 
 
 @torch.no_grad()
 def get_random_vec(*dims, device):
+    """
+
+    Args:
+      *dims: 
+      device: 
+
+    Returns:
+
+    """
     random_vec = torch.randn(*dims).to(device)
     random_vec = my_norm(random_vec)
     return random_vec
@@ -29,6 +46,16 @@ def get_random_vec(*dims, device):
 
 @torch.no_grad()
 def random_projection(x, out_dim, device):
+    """
+
+    Args:
+      x: 
+      out_dim: 
+      device: 
+
+    Returns:
+
+    """
     random_vec = get_random_vec(x.shape[-1], out_dim, device=device)
     return x @ random_vec
 
@@ -37,6 +64,18 @@ def random_projection(x, out_dim, device):
 def batch_sparse_matmul(
     sparse_tensor, dense_tensor, device, batch_size=32, save_mem=True
 ):
+    """
+
+    Args:
+      sparse_tensor: 
+      dense_tensor: 
+      device: 
+      batch_size:  (Default value = 32)
+      save_mem:  (Default value = True)
+
+    Returns:
+
+    """
     if not isinstance(dense_tensor, torch.Tensor):
         dense_tensor = torch.from_numpy(dense_tensor).to(device)
     results = []
@@ -54,6 +93,7 @@ def batch_sparse_matmul(
 
 
 class LightEAFrameEncoder(RelationFrameEncoder):
+    """ """
     def __init__(
         self,
         ent_dim: int = 256,
@@ -78,6 +118,16 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         rel_triples_right: np.ndarray,
         ent_features: NamedVector,
     ) -> GeneralVector:
+        """
+
+        Args:
+          rel_triples_left: np.ndarray: 
+          rel_triples_right: np.ndarray: 
+          ent_features: NamedVector: 
+
+        Returns:
+
+        """
         (
             node_size,
             rel_size,
@@ -103,6 +153,15 @@ class LightEAFrameEncoder(RelationFrameEncoder):
     def _transform_graph(
         self, rel_triples_left: np.ndarray, rel_triples_right: np.ndarray
     ):
+        """
+
+        Args:
+          rel_triples_left: np.ndarray: 
+          rel_triples_right: np.ndarray: 
+
+        Returns:
+
+        """
         triples = []
         rel_size = 0
         for line in rel_triples_left:
@@ -172,6 +231,22 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_rel,
         ent_feature,
     ):
+        """
+
+        Args:
+          node_size: 
+          rel_size: 
+          ent_tuple: 
+          triples_idx: 
+          ent_ent: 
+          ent_ent_val: 
+          rel_ent: 
+          ent_rel: 
+          ent_feature: 
+
+        Returns:
+
+        """
         # delayed import to avoid faiss logging message always
         ent_feature = ent_feature.to(self.device)
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)

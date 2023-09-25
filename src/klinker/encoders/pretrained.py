@@ -43,20 +43,22 @@ def _encode_all_memory_utilization_optimized(
     labels: Sequence[str],
     batch_size: int,
 ) -> torch.Tensor:
-    """
-    Encode all labels with the given batch-size.
+    """Encode all labels with the given batch-size.
 
     Wrapped by memory utilization maximizer to automatically reduce the batch size if needed.
 
-    :param encoder:
-        the encoder
-    :param labels:
-        the labels to encode
-    :param batch_size:
-        the batch size to use. Will automatically be reduced if necessary.
+    Args:
+      encoder: the encoder
+      labels: the labels to encode
+      batch_size: the batch size to use. Will automatically be reduced if necessary.
+      encoder: "TextEncoder":
+      labels: Sequence[str]:
+      batch_size: int:
 
-    :return: shape: `(len(labels), dim)`
-        the encoded labels
+    Returns:
+      shape: `(len(labels), dim)`
+      the encoded labels
+
     """
     return torch.cat(
         [
@@ -71,14 +73,18 @@ class TextEncoder(nn.Module):
     """An encoder for text."""
 
     def forward(self, labels: Union[str, Sequence[str]]) -> torch.FloatTensor:
-        """
-        Encode a batch of text.
+        """Encode a batch of text.
 
-        :param labels: length: b
-            the texts
+        Args:
+          labels: length: b
+        the texts
+          labels: Union[str:
+          Sequence[str]]:
 
-        :return: shape: `(b, dim)`
-            an encoding of the texts
+        Returns:
+          shape: `(b, dim)`
+          an encoding of the texts
+
         """
         labels = upgrade_to_sequence(labels)
         labels = list(map(str, labels))
@@ -86,14 +92,17 @@ class TextEncoder(nn.Module):
 
     @abstractmethod
     def forward_normalized(self, texts: Sequence[str]) -> torch.FloatTensor:
-        """
-        Encode a batch of text.
+        """Encode a batch of text.
 
-        :param texts: length: b
-            the texts
+        Args:
+          texts: length: b
+        the texts
+          texts: Sequence[str]:
 
-        :return: shape: `(b, dim)`
-            an encoding of the texts
+        Returns:
+          shape: `(b, dim)`
+          an encoding of the texts
+
         """
         raise NotImplementedError
 
@@ -105,18 +114,21 @@ class TextEncoder(nn.Module):
     ) -> torch.FloatTensor:
         """Encode all labels (inference mode & batched).
 
-        :param labels:
-            a sequence of strings to encode
-        :param batch_size:
-            the batch size to use for encoding the labels. ``batch_size=1``
-            means that the labels are encoded one-by-one, while ``batch_size=len(labels)``
-            would correspond to encoding all at once.
-            Larger batch sizes increase memory requirements, but may be computationally
-            more efficient. `batch_size` can also be set to `None` to enable automatic batch
-            size maximization for the employed hardware.
+        Args:
+          labels: a sequence of strings to encode
+          batch_size: the batch size to use for encoding the labels. ``batch_size=1``
+        means that the labels are encoded one-by-one, while ``batch_size=len(labels)``
+        would correspond to encoding all at once.
+        Larger batch sizes increase memory requirements, but may be computationally
+        more efficient. `batch_size` can also be set to `None` to enable automatic batch
+        size maximization for the employed hardware.
+          labels: Sequence[str]:
+          batch_size: Optional[int]:  (Default value = None)
 
-        :returns: shape: (len(labels), dim)
-            a tensor representing the encodings for all labels
+        Returns:
+          shape: (len(labels), dim)
+          a tensor representing the encodings for all labels
+
         """
         return _encode_all_memory_utilization_optimized(
             encoder=self, labels=labels, batch_size=batch_size or len(labels)
@@ -193,9 +205,18 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        """ """
         return self.encoder.tokenizer.tokenize
 
     def _encode_side(self, df: Frame) -> GeneralVector:
+        """
+
+        Args:
+          df: Frame:
+
+        Returns:
+
+        """
         return self.encoder.encode_all(
             df[df.columns[0]].values, batch_size=self.batch_size
         )
@@ -207,19 +228,40 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        """
+
+        Args:
+          left: Frame:
+          right: Frame:
+          left_rel: Optional[Frame]:  (Default value = None)
+          right_rel: Optional[Frame]:  (Default value = None)
+
+        Returns:
+
+        """
         return self._encode_side(left), self._encode_side(right)
 
 
 class SentenceTransformerTextEncoder(TransformerTextEncoder):
+    """ """
     def __init__(self, model_name: str):
         super().__init__()
         self.model = SentenceTransformer(model_name)
 
     def forward_normalized(self, texts: Sequence[str]) -> torch.FloatTensor:
+        """
+
+        Args:
+          texts: Sequence[str]:
+
+        Returns:
+
+        """
         return self.model.encode(texts, convert_to_numpy=False, convert_to_tensor=True)
 
 
 class SentenceTransformerTokenizedFrameEncoder(TransformerTokenizedFrameEncoder):
+    """ """
     _shortname_mapping = {
         "smpnet": "all-mpnet-base-v2",
         "st5": "gtr-t5-large",
@@ -235,6 +277,7 @@ class SentenceTransformerTokenizedFrameEncoder(TransformerTokenizedFrameEncoder)
 
 
 class TokenizedWordEmbedder:
+    """ """
     _gensim_mapping_download = {
         "fasttext": "fasttext-wiki-news-subwords-300",
         "glove": "glove-wiki-gigaword-300",
@@ -268,16 +311,35 @@ class TokenizedWordEmbedder:
 
     @property
     def embedding_dim(self) -> int:
+        """ """
         if self._embedding_dim == -1:
             self._embedding_dim = self.embedding_fn("hello").shape[0]
         return self._embedding_dim
 
     def embed(self, values: str) -> np.ndarray:
+        """
+
+        Args:
+          values: str:
+
+        Returns:
+
+        """
         return self.weighted_embed(values, {})
 
     def weighted_embed(
         self, values: str, weight_mapping: Dict[str, float]
     ) -> np.ndarray:
+        """
+
+        Args:
+          values: str:
+          weight_mapping: Dict[str:
+          float]:
+
+        Returns:
+
+        """
         # TODO fix code duplication across embed methods can be solved better
         embedded: List[GeneralVector] = []
         for tok in self.tokenizer_fn(values):
@@ -301,6 +363,16 @@ tokenized_word_embedder_resolver = ClassResolver(
 def encode_frame(
     df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None
 ) -> np.ndarray:
+    """
+
+    Args:
+      df: Frame:
+      twe: TokenizedWordEmbedder:
+      weight_dict: Dict:  (Default value = None)
+
+    Returns:
+
+    """
     embeddings: np.ndarray = torch.nn.init.xavier_normal_(
         torch.empty(len(df), twe.embedding_dim)
     ).numpy()
@@ -318,6 +390,7 @@ def encode_frame(
 # TODO refactor both classes into TokenEmbeddingAggregator and create AggregatedTokenizedFrameEncoder class
 # with tokenized_word_embedder and token_embedding_aggregator
 class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
+    """ """
     def __init__(
         self,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
@@ -329,6 +402,7 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        """ """
         return self.tokenized_word_embedder.tokenizer_fn
 
     def _encode(
@@ -338,6 +412,17 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        """
+
+        Args:
+          left: Frame:
+          right: Frame:
+          left_rel: Optional[Frame]:  (Default value = None)
+          right_rel: Optional[Frame]:  (Default value = None)
+
+        Returns:
+
+        """
         if isinstance(left, dd.DataFrame):
             left = left.compute()
             right = right.compute()
@@ -348,6 +433,7 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
 
 class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
+    """ """
     def __init__(
         self,
         sif_weighting_param=1e-3,
@@ -367,9 +453,19 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        """ """
         return self.tokenized_word_embedder.tokenizer_fn
 
     def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
+        """
+
+        Args:
+          left: Frame:
+          right: Frame:
+
+        Returns:
+
+        """
         left, right = super().prepare(left, right)
         merged_col = "merged"
         left.columns = [merged_col]
@@ -384,6 +480,17 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         )
 
         def sif_weighting(x, a: float, min_freq: int, total_tokens: int):
+            """
+
+            Args:
+              x:
+              a: float:
+              min_freq: int:
+              total_tokens: int:
+
+            Returns:
+
+            """
             if x >= min_freq:
                 return a / (a + x / total_tokens)
             else:
@@ -407,6 +514,14 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return left, right
 
     def _postprocess(self, embeddings) -> GeneralVector:
+        """
+
+        Args:
+          embeddings:
+
+        Returns:
+
+        """
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
         if self.remove_pc:
@@ -426,6 +541,17 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        """
+
+        Args:
+          left: Frame:
+          right: Frame:
+          left_rel: Optional[Frame]:  (Default value = None)
+          right_rel: Optional[Frame]:  (Default value = None)
+
+        Returns:
+
+        """
         if self.token_weight_dict is None:
             self.prepare(left, right)
         if isinstance(left, KlinkerDaskFrame):

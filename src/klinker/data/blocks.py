@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 from dask.base import tokenize
+from deprecated import deprecated
 from tlz import partition_all
 
 from ..typing import Frame
@@ -31,6 +32,7 @@ EntityIdTypeVar = TypeVar("EntityIdTypeVar", str, int)
 BlockIdTypeVar = TypeVar("BlockIdTypeVar", str, int)
 
 
+@deprecated(reason="Please use KlinkerBlockManager")
 class OldKlinkerBlockManager:
     def __init__(
         self,
@@ -159,12 +161,6 @@ class OldKlinkerBlockManager:
     def combine(
         cls, this: "OldKlinkerBlockManager", other: "OldKlinkerBlockManager"
     ) -> "OldKlinkerBlockManager":
-        """Combine blocks and id_mappings with preferenc of `this` id_mappings.
-
-        :param this: one block manager to combine
-        :param other: other block manager to combine
-        :return: Combined OldKlinkerBlockManager
-        """
         if this.dataset_names != other.dataset_names:
             raise ValueError("Cannot combine blocks from different datasets!")
         if (this.id_mappings is None) != (other.id_mappings is None):
@@ -270,6 +266,14 @@ class OldKlinkerBlockManager:
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
     ) -> "OldKlinkerBlockManager":
         def _ensure_set(value) -> Set:
+            """
+
+            Args:
+              value:
+
+            Returns:
+
+            """
             if isinstance(value, set):
                 return value
             elif isinstance(value, str) or isinstance(value, int):
@@ -320,6 +324,35 @@ class OldKlinkerBlockManager:
 
 
 class KlinkerBlockManager:
+    """Class for handling of blocks.
+
+    Args:
+        blocks: dataframe with blocks.
+
+    Example:
+        >>> from klinker import KlinkerBlockManager
+        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+        >>> kbm.blocks.compute()
+                        A          B
+        block1  [1, 3, 4]  [3, 4, 5]
+        block2  [3, 4, 5]     [5, 6]
+        >>> kbm["block1"].compute()
+                        A          B
+        block1  [1, 3, 4]  [3, 4, 5]
+        >>> len(kbm)
+        2
+        >>> >>> set(kbm.all_pairs())
+        {(4, 4), (5, 5), (3, 4), (1, 5), (4, 3), (4, 6), (1, 4), (4, 5), (3, 3), (5, 6), (3, 6), (1, 3), (3, 5)}
+        >>> kbm.block_sizes
+        block1    6
+        block2    5
+        Name: block_sizes, dtype: int64
+        >>> kbm.mean_block_size
+        5.5
+        >>> kbm.to_dict()
+        {'block1': ([1, 3, 4], [3, 4, 5]), 'block2': ([3, 4, 5], [5, 6])}
+    """
+
     def __init__(self, blocks: dd.DataFrame):
         self.blocks = blocks
         grouped = []
@@ -348,10 +381,8 @@ class KlinkerBlockManager:
     def to_dict(self) -> Dict[Union[str, int], Tuple[Union[str, int], Union[str, int]]]:
         """Return blocks as dict.
 
-        The dict has block names as keys and
-        a tuple of sets of entity ids.
-
-        :return: block dict.
+        Returns:
+          The dict has block names as keys and a tuple of sets of entity ids.
         """
         return (
             self.blocks.apply(tuple, axis=1, meta=pd.Series([], dtype=object))
@@ -360,11 +391,29 @@ class KlinkerBlockManager:
         )
 
     def find_blocks(self, entity_id: Union[str, int], column_id: int) -> np.ndarray:
+        """Find blocks where entity id belongs to.
+
+        Args:
+          entity_id: Union[str, int]: Entity id.
+          column_id: int: Whether entity belongs to left (0) or right (1) dataset.
+
+        Returns:
+            Blocks where entity id belongs to.
+        """
         return self._grouped[column_id].get_group(entity_id).index.values.compute()
 
     def entity_pairs(
         self, entity_id: Union[str, int], column_id: int
     ) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        """Get all pairs where this entity shows up.
+
+        Args:
+          entity_id: Union[str, int]: Entity id.
+          column_id: int: Whether entity belongs to left (0) or right (1) dataset.
+
+        Returns:
+            Generator for these pairs.
+        """
         cur_blocks = self.find_blocks(entity_id, column_id)
         other_column = 0 if column_id == 1 else 1
         other_column_name = self.blocks.columns[other_column]
@@ -376,12 +425,18 @@ class KlinkerBlockManager:
         )
 
     def all_pairs(self) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        """Get all pairs
+
+        Returns:
+            Generator that creates all pairs, from blocks (including duplicates).
+        """
         for block_tuple in self.blocks.itertuples(index=False, name=None):
             for pair in itertools.product(*block_tuple):
                 yield pair
 
     @property
     def block_sizes(self) -> pd.DataFrame:
+        """Sizes of blocks"""
         meta = pd.Series([], dtype="int64", name="block_sizes")
         return self.blocks.apply(
             lambda x: sum(len(v) for v in x), axis=1, meta=meta
@@ -389,12 +444,34 @@ class KlinkerBlockManager:
 
     @property
     def mean_block_size(self) -> float:
+        """Mean size of all blocks."""
         return self.block_sizes.mean()
 
     @classmethod
     def combine(
         cls, this: "KlinkerBlockManager", other: "KlinkerBlockManager"
     ) -> "KlinkerBlockManager":
+        """Combine blocks.
+
+        Args:
+          this: one block manager to combine
+          other: other block manager to combine
+
+        Returns:
+          Combined KlinkerBlockManager
+
+        Example:
+        >>> from klinker import KlinkerBlockManager
+        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+        >>> kbm2 = KlinkerBlockManager.from_dict({"block3": [[7,4],[12,8]]}, dataset_names=("A","B"))
+        >>> kbm_merged = KlinkerBlockManager.combine(kbm, kbm2)
+        >>> kbm_merged.blocks.compute()
+                        A          B
+        block1  [1, 3, 4]  [3, 4, 5]
+        block2  [3, 4, 5]     [5, 6]
+        block3     [7, 4]    [12, 8]
+        """
+
         def _merge_blocks(
             row: pd.Series, output_names: Sequence[str], left_right_names: Sequence[str]
         ):
@@ -440,6 +517,12 @@ class KlinkerBlockManager:
         )
 
     def to_parquet(self, path: Union[str, pathlib.Path], **kwargs):
+        """Write blocks as parquet file(s).
+
+        Args:
+          path: Union[str, pathlib.Path]: Where to write.
+          **kwargs: passed to the parquet function
+        """
         if not "schema" in kwargs:
             left, right = self.blocks.columns[:2]
             block_type = pa.list_(pa.string())
@@ -468,7 +551,17 @@ class KlinkerBlockManager:
         path: Union[str, pathlib.Path],
         calculate_divisions: bool = True,
         **kwargs,
-    ):
+    ) -> "KlinkerBlockManager":
+        """Read blocks from parquet.
+
+        Args:
+          path: Union[str, pathlib.Path]: Path where blocks are stored.
+          calculate_divisions: bool: Calculate index divisions.
+          **kwargs: Passed to `dd.read_parquet` function.
+
+        Returns:
+            Blocks as KlinkerBlockManager
+        """
         return cls(
             dd.read_parquet(
                 path=path,
@@ -481,6 +574,22 @@ class KlinkerBlockManager:
     def from_pandas(
         cls, df: pd.DataFrame, npartitions: int = 1, **kwargs
     ) -> "KlinkerBlockManager":
+        """Create from pandas.
+
+        Args:
+          df: pd.DataFrame: DataFrame
+          npartitions: int:  Partitions for dask
+          **kwargs: Passed to `dd.from_pandas`
+
+        Returns:
+            Blocks as KlinkerBlockManager
+
+        Example:
+        >>> import pandas as pd
+        >>> from klinker import KlinkerBlockManager
+        >>> pd_blocks = pd.DataFrame({'A': {'block1': [1, 3, 4], 'block2': [3, 4, 5]}, 'B': {'block1': [3, 4, 5], 'block2': [5, 6]}})
+        >>> kbm = KlinkerBlockManager.from_pandas(pd_blocks)
+        """
         return cls(dd.from_pandas(df, npartitions=npartitions, **kwargs))
 
     @classmethod
@@ -493,6 +602,21 @@ class KlinkerBlockManager:
         npartitions: int = 1,
         **kwargs,
     ) -> "KlinkerBlockManager":
+        """
+
+        Args:
+          block_dict: Dictionary with block information.
+          dataset_names: Tuple[str, str]: Tuple of dataset names.
+          npartitions: int: Partitions used for dask.
+          **kwargs: Passed to `dd.from_dict`.
+
+        Returns:
+            Blocks as KlinkerBlockManager
+
+        Example:
+        >>> from klinker import KlinkerBlockManager
+        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+        """
         return cls(
             dd.from_dict(
                 block_dict,
@@ -504,6 +628,7 @@ class KlinkerBlockManager:
         )
 
     @classmethod
+    @deprecated(reason="Please use parquet files")
     def read_pickle(cls, path) -> "KlinkerBlockManager":
         with open(path, "rb") as in_file:
             res = pickle.load(in_file)
@@ -511,5 +636,7 @@ class KlinkerBlockManager:
                 return cls.from_dict(res)
             elif isinstance(res, pd.DataFrame):
                 return cls.from_pandas(res)
+            elif isinstance(res, OldKlinkerBlockManager):
+                return cls.from_dict(res.blocks)
             else:
                 raise ValueError(f"Unknown pickled object of type {type(res)}")
