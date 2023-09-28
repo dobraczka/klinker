@@ -107,12 +107,11 @@ def test_klinker_triple_frame(triple_example, use_dask):
 @pytest.mark.parametrize("use_dask", [False, True])
 def test_concat(example, use_dask, request):
     kf, expected = request.getfixturevalue(example)
-    new_column_name = "_merged_text"
     if use_dask:
         kf = from_klinker_frame(kf, npartitions=2)
-        concat_kf = kf.concat_values(new_column_name=new_column_name).compute()
+        concat_kf = kf.concat_values().compute()
     else:
-        concat_kf = kf.concat_values(new_column_name=new_column_name)
+        concat_kf = kf.concat_values()
     assert isinstance(concat_kf, pd.Series)
     assert concat_kf.name == kf.table_name
     edict = dict(expected)

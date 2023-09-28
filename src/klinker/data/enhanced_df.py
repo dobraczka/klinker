@@ -368,7 +368,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
     ) -> "KlinkerFrame":
         assert table_name
         kf = series.map_partitions(
-            KlinkerPandasFrame.upgrade_from_series,
+            KlinkerPandasFrame._upgrade_from_series,
             columns=columns,
             table_name=table_name,
             id_col=id_col,
