@@ -50,7 +50,7 @@ from klinker.encoders.pretrained import (
     TokenizedFrameEncoder,
     tokenized_frame_encoder_resolver,
 )
-from klinker.eval_metrics import Evaluation
+from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 
 logger = logging.getLogger("KlinkerExperiment")

@@ -1,12 +1,14 @@
 import abc
 from typing import Optional
 
-import pandas as pd
+from klinker.typing import SeriesType
 
-from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerTriplePandasFrame, SeriesType
+from ..data import KlinkerBlockManager, KlinkerFrame
+
 
 class Blocker(abc.ABC):
     """Abstract Blocker class."""
+
     @abc.abstractmethod
     def assign(
         self,
@@ -26,11 +28,11 @@ class Blocker(abc.ABC):
         Returns:
             KlinkerBlockManager: instance holding the resulting blocks.
         """
-        pass
 
 
 class SchemaAgnosticBlocker(Blocker):
     """Base class for schema-agnostic Blockers"""
+
     @abc.abstractmethod
     def _assign(
         self,
@@ -50,7 +52,6 @@ class SchemaAgnosticBlocker(Blocker):
         Returns:
             KlinkerBlockManager: instance holding the resulting blocks.
         """
-        pass
 
     def assign(
         self,

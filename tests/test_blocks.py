@@ -1,5 +1,5 @@
-from typing import Dict, List, Tuple
 from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 import dask.dataframe as dd
 import pandas as pd
@@ -7,14 +7,16 @@ import pytest
 
 from klinker.data.blocks import KlinkerBlockManager
 
+
 @dataclass
 class Example:
-    blocks:KlinkerBlockManager
-    expected_sizes:Dict[int, int]
-    mean_size:float
+    blocks: KlinkerBlockManager
+    expected_sizes: Dict[int, int]
+    mean_size: float
     pairs: List[Tuple[int, int]]
-    blocks_dict: Dict[int,Tuple[List[int],List[int]]]
-    dataset_names: Tuple[str,str]
+    blocks_dict: Dict[int, Tuple[List[int], List[int]]]
+    dataset_names: Tuple[str, str]
+
 
 @pytest.fixture
 def block_example() -> Example:
@@ -28,7 +30,7 @@ def block_example() -> Example:
         10: ([1, 2], [2]),
         11: ([2], [2]),
     }
-    ds_names = ("A","B")
+    ds_names = ("A", "B")
     return Example(
         KlinkerBlockManager.from_dict(blocks_dict, dataset_names=ds_names),
         {2: 3, 4: 2, 5: 2, 6: 3, 7: 2, 10: 3, 11: 2},
@@ -59,14 +61,14 @@ def block_combine_example(
     block_example,
 ) -> Tuple[KlinkerBlockManager, KlinkerBlockManager, KlinkerBlockManager]:
     blocks_dict = block_example.blocks_dict
-    other_block_dict = {6:blocks_dict[6],4:([1, 2], [5]),20:([5], [7])}
+    other_block_dict = {6: blocks_dict[6], 4: ([1, 2], [5]), 20: ([5], [7])}
     expected = blocks_dict.copy()
     expected[4] = ([1, 2, 4], [5])
     expected[20] = ([5], [7])
     return (
         block_example.blocks,
-        KlinkerBlockManager.from_dict(other_block_dict,block_example.dataset_names),
-        KlinkerBlockManager.from_dict(expected,block_example.dataset_names),
+        KlinkerBlockManager.from_dict(other_block_dict, block_example.dataset_names),
+        KlinkerBlockManager.from_dict(expected, block_example.dataset_names),
     )
 
 
@@ -98,7 +100,7 @@ def test_block_eq(block_example):
     example = block_example.blocks
     assert example == other
     blocks_dict = block_example.blocks_dict
-    blocks_dict[4] = ([4,6], [5])
+    blocks_dict[4] = ([4, 6], [5])
     other = KlinkerBlockManager.from_dict(
         blocks_dict,
         dataset_names=block_example.dataset_names,

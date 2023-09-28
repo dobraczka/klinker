@@ -1,10 +1,10 @@
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 from nltk.util import ngrams
 
 from .standard import StandardBlocker
-from ..data import KlinkerFrame, KlinkerPandasFrame, KlinkerBlockManager
+from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame
 
 
 class QgramsBlocker(StandardBlocker):
@@ -18,16 +18,26 @@ class QgramsBlocker(StandardBlocker):
         blocking_key: str: On which attribute the blocking should be done
         q: int: how big the qgrams should be.
 
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import QgramsBlocker
+        >>> blocker = QgramsBlocker(blocking_key="tail")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
     """
+
     def __init__(self, blocking_key: str, q: int = 3):
         super().__init__(blocking_key=blocking_key)
         self.q = q
 
-    def qgram_tokenize(self, x):
+    def qgram_tokenize(self, x: str) -> Optional[List[str]]:
         """Tokenize into qgrams
 
         Args:
-          x: input string
+          x: str: input string
 
         Returns:
             list of qgrams
@@ -63,7 +73,7 @@ class QgramsBlocker(StandardBlocker):
                 .apply(self.qgram_tokenize)
                 .explode()
             )
-            kf = tab.__class__.upgrade_from_series(
+            kf = tab.__class__._upgrade_from_series(
                 series,
                 table_name=tab.table_name,
                 id_col=tab.id_col,

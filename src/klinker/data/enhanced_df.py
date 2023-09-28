@@ -12,10 +12,12 @@ from dask.dataframe.utils import meta_nonempty
 from dask.utils import M
 from pandas._typing import Axes, Dtype
 
-SeriesType = Union[pd.Series, dd.Series]
+from klinker.typing import SeriesType
+
 
 class AbstractKlinkerFrame(ABC):
     """Abstract klinker frame class"""
+
     _table_name: Optional[str]
     _id_col: str
 
@@ -88,6 +90,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
     Furthermore specific methods for blocking are implemented.
 
     Examples:
+
         >>> import pandas as pd
         >>> from klinker.data import KlinkerPandasFrame
         >>> df = pd.DataFrame([("1","John", "Doe"),("2","Jane","Doe")],columns=["id","first name", "surname"])
@@ -108,7 +111,9 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
         1    John Doe
         2    Jane Doe
         Name: A, dtype: object
+
     """
+
     _metadata = ["_table_name", "_id_col"]
 
     def __init__(
@@ -153,6 +158,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
             KlinkerPandasFrame
 
         Examples:
+
             >>> import pandas as pd
             >>> from klinker.data import KlinkerPandasFrame
             >>> df = pd.DataFrame([("1","John", "Doe"),("2","Jane","Doe")],columns=["id","first name", "surname"])
@@ -162,6 +168,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
             0  1       John     Doe
             1  2       Jane     Doe
             Table Name: A, id_col: id
+
         """
         return cls(data=df, table_name=table_name, id_col=id_col)
 
@@ -174,6 +181,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
             Series with id_col as index and concatenated values.
 
         Examples:
+
             >>> import pandas as pd
             >>> from klinker.data import KlinkerPandasFrame
             >>> df = pd.DataFrame([("1","John", "Doe"),("2","Jane","Doe")],columns=["id","first name", "surname"])
@@ -183,6 +191,7 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
             1    John Doe
             2    Jane Doe
             Name: A, dtype: object
+
         """
         self = self.fillna("")
         result = (
@@ -220,7 +229,8 @@ class KlinkerPandasFrame(pd.DataFrame, AbstractKlinkerFrame):
 class KlinkerTriplePandasFrame(KlinkerPandasFrame):
     """Class for holding triple information.
 
-    Example:
+    Examples:
+
         >>> import pandas as pd
         >>> from klinker.data import KlinkerTriplePandasFrame
         >>> df = pd.DataFrame([("e1","foaf:givenname","John"),("e1","foaf:family_name", "Doe"), ("e2","rdfs:label","Jane Doe")],columns=["head","rel","tail"])
@@ -237,7 +247,9 @@ class KlinkerTriplePandasFrame(KlinkerPandasFrame):
         e1    John Doe
         e2    Jane Doe
         Name: A, dtype: object
+
     """
+
     @property
     def _constructor(self):
         """ """
@@ -256,7 +268,7 @@ class KlinkerTriplePandasFrame(KlinkerPandasFrame):
         Returns:
             Series with id_col as index and concatenated values.
 
-        Example:
+        Examples:
             >>> import pandas as pd
             >>> from klinker.data import KlinkerTriplePandasFrame
             >>> df = pd.DataFrame([("e1","foaf:givenname","John"),("e1","foaf:family_name", "Doe"), ("e2","rdfs:label","Jane Doe")],columns=["head","rel","tail"])
@@ -294,7 +306,8 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
     Returns:
         KlinkerDaskFrame
 
-    Example:
+    Examples:
+
         >>> import pandas as pd
         >>> from klinker.data import KlinkerDaskFrame
         >>> import dask.dataframe as dd
@@ -308,6 +321,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
         1                 ...        ...     ...
         Dask Name: KlinkerPandasFrame, 2 graph layers
         Table Name: A, id_col: id
+
     """
 
     _partition_type = KlinkerPandasFrame
@@ -373,7 +387,8 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
         Returns:
             dd.Series with concatenated values and id_col as index.
 
-        Example:
+        Examples:
+
             >>> import pandas as pd
             >>> from klinker.data import KlinkerDaskFrame
             >>> import dask.dataframe as dd
@@ -384,6 +399,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
             1    John Doe
             2    Jane Doe
             Name: A, dtype: object
+
         """
         self = self.fillna("")
         assert self.table_name
@@ -415,7 +431,8 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
         Returns:
             KlinkerDaskFrame
 
-        Example:
+        Examples:
+
             >>> import pandas as pd
             >>> from klinker.data import KlinkerDaskFrame
             >>> import dask.dataframe as dd
@@ -429,6 +446,7 @@ class KlinkerDaskFrame(dd.core.DataFrame, AbstractKlinkerFrame):
             1                 ...        ...     ...
             Dask Name: KlinkerPandasFrame, 2 graph layers
             Table Name: A, id_col: id
+
         """
         new_df = df.map_partitions(
             construction_class,
@@ -513,7 +531,8 @@ def from_klinker_frame(kf: KlinkerPandasFrame, npartitions: int) -> "KlinkerDask
         construction_class=kf.__class__,
     )
 
-#====== dask related ======
+
+# ====== dask related ======
 get_parallel_type.register(KlinkerPandasFrame, lambda _: KlinkerDaskFrame)
 get_parallel_type.register(KlinkerTriplePandasFrame, lambda _: KlinkerTripleDaskFrame)
 
@@ -559,12 +578,15 @@ def concat_klinker_triple_pandas(
         concat_pandas(dfs), table_name=dfs[0].table_name, id_col=dfs[0].id_col
     )
 
-#====== end dask related ======
+
+# ====== end dask related ======
 
 KlinkerFrame = Union[KlinkerPandasFrame, KlinkerDaskFrame]
 
 
-def generic_upgrade_from_series(conc: SeriesType, reset_index: bool = False) -> KlinkerFrame:
+def generic_upgrade_from_series(
+    conc: SeriesType, reset_index: bool = False
+) -> KlinkerFrame:
     """Upgrade a series to KlinkerFrame.
 
     This automatically determines the correct KlinkerFrame class
@@ -581,7 +603,8 @@ def generic_upgrade_from_series(conc: SeriesType, reset_index: bool = False) -> 
     Returns:
         KlinkerFrame
 
-    Example:
+    Examples:
+
         >>> import pandas as pd
         >>> from klinker.data import generic_upgrade_from_series
         >>> ser = pd.Series(["John Doe","Jane Doe"],name="A",index=["e1","e2"])
@@ -594,6 +617,7 @@ def generic_upgrade_from_series(conc: SeriesType, reset_index: bool = False) -> 
         0  e1  John Doe
         1  e2  Jane Doe
         Table Name: A, id_col: id
+
     """
     frame_class: Type[KlinkerFrame]
     id_col = "id"
@@ -619,7 +643,6 @@ def generic_upgrade_from_series(conc: SeriesType, reset_index: bool = False) -> 
     )
 
 
-
 if __name__ == "__main__":
     from sylloge import OAEI
 
@@ -629,4 +652,3 @@ if __name__ == "__main__":
     from klinker.blockers import TokenBlocker
 
     print(TokenBlocker().assign(left=ds.left, right=ds.right))
-

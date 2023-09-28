@@ -329,9 +329,10 @@ class KlinkerBlockManager:
     Args:
         blocks: dataframe with blocks.
 
-    Example:
+    Examples:
+
         >>> from klinker import KlinkerBlockManager
-        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+        >>> kbm = KlinkerBlockManager.from_dict({ "block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
         >>> kbm.blocks.compute()
                         A          B
         block1  [1, 3, 4]  [3, 4, 5]
@@ -341,7 +342,7 @@ class KlinkerBlockManager:
         block1  [1, 3, 4]  [3, 4, 5]
         >>> len(kbm)
         2
-        >>> >>> set(kbm.all_pairs())
+        >>> set(kbm.all_pairs())
         {(4, 4), (5, 5), (3, 4), (1, 5), (4, 3), (4, 6), (1, 4), (4, 5), (3, 3), (5, 6), (3, 6), (1, 3), (3, 5)}
         >>> kbm.block_sizes
         block1    6
@@ -351,6 +352,8 @@ class KlinkerBlockManager:
         5.5
         >>> kbm.to_dict()
         {'block1': ([1, 3, 4], [3, 4, 5]), 'block2': ([3, 4, 5], [5, 6])}
+
+        ```
     """
 
     def __init__(self, blocks: dd.DataFrame):
@@ -460,16 +463,18 @@ class KlinkerBlockManager:
         Returns:
           Combined KlinkerBlockManager
 
-        Example:
-        >>> from klinker import KlinkerBlockManager
-        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
-        >>> kbm2 = KlinkerBlockManager.from_dict({"block3": [[7,4],[12,8]]}, dataset_names=("A","B"))
-        >>> kbm_merged = KlinkerBlockManager.combine(kbm, kbm2)
-        >>> kbm_merged.blocks.compute()
-                        A          B
-        block1  [1, 3, 4]  [3, 4, 5]
-        block2  [3, 4, 5]     [5, 6]
-        block3     [7, 4]    [12, 8]
+        Examples:
+
+            >>> from klinker import KlinkerBlockManager
+            >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+            >>> kbm2 = KlinkerBlockManager.from_dict({"block3": [[7,4],[12,8]]}, dataset_names=("A","B"))
+            >>> kbm_merged = KlinkerBlockManager.combine(kbm, kbm2)
+            >>> kbm_merged.blocks.compute()
+                            A          B
+            block1  [1, 3, 4]  [3, 4, 5]
+            block2  [3, 4, 5]     [5, 6]
+            block3     [7, 4]    [12, 8]
+
         """
 
         def _merge_blocks(
@@ -584,11 +589,13 @@ class KlinkerBlockManager:
         Returns:
             Blocks as KlinkerBlockManager
 
-        Example:
-        >>> import pandas as pd
-        >>> from klinker import KlinkerBlockManager
-        >>> pd_blocks = pd.DataFrame({'A': {'block1': [1, 3, 4], 'block2': [3, 4, 5]}, 'B': {'block1': [3, 4, 5], 'block2': [5, 6]}})
-        >>> kbm = KlinkerBlockManager.from_pandas(pd_blocks)
+        Examples:
+
+            >>> import pandas as pd
+            >>> from klinker import KlinkerBlockManager
+            >>> pd_blocks = pd.DataFrame({'A': {'block1': [1, 3, 4], 'block2': [3, 4, 5]}, 'B': {'block1': [3, 4, 5], 'block2': [5, 6]}})
+            >>> kbm = KlinkerBlockManager.from_pandas(pd_blocks)
+
         """
         return cls(dd.from_pandas(df, npartitions=npartitions, **kwargs))
 
@@ -613,9 +620,11 @@ class KlinkerBlockManager:
         Returns:
             Blocks as KlinkerBlockManager
 
-        Example:
-        >>> from klinker import KlinkerBlockManager
-        >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+        Examples:
+
+            >>> from klinker import KlinkerBlockManager
+            >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
+
         """
         return cls(
             dd.from_dict(

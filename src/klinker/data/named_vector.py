@@ -33,7 +33,8 @@ class NamedVector(Generic[T]):
         names: Names of embedding rows.
         vectors: Embeddings.
 
-    Example:
+    Examples:
+
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> emb = np.random.rand(5,2)
@@ -51,6 +52,7 @@ class NamedVector(Generic[T]):
         >>> nv["e_0"]  # doctest: +SKIP
         array([0.8307803 , 0.48443226])
     """
+
     _vectors: T
     _names: pd.Series
 
@@ -185,23 +187,24 @@ class NamedVector(Generic[T]):
         Returns:
             Concatenated named vector.
 
-        Example:
-        >>> import numpy as np
-        >>> from klinker.data import NamedVector
-        >>> emb = np.random.rand(5,2)
-        >>> names = [f"e_{i}" for i in range(len(emb))]
-        >>> nv = NamedVector(names, emb)
-        >>> emb2 = np.random.rand(2,2)
-        >>> nv2 = NamedVector(["e_5","e_6"],emb2)
-        >>> nv.concat(nv2)
-        NamedVector(0|"e_0": [0.8307803 , 0.48443226],
-                1|"e_1": [0.4887014 , 0.94833375],
-                2|"e_2": [0.5665754 , 0.03836854],
-                3|"e_3": [0.16981838, 0.22991864],
-                4|"e_4": [0.23473072, 0.11225217],
-                5|"e_5": [0.83645295, 0.78669799],
-                6|"e_6": [0.77684827, 0.4350322 ],
-                dtype=float64)
+        Examples:
+
+            >>> import numpy as np
+            >>> from klinker.data import NamedVector
+            >>> emb = np.random.rand(5,2)
+            >>> names = [f"e_{i}" for i in range(len(emb))]
+            >>> nv = NamedVector(names, emb)
+            >>> emb2 = np.random.rand(2,2)
+            >>> nv2 = NamedVector(["e_5","e_6"],emb2)
+            >>> nv.concat(nv2) # doctest: +SKIP
+            NamedVector(0|"e_0": [0.8307803 , 0.48443226],
+                    1|"e_1": [0.4887014 , 0.94833375],
+                    2|"e_2": [0.5665754 , 0.03836854],
+                    3|"e_3": [0.16981838, 0.22991864],
+                    4|"e_4": [0.23473072, 0.11225217],
+                    5|"e_5": [0.83645295, 0.78669799],
+                    6|"e_6": [0.77684827, 0.4350322 ],
+                    dtype=float64)
         """
         new_vectors = self._tensor_lib.concatenate([self.vectors, other.vectors])
         new_names = self.names + other.names
@@ -211,8 +214,7 @@ class NamedVector(Generic[T]):
         """Return a subset as new object instance.
 
         Args:
-          key: Union[str:
-          List[str]]:
+          key: Union[str, List[str]]: key(s) of subset
 
         Returns:
             Specified subset of this instance.
@@ -222,7 +224,7 @@ class NamedVector(Generic[T]):
         >>> emb = np.random.rand(5,2)
         >>> names = [f"e_{i}" for i in range(len(emb))]
         >>> nv = NamedVector(names, emb)
-        >>> nv.subset(["e_1","e_3"])
+        >>> nv.subset(["e_1","e_3"]) # doctest: +SKIP
         NamedVector(0|"e_1": [0.4887014 , 0.94833375],
                 1|"e_3": [0.16981838, 0.22991864],
                 dtype=float64)

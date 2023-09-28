@@ -30,7 +30,21 @@ class DeepBlocker(EmbeddingBlocker):
         save_dir: Directory where to save the embeddings.
         force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
 
-    Reference: Thirumuruganathan et. al. 'Deep Learning for Blocking in Entity Matching: A Design Space Exploration', VLDB 2021, <http://vldb.org/pvldb/vol14/p2459-thirumuruganathan.pdf>"""
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import DeepBlocker
+        >>> blocker = DeepBlocker(frame_encoder="autoencoder")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
+
+    Quote: Reference
+        Thirumuruganathan et. al. 'Deep Learning for Blocking in Entity Matching: A Design Space Exploration', VLDB 2021, <http://vldb.org/pvldb/vol14/p2459-thirumuruganathan.pdf>
+    """
+
     def __init__(
         self,
         frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,

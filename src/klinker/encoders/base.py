@@ -9,14 +9,16 @@ from class_resolver.contrib.torch import initializer_resolver
 from sylloge.id_mapped import id_map_rel_triples
 from torch import nn
 
-from ..blockers.base import SeriesType
+from klinker.typing import SeriesType
+
 from ..data import NamedVector, generic_upgrade_from_series
 from ..typing import Frame, GeneralVector, GeneralVectorLiteral
 from ..utils import cast_general_vector
 
 
 class FrameEncoder:
-    """ """
+    """Base class for encoding a KlinkerFrame as embedding."""
+
     def validate(
         self,
         left: Frame,
@@ -24,16 +26,16 @@ class FrameEncoder:
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ):
-        """
+        """Check if frames only consist of one column.
 
         Args:
-          left: Frame: 
-          right: Frame: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
+          left: Frame: left attributes.
+          right: Frame: right attributes.
+          left_rel: Optional[Frame]: left relation triples.
+          right_rel: Optional[Frame]: right relation triples.
 
-        Returns:
-
+        Raises:
+            ValueError left/right have more than one column.
         """
         if len(left.columns) != 1 or len(right.columns) != 1:
             raise ValueError(
@@ -41,14 +43,14 @@ class FrameEncoder:
             )
 
     def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
-        """
+        """Prepare for embedding (fill NaNs with empty string).
 
         Args:
-          left: Frame: 
-          right: Frame: 
+          left: Frame: left attributes.
+          right: Frame: right attributes.
 
         Returns:
-
+            left, right
         """
         return left.fillna(""), right.fillna("")
 
@@ -60,18 +62,6 @@ class FrameEncoder:
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        """
-
-        Args:
-          left: Frame: 
-          right: Frame: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-
-        Returns:
-
-        """
         raise NotImplementedError
 
     @overload
@@ -84,19 +74,6 @@ class FrameEncoder:
         right_rel: Optional[Frame] = None,
         return_type: Literal["np"],
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-
-        Args:
-          left: Frame: 
-          right: Frame: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-          return_type: Literal["np"]: 
-
-        Returns:
-
-        """
         ...
 
     @overload
@@ -109,19 +86,6 @@ class FrameEncoder:
         right_rel: Optional[Frame] = None,
         return_type: Literal["pt"],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-
-        Args:
-          left: Frame: 
-          right: Frame: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-          return_type: Literal["pt"]: 
-
-        Returns:
-
-        """
         ...
 
     def _encode_as(
@@ -133,19 +97,6 @@ class FrameEncoder:
         right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[GeneralVector, GeneralVector]:
-        """
-
-        Args:
-          left: Frame: 
-          right: Frame: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-          return_type: GeneralVectorLiteral:  (Default value = "pt")
-
-        Returns:
-
-        """
         left_enc, right_enc = self._encode(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
@@ -162,18 +113,17 @@ class FrameEncoder:
         right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[NamedVector, NamedVector]:
-        """
+        """Encode dataframes into named vectors.
 
         Args:
-          left: Frame: 
-          right: Frame: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-          return_type: GeneralVectorLiteral:  (Default value = "pt")
+          left: Frame: left attribute information.
+          right: Frame: right attribute information.
+          left_rel: Optional[Frame]: left relation triples.
+          right_rel: Optional[Frame]: right relation triples.
+          return_type: GeneralVectorLiteral:  Either `pt` or `np` to return as pytorch tensor or numpy array.
 
         Returns:
-
+            Embeddings of given left/right dataset.
         """
         self.validate(left, right)
         # TODO check if series can't be used everywhere instead
@@ -201,7 +151,8 @@ class FrameEncoder:
 
 
 class TokenizedFrameEncoder(FrameEncoder):
-    """ """
+    """FrameEncoder that uses tokenization of attribute values."""
+
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         """ """
@@ -214,17 +165,33 @@ def initialize_and_fill(
     initializer=nn.init.xavier_normal_,
     initializer_kwargs: OptionalKwargs = None,
 ) -> NamedVector[torch.Tensor]:
-    """
+    """Use initalizer and set known values from NamedVector
 
     Args:
-      known: NamedVector[torch.Tensor]: 
-      all_names: Union[List[str]: 
-      Dict[str: 
-      int]]: 
-      initializer:  (Default value = nn.init.xavier_normal_)
-      initializer_kwargs: OptionalKwargs:  (Default value = None)
+      known: NamedVector[torch.Tensor]: Known Embeddings.
+      all_names: Union[List[str], Dict[str, int]]: All entity names.
+      initializer: Torch initializer.
+      initializer_kwargs: Keyword args passed to initializer.
 
     Returns:
+        Named Vector filled with known values and others from initializer.
+
+    Examples:
+
+        >>> from klinker.encoders.base import initialize_and_fill
+        >>> from klinker.data import NamedVector
+        >>> import torch
+        >>> known = NamedVector(["e1","e2"], torch.rand(2,2))
+        >>> known # doctest: +SKIP
+        NamedVector(0|"e1": [0.1697, 0.6516],
+                1|"e2": [0.2020, 0.8281],
+                dtype=torch.float32)
+        >>> initialize_and_fill(known, ["e0","e1","e2","e3"]) # doctest: +SKIP
+        NamedVector(0|"e0": [-0.1876,  1.0404],
+                1|"e1": [0.1697, 0.6516],
+                2|"e2": [0.2020, 0.8281],
+                3|"e3": [ 0.0254, -0.8697],
+                dtype=torch.float32)
 
     """
     if not set(known.names).union(set(all_names)) == set(all_names):
@@ -244,20 +211,12 @@ def initialize_and_fill(
 
 
 def _get_ids(attr: Frame, rel: Frame) -> Set:
-    """
-
-    Args:
-      attr: Frame: 
-      rel: Frame: 
-
-    Returns:
-
-    """
     return set(attr.index).union(set(rel["head"])).union(set(rel["tail"]))
 
 
 class RelationFrameEncoder(FrameEncoder):
-    """ """
+    """Base class for Encoders, that also utilize relational information."""
+
     attribute_encoder: FrameEncoder
 
     def validate(
@@ -267,16 +226,16 @@ class RelationFrameEncoder(FrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ):
-        """
+        """Ensure relation info is provided and attribute frames consist of single column.
 
         Args:
-          left: Frame: 
-          right: Frame: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
+          left: Frame: left attribute information.
+          right: Frame: right attribute information.
+          left_rel: Optional[Frame]: left relation triples.
+          right_rel: Optional[Frame]: right relation triples.
 
-        Returns:
-
+        Raises:
+            ValueError: If attribute frames consist of multiple columns or relational frames are missing.
         """
         super().validate(left=left, right=right)
         if left_rel is None or right_rel is None:
@@ -288,16 +247,6 @@ class RelationFrameEncoder(FrameEncoder):
         rel_triples_right: np.ndarray,
         ent_features: NamedVector,
     ) -> GeneralVector:
-        """
-
-        Args:
-          rel_triples_left: np.ndarray: 
-          rel_triples_right: np.ndarray: 
-          ent_features: NamedVector: 
-
-        Returns:
-
-        """
         raise NotImplementedError
 
     @overload
@@ -308,17 +257,6 @@ class RelationFrameEncoder(FrameEncoder):
         ent_features: NamedVector,
         return_type: Literal["np"],
     ) -> np.ndarray:
-        """
-
-        Args:
-          rel_triples_left: np.ndarray: 
-          rel_triples_right: np.ndarray: 
-          ent_features: NamedVector: 
-          return_type: Literal["np"]: 
-
-        Returns:
-
-        """
         ...
 
     @overload
@@ -329,17 +267,6 @@ class RelationFrameEncoder(FrameEncoder):
         ent_features: NamedVector,
         return_type: Literal["pt"],
     ) -> torch.Tensor:
-        """
-
-        Args:
-          rel_triples_left: np.ndarray: 
-          rel_triples_right: np.ndarray: 
-          ent_features: NamedVector: 
-          return_type: Literal["pt"]: 
-
-        Returns:
-
-        """
         ...
 
     def _encode_rel_as(
@@ -349,17 +276,6 @@ class RelationFrameEncoder(FrameEncoder):
         ent_features: NamedVector,
         return_type: GeneralVectorLiteral = "pt",
     ) -> GeneralVector:
-        """
-
-        Args:
-          rel_triples_left: np.ndarray: 
-          rel_triples_right: np.ndarray: 
-          ent_features: NamedVector: 
-          return_type: GeneralVectorLiteral:  (Default value = "pt")
-
-        Returns:
-
-        """
         enc = self._encode_rel(
             rel_triples_left=rel_triples_left,
             rel_triples_right=rel_triples_right,
@@ -376,18 +292,18 @@ class RelationFrameEncoder(FrameEncoder):
         right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[NamedVector, NamedVector]:
-        """
+        """Encode dataframes into named vectors.
 
         Args:
-          left: SeriesType: 
-          right: SeriesType: 
-          *: 
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-          return_type: GeneralVectorLiteral:  (Default value = "pt")
+          left: Frame: left attribute information.
+          right: Frame: right attribute information.
+          *:
+          left_rel: Optional[Frame]: left relation triples.
+          right_rel: Optional[Frame]: right relation triples.
+          return_type: GeneralVectorLiteral:  Either `pt` or `np` to return as pytorch tensor or numpy array.
 
         Returns:
-
+            Embeddings of given left/right dataset.
         """
         self.validate(left=left, right=right, left_rel=left_rel, right_rel=right_rel)
         left, right = self.prepare(left, right)

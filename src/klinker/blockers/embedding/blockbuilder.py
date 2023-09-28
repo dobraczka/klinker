@@ -19,6 +19,7 @@ except ImportError:
 
 class EmbeddingBlockBuilder:
     """Base class for building blocks from embeddings."""
+
     def build_blocks(
         self,
         left: NamedVector,
@@ -42,6 +43,7 @@ class EmbeddingBlockBuilder:
 
 class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     """Build blocks from embeddings by using n-nearest neigbors as blocks."""
+
     def _get_neighbors(
         self,
         left: GeneralVector,
@@ -96,7 +98,8 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         hubness: hubness reduction method if wanted.
         hubness_kwargs: keyword arguments for initialising hubness reduction.
 
-    Example:
+    Examples:
+
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding import KiezEmbeddingBlockBuilder
@@ -108,11 +111,13 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         >>> left_v = NamedVector(left_names, left)
         >>> right_v = NamedVector(right_names, right)
         >>> emb_bb = KiezEmbeddingBlockBuilder()
-        >>> blocks = emb_bb.build_blocks(left_v, right_v, "left", "right")
-        >>> blocks[0].compute() # doctest:+SKIP
+        >>> blocks = emb_bb.build_blocks(left_v, right_v, "left", "right") # doctest: +SKIP
+        >>> blocks[0].compute() # doctest: +SKIP
                        left                                              right
         0  [left_0]  [right_3, right_24, right_11, right_46, right_37]
+
     """
+
     def __init__(
         self,
         n_neighbors: int = 5,
@@ -154,6 +159,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
 
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     """Use clustering of embeddings for blockbuilding."""
+
     def _cluster(
         self,
         left: GeneralVector,
@@ -216,7 +222,9 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         right_blocks = ClusteringEmbeddingBlockBuilder.blocks_side(
             right_cluster_labels, right.names, right_name
         )
-        return KlinkerBlockManager.from_pandas(left_blocks.join(right_blocks,how="inner"))
+        return KlinkerBlockManager.from_pandas(
+            left_blocks.join(right_blocks, how="inner")
+        )
 
 
 class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
@@ -225,16 +233,17 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
     For information about parameter selection visit <https://hdbscan.readthedocs.io/en/latest/parameter_selection.html>.
 
     Args:
-        min_cluster_size: The minimum size of clusters.
-        min_samples: The number of samples in a neighbourhood for a point to be considered a core point.
-        cluster_selection_epsilon: A distance threshold. Clusters below this value will be merged.
-        metric: Distance metric to use.
-        alpha: A distance scaling parameter as used in robust single linkage.
-        p: p value to use if using the minkowski metric.
-        cluster_selection_method: The method used to select clusters from the condensed tree.
+        min_cluster_size: int: The minimum size of clusters.
+        min_samples: Optional[int]: The number of samples in a neighbourhood for a point to be considered a core point.
+        cluster_selection_epsilon: float: A distance threshold. Clusters below this value will be merged.
+        metric: str: Distance metric to use.
+        alpha: float: A distance scaling parameter as used in robust single linkage.
+        p: Optional[float]: p value to use if using the minkowski metric.
+        cluster_selection_method: str: The method used to select clusters from the condensed tree.
         kwargs: Arguments passed to the distance metric
 
-    Example:
+    Examples:
+
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding.blockbuilder import HDBSCANEmbeddingBlockBuilder
@@ -250,16 +259,18 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
                                       left                right
         cluster
         0        {left_22, left_3, left_7}  {right_6, right_27}
+
     """
+
     def __init__(
         self,
         min_cluster_size: int = 5,
-        min_samples: int = None,
-        cluster_selection_epsilon=0.0,
-        metric="euclidean",
-        alpha=1.0,
-        p=None,
-        cluster_selection_method="eom",
+        min_samples: Optional[int] = None,
+        cluster_selection_epsilon: float=0.0,
+        metric: str="euclidean",
+        alpha: float=1.0,
+        p: Optional[float]=None,
+        cluster_selection_method: str="eom",
         **kwargs
     ):
         self.clusterer = HDBSCAN(

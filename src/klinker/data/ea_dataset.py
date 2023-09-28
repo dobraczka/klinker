@@ -18,12 +18,12 @@ from ..utils import tokenize_row
 @dataclass
 class KlinkerDataset:
     """Helper class to hold info of benchmark datasets."""
+
     left: KlinkerFrame
     right: KlinkerFrame
     gold: pd.DataFrame
     left_rel: Optional[pd.DataFrame] = None
     right_rel: Optional[pd.DataFrame] = None
-
 
     @classmethod
     def from_sylloge(cls, dataset: EADataset, clean: bool = False) -> "KlinkerDataset":
@@ -36,9 +36,12 @@ class KlinkerDataset:
         Returns:
             klinker dataset
 
-        Example:
+        Examples:
+
+            >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
+
         """
         left: Union[KlinkerDaskFrame, KlinkerPandasFrame]
         right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
@@ -106,10 +109,13 @@ class KlinkerDataset:
         Returns:
             sampled klinker dataset
 
-        Example:
+        Examples:
+
+            >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
             >>> sampled = ds.sample(10)
+
         """
         # TODO actually sample
         sample_ent_links = self.gold.iloc[:size]

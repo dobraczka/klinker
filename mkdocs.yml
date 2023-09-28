@@ -43,8 +43,9 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          selection:
-            docstring_style: google
+          docstring_style: google
+          docstring_options:
+            trim_doctest_flags: true
 
 extra:
   social:

@@ -15,7 +15,8 @@ FeatureType = TypeVar("FeatureType")
 
 
 class FeatureDataset(Dataset[torch.Tensor]):
-    """ """
+    """Dataset that simply consists of feature vector."""
+
     def __init__(self, features: torch.Tensor):
         self.features = features
 
@@ -27,7 +28,8 @@ class FeatureDataset(Dataset[torch.Tensor]):
 
 
 class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
-    """ """
+    """Dataset consisting of left, right features and label."""
+
     def __init__(self, left: torch.Tensor, right: torch.Tensor, labels: torch.Tensor):
         assert all(
             left.size(0) == tensor.size(0) for tensor in [right, labels]
@@ -44,27 +46,20 @@ class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
 
 
 class DeepBlockerModel(nn.Module):
-    """ """
+    """Base DeepBlockerModel."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__()
         self.input_dimension = input_dimension
         self.hidden_dimensions = hidden_dimensions
 
     def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
-        """
-
-        Args:
-          x: torch.Tensor: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         raise NotImplementedError
 
 
 class AutoEncoderDeepBlockerModel(DeepBlockerModel):
-    """ """
+    """DeepBlockerModel using Autoencoder."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__(
             input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
@@ -81,34 +76,18 @@ class AutoEncoderDeepBlockerModel(DeepBlockerModel):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-
-        Args:
-          x: torch.Tensor: 
-
-        Returns:
-
-        """
         x = self.encoder(x)
         x = self.decoder(x)
         return x
 
     def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
-        """
-
-        Args:
-          x: torch.Tensor: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         with torch.no_grad():
             return self.encoder(x.to(device)).detach().cpu().numpy()
 
 
 class CTTDeepBlockerModel(DeepBlockerModel):
-    """ """
+    """CrossTupleTraining DeepBlocker model."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__(
             input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
@@ -122,36 +101,19 @@ class CTTDeepBlockerModel(DeepBlockerModel):
         self.classifier = nn.Linear(self.hidden_dimensions[1], 1)
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-        """
-
-        Args:
-          x1: torch.Tensor: 
-          x2: torch.Tensor: 
-
-        Returns:
-
-        """
         x1 = self.siamese_summarizer(x1)
         x2 = self.siamese_summarizer(x2)
         pred = self.classifier(torch.abs(x1 - x2))
         return torch.sigmoid(pred)
 
     def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
-        """
-
-        Args:
-          x: torch.Tensor: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         with torch.no_grad():
             return self.siamese_summarizer(x.to(device)).detach().cpu().numpy()
 
 
 class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
-    """ """
+    """Base DeepBlocker Model Trainer."""
+
     def __init__(
         self,
         input_dimension: int,
@@ -178,35 +140,16 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
     @property
     @abstractmethod
     def model_cls(self) -> Type[DeepBlockerModel]:
-        """ """
         pass
 
     @abstractmethod
     def create_dataloader(
         self, features: FeatureType, batch_size: int
     ) -> DataLoader[FeatureType]:
-        """
-
-        Args:
-          features: FeatureType: 
-          batch_size: int: 
-
-        Returns:
-
-        """
         pass
 
     @abstractmethod
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
-        """
-
-        Args:
-          train_dataloader: DataLoader: 
-          num_epochs: int: 
-
-        Returns:
-
-        """
         pass
 
     def train(
@@ -216,17 +159,6 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         batch_size: int,
         device: torch.device,
     ) -> DeepBlockerModel:
-        """
-
-        Args:
-          features: FeatureType: 
-          num_epochs: int: 
-          batch_size: int: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         self.device = device
         self.model = self.model.to(self.device)
 
@@ -242,42 +174,19 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
     def save_model(
         self, output_file_name: Union[str, os.PathLike, BinaryIO, IO[bytes]], **kwargs
     ):
-        """
-
-        Args:
-          output_file_name: Union[str: 
-          os.PathLike: 
-          BinaryIO: 
-          IO[bytes]]: 
-          **kwargs: 
-
-        Returns:
-
-        """
         torch.save(self.model.state_dict(), output_file_name, **kwargs)
 
     def load_model(
         self, input_file_name: Union[str, os.PathLike, BinaryIO, IO[bytes]], **kwargs
     ):
-        """
-
-        Args:
-          input_file_name: Union[str: 
-          os.PathLike: 
-          BinaryIO: 
-          IO[bytes]]: 
-          **kwargs: 
-
-        Returns:
-
-        """
         self.model = self.model_cls(self.input_dimension, self.hidden_dimensions)
         self.model.load_state_dict(torch.load(input_file_name, **kwargs))
         self.model.eval()
 
 
 class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
-    """ """
+    """Trainer for DeepBlocker AutoEncoder."""
+
     def __init__(
         self,
         input_dimension: int,
@@ -301,34 +210,15 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
     def create_dataloader(
         self, features: torch.Tensor, batch_size: int
     ) -> DataLoader[torch.Tensor]:
-        """
-
-        Args:
-          features: torch.Tensor: 
-          batch_size: int: 
-
-        Returns:
-
-        """
         return DataLoader(
             dataset=FeatureDataset(features), batch_size=batch_size, shuffle=True
         )
 
     @property
     def model_cls(self) -> Type[DeepBlockerModel]:
-        """ """
         return AutoEncoderDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
-        """
-
-        Args:
-          train_dataloader: DataLoader: 
-          num_epochs: int: 
-
-        Returns:
-
-        """
         assert self.loss_function is not None
         for _ in range(num_epochs):
             train_loss = 0
@@ -348,17 +238,6 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         batch_size: int,
         device: torch.device,
     ) -> DeepBlockerModel:
-        """
-
-        Args:
-          features: FeatureType: 
-          num_epochs: int: 
-          batch_size: int: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         return super().train(
             features=features,
             num_epochs=num_epochs,
@@ -368,7 +247,8 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
 
 
 class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
-    """ """
+    """Trainer for CrossTupleTraining model of DeepBlocker."""
+
     def __init__(
         self,
         input_dimension: int,
@@ -392,17 +272,6 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
     def create_dataloader(
         self, features: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], batch_size: int
     ) -> DataLoader:
-        """
-
-        Args:
-          features: Tuple[torch.Tensor: 
-          torch.Tensor: 
-          torch.Tensor]: 
-          batch_size: int: 
-
-        Returns:
-
-        """
         left, right, label = features
         return DataLoader(
             dataset=TripletDataset(left, right, label),
@@ -412,19 +281,9 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
 
     @property
     def model_cls(self) -> Type[DeepBlockerModel]:
-        """ """
         return CTTDeepBlockerModel
 
     def run_training_loop(self, train_dataloader: DataLoader, num_epochs: int):
-        """
-
-        Args:
-          train_dataloader: DataLoader: 
-          num_epochs: int: 
-
-        Returns:
-
-        """
         assert self.loss_function is not None
         for _ in range(num_epochs):
             train_loss = 0
@@ -447,17 +306,6 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         batch_size: int,
         device: torch.device,
     ) -> DeepBlockerModel:
-        """
-
-        Args:
-          features: FeatureType: 
-          num_epochs: int: 
-          batch_size: int: 
-          device: torch.device: 
-
-        Returns:
-
-        """
         return super().train(
             features=features,
             num_epochs=num_epochs,

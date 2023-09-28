@@ -1,6 +1,8 @@
 import logging
+import math
 import os
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import dask.dataframe as dd
@@ -17,16 +19,12 @@ from sklearn.decomposition import TruncatedSVD
 from torch import nn
 from torch_max_mem import MemoryUtilizationMaximizer
 from tqdm.auto import tqdm
+from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
 
 from .base import TokenizedFrameEncoder
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
-from ..utils import (
-    concat_frames,
-    get_preferred_device,
-    resolve_device,
-    upgrade_to_sequence,
-)
+from ..utils import concat_frames, resolve_device
 
 logger = logging.getLogger(__name__)
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
@@ -36,189 +34,157 @@ word_embedding_dir = pystow.module("klinker").join("word_embeddings")
 memory_utilization_maximizer = MemoryUtilizationMaximizer()
 
 
-# copy-pasted from pykeen
-@memory_utilization_maximizer
-def _encode_all_memory_utilization_optimized(
-    encoder: "TextEncoder",
-    labels: Sequence[str],
-    batch_size: int,
-) -> torch.Tensor:
-    """Encode all labels with the given batch-size.
-
-    Wrapped by memory utilization maximizer to automatically reduce the batch size if needed.
-
-    Args:
-      encoder: the encoder
-      labels: the labels to encode
-      batch_size: the batch size to use. Will automatically be reduced if necessary.
-      encoder: "TextEncoder":
-      labels: Sequence[str]:
-      batch_size: int:
-
-    Returns:
-      shape: `(len(labels), dim)`
-      the encoded labels
-
-    """
-    return torch.cat(
-        [
-            encoder(batch)
-            for batch in chunked(tqdm(map(str, labels), leave=False), batch_size)
-        ],
-        dim=0,
-    )
-
-
-class TextEncoder(nn.Module):
-    """An encoder for text."""
-
-    def forward(self, labels: Union[str, Sequence[str]]) -> torch.FloatTensor:
-        """Encode a batch of text.
-
-        Args:
-          labels: length: b
-        the texts
-          labels: Union[str:
-          Sequence[str]]:
-
-        Returns:
-          shape: `(b, dim)`
-          an encoding of the texts
-
-        """
-        labels = upgrade_to_sequence(labels)
-        labels = list(map(str, labels))
-        return self.forward_normalized(texts=labels)
-
-    @abstractmethod
-    def forward_normalized(self, texts: Sequence[str]) -> torch.FloatTensor:
-        """Encode a batch of text.
-
-        Args:
-          texts: length: b
-        the texts
-          texts: Sequence[str]:
-
-        Returns:
-          shape: `(b, dim)`
-          an encoding of the texts
-
-        """
-        raise NotImplementedError
-
-    @torch.inference_mode()
-    def encode_all(
-        self,
-        labels: Sequence[str],
-        batch_size: Optional[int] = None,
-    ) -> torch.FloatTensor:
-        """Encode all labels (inference mode & batched).
-
-        Args:
-          labels: a sequence of strings to encode
-          batch_size: the batch size to use for encoding the labels. ``batch_size=1``
-        means that the labels are encoded one-by-one, while ``batch_size=len(labels)``
-        would correspond to encoding all at once.
-        Larger batch sizes increase memory requirements, but may be computationally
-        more efficient. `batch_size` can also be set to `None` to enable automatic batch
-        size maximization for the employed hardware.
-          labels: Sequence[str]:
-          batch_size: Optional[int]:  (Default value = None)
-
-        Returns:
-          shape: (len(labels), dim)
-          a tensor representing the encodings for all labels
-
-        """
-        return _encode_all_memory_utilization_optimized(
-            encoder=self, labels=labels, batch_size=batch_size or len(labels)
-        ).detach()
-
-
-class TransformerTextEncoder(TextEncoder):
-    """A combination of a tokenizer and a model."""
-
-    def __init__(
-        self,
-        pretrained_model_name_or_path: str = "bert-base-cased",
-        max_length: int = 512,
-    ):
-        """
-        Initialize the encoder using :class:`transformers.AutoModel`.
-
-        :param pretrained_model_name_or_path:
-            the name of the pretrained model, or a path, cf. :meth:`transformers.AutoModel.from_pretrained`
-        :param max_length: >0, default: 512
-            the maximum number of tokens to pad/trim the labels to
-
-        :raises ImportError:
-            if the :mod:`transformers` library could not be imported
-        """
-        super().__init__()
-        try:
-            from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizer
-        except ImportError as error:
-            raise ImportError(
-                "Please install the `transformers` library, use the _transformers_ extra"
-                " for PyKEEN with `pip install pykeen[transformers] when installing, or "
-                " see the PyKEEN installation docs at https://pykeen.readthedocs.io/en/stable/installation.html"
-                " for more information."
-            ) from error
-
-        self.tokenizer: PreTrainedTokenizer = AutoTokenizer.from_pretrained(
-            pretrained_model_name_or_path=pretrained_model_name_or_path
-        )
-        self.model = AutoModel.from_pretrained(
-            pretrained_model_name_or_path=pretrained_model_name_or_path
-        ).to(resolve_device())
-        self.max_length = max_length or 512
-
-    # docstr-coverage: inherited
-    def forward_normalized(
-        self, texts: Sequence[str]
-    ) -> torch.FloatTensor:  # noqa: D102
-        return self.model(
-            **self.tokenizer(
-                texts,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=self.max_length,
-            ).to(get_preferred_device(self.model))
-        ).pooler_output
+def _batch_generator(df, batch_size):
+    number_of_batches = math.ceil(len(df) / batch_size)
+    start = 0
+    arr = df[df.columns[0]].values
+    for nb in range(number_of_batches):
+        start = batch_size * nb
+        end = start + batch_size
+        if end > len(arr):
+            yield arr[start:]
+        yield arr[start:end]
 
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
-    encoder: TransformerTextEncoder
+    """Encode frames using pre-trained transformer.
+
+    See <https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoModel.from_pretrained> for more information on pretrained models.
+
+    Args:
+        pretrained_model_name_or_path: str: Transformer name or path
+        max_length: int: max number of tokens per row
+        batch_size: int: size of batch for encoding
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> import pandas as pd
+
+        >>> from klinker.data import KlinkerPandasFrame
+        >>> from klinker.encoders import TransformerTokenizedFrameEncoder
+
+        >>> left = KlinkerPandasFrame.from_df(
+                 pd.DataFrame(
+                     [("a1", "John Doe"), ("a2", "Jane Doe")], columns=["id", "values"]
+                 ),
+                 table_name="A",
+                 id_col="id",
+            ).set_index("id")
+        >>> right = KlinkerPandasFrame.from_df(
+                pd.DataFrame(
+                    [("b1", "Johnny Doe"), ("b2", "Jane Doe")], columns=["id", "values"]
+                ),
+                table_name="B",
+                id_col="id",
+            ).set_index("id")
+        >>> ttfe = TransformerTokenizedFrameEncoder(
+                pretrained_model_name_or_path="bert-base-cased",
+                max_length=10,
+                batch_size=2
+            )
+        >>> left_enc, right_enc = ttfe.encode(left=left, right=right)
+
+    """
 
     def __init__(
         self,
         pretrained_model_name_or_path: str = "bert-base-cased",
-        max_length: int = 512,
-        batch_size: Optional[int] = None,
+        max_length: int = 128,
+        batch_size: int = 512,
     ):
-        self.encoder = TransformerTextEncoder(
-            pretrained_model_name_or_path=pretrained_model_name_or_path,
-            max_length=max_length,
-        )
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        self.model = AutoModel.from_pretrained(pretrained_model_name_or_path)
+        self.max_length = max_length
         self.batch_size = batch_size
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
-        """ """
-        return self.encoder.tokenizer.tokenize
+        return self.tokenizer.tokenize
 
+    @torch.no_grad()
     def _encode_side(self, df: Frame) -> GeneralVector:
-        """
+        encoded = []
+        for batch in _batch_generator(df, self.batch_size):
+            tok = self.tokenizer(
+                list(batch),
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=self.max_length,
+            )
+            encoded.append(self.model(**tok).pooler_output.detach())
+        return torch.vstack(encoded)
 
-        Args:
-          df: Frame:
+    def _encode(
+        self,
+        left: Frame,
+        right: Frame,
+        left_rel: Optional[Frame] = None,
+        right_rel: Optional[Frame] = None,
+    ) -> Tuple[GeneralVector, GeneralVector]:
+        return self._encode_side(left), self._encode_side(right)
 
-        Returns:
 
-        """
-        return self.encoder.encode_all(
-            df[df.columns[0]].values, batch_size=self.batch_size
+class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
+    """Uses sentencetransformer library to encode frames.
+
+    See <https://www.sbert.net/docs/pretrained_models.html> for a list of models.
+
+    Args:
+        model_name: str: pretrained model name
+        max_length: int: max number of tokens per row
+        batch_size: int: size of batch for encoding
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> import pandas as pd
+
+        >>> from klinker.data import KlinkerPandasFrame
+        >>> from klinker.encoders import SentenceTransformerTokenizedFrameEncoder
+
+        >>> left = KlinkerPandasFrame.from_df(
+                 pd.DataFrame(
+                     [("a1", "John Doe"), ("a2", "Jane Doe")], columns=["id", "values"]
+                 ),
+                 table_name="A",
+                 id_col="id",
+            ).set_index("id")
+        >>> right = KlinkerPandasFrame.from_df(
+                pd.DataFrame(
+                    [("b1", "Johnny Doe"), ("b2", "Jane Doe")], columns=["id", "values"]
+                ),
+                table_name="B",
+                id_col="id",
+            ).set_index("id")
+        >>> ttfe = SentenceTransformerTokenizedFrameEncoder(
+                model_name="st5",
+                max_length=10,
+                batch_size=2
+            )
+        >>> left_enc, right_enc = ttfe.encode(left=left, right=right)
+
+    """
+
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        max_length: int = 128,
+        batch_size: int = 512,
+    ):
+        self.model = SentenceTransformer(model_name)
+        self.model.max_seq_length = max_length
+        self.batch_size = batch_size
+
+    @property
+    def tokenizer_fn(self) -> Callable[[str], List[str]]:
+        return self.model.tokenizer.tokenize
+
+    @torch.no_grad()
+    def _encode_side(self, df: Frame) -> GeneralVector:
+        return self.model.encode(
+            list(df[df.columns[0]].values), batch_size=self.batch_size
         )
 
     def _encode(
@@ -228,56 +194,17 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        """
-
-        Args:
-          left: Frame:
-          right: Frame:
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-
-        Returns:
-
-        """
         return self._encode_side(left), self._encode_side(right)
 
 
-class SentenceTransformerTextEncoder(TransformerTextEncoder):
-    """ """
-    def __init__(self, model_name: str):
-        super().__init__()
-        self.model = SentenceTransformer(model_name)
-
-    def forward_normalized(self, texts: Sequence[str]) -> torch.FloatTensor:
-        """
-
-        Args:
-          texts: Sequence[str]:
-
-        Returns:
-
-        """
-        return self.model.encode(texts, convert_to_numpy=False, convert_to_tensor=True)
-
-
-class SentenceTransformerTokenizedFrameEncoder(TransformerTokenizedFrameEncoder):
-    """ """
-    _shortname_mapping = {
-        "smpnet": "all-mpnet-base-v2",
-        "st5": "gtr-t5-large",
-        "sdistilroberta": "all-distilroberta-v1",
-        "sminilm": "all-MiniLM-L12-v2",
-        "glove": "average_word_embeddings_glove.6B.300d",
-    }
-
-    def __init__(self, model_name: str = "st5", batch_size: Optional[int] = None):
-        model_name = self.__class__._shortname_mapping.get(model_name, model_name)
-        self.encoder = SentenceTransformerTextEncoder(model_name)
-        self.batch_size = batch_size
-
-
 class TokenizedWordEmbedder:
-    """ """
+    """Encode using pre-trained word embeddings.
+
+    Args:
+      embedding_fn: Union[str, Callable[[str], GeneralVector]]: Either one of "fasttext","glove","word2vec" or embedding function
+      tokenizer_fn: Callable[[str], List[str]]: Tokenizer function.
+    """
+
     _gensim_mapping_download = {
         "fasttext": "fasttext-wiki-news-subwords-300",
         "glove": "glove-wiki-gigaword-300",
@@ -311,34 +238,33 @@ class TokenizedWordEmbedder:
 
     @property
     def embedding_dim(self) -> int:
-        """ """
+        """Embedding dimension of pretrained word embeddings."""
         if self._embedding_dim == -1:
             self._embedding_dim = self.embedding_fn("hello").shape[0]
         return self._embedding_dim
 
     def embed(self, values: str) -> np.ndarray:
-        """
+        """Tokenizes string and returns average of token embeddings.
 
         Args:
-          values: str:
+          values: str: string value to embed.
 
         Returns:
-
+            embedding
         """
         return self.weighted_embed(values, {})
 
     def weighted_embed(
         self, values: str, weight_mapping: Dict[str, float]
     ) -> np.ndarray:
-        """
+        """Tokenizes string and returns weighted average of token embeddings.
 
         Args:
-          values: str:
-          weight_mapping: Dict[str:
-          float]:
+          values: str: string value to embed.
+          weight_mapping: Dict[str, float]: weights for tokens.
 
         Returns:
-
+            embedding
         """
         # TODO fix code duplication across embed methods can be solved better
         embedded: List[GeneralVector] = []
@@ -363,7 +289,7 @@ tokenized_word_embedder_resolver = ClassResolver(
 def encode_frame(
     df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None
 ) -> np.ndarray:
-    """
+    """Encode Frame with tokenized word embedder.
 
     Args:
       df: Frame:
@@ -371,7 +297,7 @@ def encode_frame(
       weight_dict: Dict:  (Default value = None)
 
     Returns:
-
+        embeddings
     """
     embeddings: np.ndarray = torch.nn.init.xavier_normal_(
         torch.empty(len(df), twe.embedding_dim)
@@ -390,7 +316,13 @@ def encode_frame(
 # TODO refactor both classes into TokenEmbeddingAggregator and create AggregatedTokenizedFrameEncoder class
 # with tokenized_word_embedder and token_embedding_aggregator
 class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
-    """ """
+    """Averages embeddings of tokenized entity attribute values.
+
+    Args:
+        tokenized_word_embedder: HintOrType[TokenizedWordEmbedder]: Word Embedding class,
+        tokenized_word_embedder_kwargs: OptionalKwargs: Keyword arguments for initalizing word embedder
+    """
+
     def __init__(
         self,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
@@ -402,7 +334,6 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
-        """ """
         return self.tokenized_word_embedder.tokenizer_fn
 
     def _encode(
@@ -412,17 +343,6 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        """
-
-        Args:
-          left: Frame:
-          right: Frame:
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-
-        Returns:
-
-        """
         if isinstance(left, dd.DataFrame):
             left = left.compute()
             right = right.compute()
@@ -433,12 +353,25 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
 
 class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
-    """ """
+    """Use Smooth Inverse Frequency weighting scheme to aggregate token embeddings.
+
+    Args:
+
+        sif_weighting_param: float: weighting parameter
+        remove_pc:bool: remove first principal component
+        min_freq: int: minimum frequency of occurence
+        tokenized_word_embedder: HintOrType[TokenizedWordEmbedder]: Word Embedding class,
+        tokenized_word_embedder_kwargs: OptionalKwargs: Keyword arguments for initalizing word embedder
+
+    Quote: Reference
+        Arora et. al.,"A Simple but Tough-to-Beat Baseline for Sentence Embeddings", ICLR 2017 <https://openreview.net/pdf?id=SyK00v5xx>
+    """
+
     def __init__(
         self,
-        sif_weighting_param=1e-3,
-        remove_pc=True,
-        min_freq=0,
+        sif_weighting_param: float = 1e-3,
+        remove_pc: bool = True,
+        min_freq: int = 0,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
         tokenized_word_embedder_kwargs: OptionalKwargs = None,
     ):
@@ -457,14 +390,14 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.tokenized_word_embedder.tokenizer_fn
 
     def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
-        """
+        """Prepare value counts.
 
         Args:
-          left: Frame:
-          right: Frame:
+          left: Frame: left attribute frame.
+          right: Frame: right attribute frame.
 
         Returns:
-
+            left, right
         """
         left, right = super().prepare(left, right)
         merged_col = "merged"
@@ -480,17 +413,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         )
 
         def sif_weighting(x, a: float, min_freq: int, total_tokens: int):
-            """
-
-            Args:
-              x:
-              a: float:
-              min_freq: int:
-              total_tokens: int:
-
-            Returns:
-
-            """
             if x >= min_freq:
                 return a / (a + x / total_tokens)
             else:
@@ -514,14 +436,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         return left, right
 
     def _postprocess(self, embeddings) -> GeneralVector:
-        """
-
-        Args:
-          embeddings:
-
-        Returns:
-
-        """
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
         if self.remove_pc:
@@ -541,17 +455,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        """
-
-        Args:
-          left: Frame:
-          right: Frame:
-          left_rel: Optional[Frame]:  (Default value = None)
-          right_rel: Optional[Frame]:  (Default value = None)
-
-        Returns:
-
-        """
         if self.token_weight_dict is None:
             self.prepare(left, right)
         if isinstance(left, KlinkerDaskFrame):

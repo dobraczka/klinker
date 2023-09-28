@@ -1,12 +1,15 @@
-import numpy as np
 from typing import Dict, Optional
+
+import numpy as np
 
 
 class MockKeyedVector:
     dimension: int = 3
     embeddings: Optional[Dict[str, np.ndarray]] = None
 
-    def __init__(self, dimension: int = 3, embeddings: Optional[Dict[str, np.ndarray]] = None):
+    def __init__(
+        self, dimension: int = 3, embeddings: Optional[Dict[str, np.ndarray]] = None
+    ):
         self.dimension = dimension
         self.embeddings = embeddings
 

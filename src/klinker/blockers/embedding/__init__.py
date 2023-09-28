@@ -1,9 +1,9 @@
 from .blockbuilder import (
+    ClusteringEmbeddingBlockBuilder,
     EmbeddingBlockBuilder,
+    HDBSCANEmbeddingBlockBuilder,
     KiezEmbeddingBlockBuilder,
     NearestNeighborEmbeddingBlockBuilder,
-    HDBSCANEmbeddingBlockBuilder,
-    ClusteringEmbeddingBlockBuilder,
 )
 
 __all__ = [

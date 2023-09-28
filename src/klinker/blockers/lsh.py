@@ -1,11 +1,13 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import dask.dataframe as dd
 import pandas as pd
 from datasketch import LeanMinHash, MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
-from .base import SchemaAgnosticBlocker, SeriesType
+from klinker.typing import SeriesType
+
+from .base import SchemaAgnosticBlocker
 from ..data import (
     KlinkerBlockManager,
     KlinkerDaskFrame,
@@ -14,7 +16,9 @@ from ..data import (
 )
 
 
-def _insert(ser_part: pd.Series, lsh: MinHashLSH, encode_fn: Callable[[str],Iterable[bytes]]):
+def _insert(
+    ser_part: pd.Series, lsh: MinHashLSH, encode_fn: Callable[[str], Iterable[bytes]]
+):
     """Insert encoded entity info into MinHashLSH instance.
 
     Args:
@@ -37,7 +41,7 @@ def _insert(ser_part: pd.Series, lsh: MinHashLSH, encode_fn: Callable[[str],Iter
 def _query(
     ser_part: pd.Series,
     lsh: MinHashLSH,
-    encode_fn: Callable[[str],Iterable[bytes]],
+    encode_fn: Callable[[str], Iterable[bytes]],
     left_name: str,
     right_name: str,
 ):
@@ -79,7 +83,19 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         threshold: float: Jaccard threshold to use in underlying lsh procedure.
         num_perm: int: number of permutations used in minhash algorithm.
         weights: Tuple[float,float]: false positive/false negative weighting (must add up to one)
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import MinHashLSHBlocker
+        >>> blocker = MinHashLSHBlocker(threshold=0.8, weights=(0.7,0.3))
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
+
     """
+
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,

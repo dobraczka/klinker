@@ -4,11 +4,25 @@ import dask.dataframe as dd
 import pandas as pd
 
 from .standard import StandardBlocker
-from ..data import KlinkerFrame, KlinkerPandasFrame, KlinkerBlockManager
+from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame
 
 
 class SortedNeighborhoodBlocker(StandardBlocker):
-    """Uses sorted neighborhood blocking"""
+    """Uses sorted neighborhood blocking.
+
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import SortedNeighborhoodBlocker
+        >>> blocker = SortedNeighborhoodBlocker(blocking_key="tail")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
+
+    """
+
     def __init__(self, blocking_key: Union[str, Tuple[str, str]], window_size: int = 3):
         self.blocking_key = blocking_key
         self.window_size = window_size
@@ -35,7 +49,8 @@ class SortedNeighborhoodBlocker(StandardBlocker):
             KlinkerBlockManager: instance holding the resulting blocks.
 
         Raises:
-            NotImplementedError if frames are using dask.
+            NotImplementedError: if frames are using dask.
+
         """
         if not isinstance(left, KlinkerPandasFrame):
             raise NotImplementedError("Not implemented for Dask!")
@@ -61,4 +76,6 @@ class SortedNeighborhoodBlocker(StandardBlocker):
                         res[entry_ds_name][w_id].add(entry_id)
                     else:
                         res[entry_ds_name][w_id] = {entry_id}
-        return KlinkerBlockManager.from_pandas(pd.DataFrame(res).dropna().applymap(list))
+        return KlinkerBlockManager.from_pandas(
+            pd.DataFrame(res).dropna().applymap(list)
+        )

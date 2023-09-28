@@ -1,5 +1,5 @@
-from typing import Callable, List, Optional
 import logging
+from typing import Callable, List, Optional
 
 import dask.dataframe as dd
 import pandas as pd
@@ -7,9 +7,9 @@ import pyarrow as pa
 from nltk.tokenize import word_tokenize
 
 from .base import SchemaAgnosticBlocker
-from ..data import KlinkerFrame, SeriesType
+from ..data import KlinkerFrame
 from ..data.blocks import KlinkerBlockManager
-from ..typing import Frame
+from ..typing import Frame, SeriesType
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,20 @@ def tokenize_series(x, tokenize_fn, min_token_length):
 
 
 class TokenBlocker(SchemaAgnosticBlocker):
-    """ """
+    """Concatenates and tokenizes entity attribute values and blocks on tokens.
+
+    Examples:
+
+        >>> # doctests: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import TokenBlocker
+        >>> blocker = TokenBlocker()
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
+
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
@@ -71,7 +84,6 @@ class TokenBlocker(SchemaAgnosticBlocker):
             .apply(lambda x, id_col: list(set(x[id_col])), **collect_ids_kwargs)
             .to_frame(name=name)
         )
-
 
     def _assign(
         self,

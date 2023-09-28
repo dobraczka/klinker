@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from klinker import KlinkerBlockManager
-from klinker.eval_metrics import Evaluation
+from klinker.eval import Evaluation
 
 
 @pytest.fixture
@@ -78,6 +78,7 @@ def test_quality_nothing(example_nothing_found):
     assert e.f_measure == pytest.approx(0.0)
     assert e.reduction_ratio == pytest.approx(0.8214285714285714)
     assert e.h3r == pytest.approx(0.0)
+
 
 def test_quality_duplicates(example_many_duplicates):
     """Recall and true positive should be same as test_quality."""

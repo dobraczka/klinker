@@ -9,38 +9,22 @@ from . import KlinkerBlockManager, KlinkerDataset
 
 
 def harmonic_mean(a: float, b: float) -> float:
-    """
-
-    Args:
-      a: float: 
-      b: float: 
-
-    Returns:
-
-    """
+    """Calculate harmonic mean between a and b."""
     if a + b == 0:
         return 0
     return 2 * ((a * b) / (a + b))
 
-def sum_tuple(x):
-    """
-
-    Args:
-      x: 
-
-    Returns:
-
-    """
-    return tuple(
-        map(
-            lambda x: sum(x) if isinstance(x[0], int) else chain.from_iterable(x),
-            zip(*x),
-        )
-    )
-
 
 class Evaluation:
-    """ """
+    """Class used for evaluation.
+
+    Args:
+        blocks: KlinkerBlockManager: Blocking result
+        gold: pd.DataFrame: Gold standard pairs as two column dataframe
+        left_data_len: int: number of entities in left dataset
+        right_data_len: int: number of entities in right dataset
+    """
+
     def __init__(
         self,
         blocks: KlinkerBlockManager,
@@ -60,14 +44,6 @@ class Evaluation:
         self.mean_block_size = blocks.mean_block_size
 
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
-        """
-
-        Args:
-          blocks: KlinkerBlockManager: 
-
-        Returns:
-
-        """
         tp_pairs = set()
         fp = 0
         for pair_number, pair in enumerate(blocks.all_pairs(), start=1):
@@ -75,23 +51,14 @@ class Evaluation:
                 tp_pairs.add(pair)
             else:
                 fp += 1
-        tp = len(tp_pairs)
         self.tp_set = tp_pairs
-        self.false_negative = len(self.gold_pair_set) - tp
-        self.true_positive = tp
+        self.fn_set = self.gold_pair_set - self.tp_set  # type: ignore
+        self.false_negative = len(self.fn_set)
+        self.true_positive = len(self.tp_set)
         self.false_positive = fp
         self.comp_with_blocking = pair_number
 
     def _check_consistency(self, blocks: KlinkerBlockManager, gold: pd.DataFrame):
-        """
-
-        Args:
-          blocks: KlinkerBlockManager: 
-          gold: pd.DataFrame: 
-
-        Returns:
-
-        """
         if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
         if not set(blocks.blocks.columns) == set(gold.columns):
@@ -105,13 +72,27 @@ class Evaluation:
         blocks: KlinkerBlockManager,
         dataset: KlinkerDataset,
     ) -> "Evaluation":
-        """
+        """Helper function to initialise evaluation with dataset.
 
         Args:
-          blocks: KlinkerBlockManager: 
-          dataset: KlinkerDataset: 
+          blocks: KlinkerBlockManager: Calculated blocks
+          dataset: KlinkerDataset: Dataset that was used for blocking
 
         Returns:
+            eval instance
+
+        Examples:
+
+            >>> # doctest: +SKIP
+            >>> from sylloge import MovieGraphBenchmark
+            >>> from klinker.data import KlinkerDataset
+            >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+            >>> from klinker.blockers import TokenBlocker
+            >>> blocks = TokenBlocker().assign(left=ds.left, right=ds.right)
+            >>> from klinker.eval import Evaluation
+            >>> ev = Evaluation.from_dataset(blocks, ds)
+            >>> ev.to_dict()
+            {'recall': 0.993933265925177, 'precision': 0.002804877004859314, 'f_measure': 0.005593967847488974, 'reduction_ratio': 0.9985747694185365, 'h3r': 0.9962486115318822, 'mean_block_size': 10.160596863935256}
 
         """
         return cls(
@@ -123,29 +104,24 @@ class Evaluation:
 
     @property
     def recall(self) -> float:
-        """ """
         return self.true_positive / (self.true_positive + self.false_negative)
 
     @property
     def precision(self) -> float:
-        """ """
         return self.true_positive / (self.true_positive + self.false_positive)
 
     @property
     def f_measure(self) -> float:
-        """ """
         rec = self.recall
         prec = self.precision
         return harmonic_mean(a=rec, b=prec)
 
     @property
     def reduction_ratio(self) -> float:
-        """ """
         return 1 - (self.comp_with_blocking / self.comp_without_blocking)
 
     @property
     def h3r(self) -> float:
-        """ """
         rr = self.reduction_ratio
         rec = self.recall
         return harmonic_mean(a=rr, b=rec)
@@ -154,7 +130,6 @@ class Evaluation:
         return f"Evaluation: {self.to_dict()}"
 
     def to_dict(self) -> Dict[str, float]:
-        """ """
         return {
             "recall": self.recall,
             "precision": self.precision,
@@ -166,15 +141,7 @@ class Evaluation:
 
 
 def dice(a: Set, b: Set) -> float:
-    """
-
-    Args:
-      a: Set: 
-      b: Set: 
-
-    Returns:
-
-    """
+    """Calculate Soerensen-Dice Coefficient."""
     return (2 * len(a.intersection(b))) / (len(a) + len(b))
 
 
@@ -186,36 +153,27 @@ def compare_blocks_from_eval(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> Dict:
-    """
+    """Compare similarity between blocks using calculated eval.
 
     Args:
-      blocks_a: KlinkerBlockManager: 
-      blocks_b: KlinkerBlockManager: 
-      eval_a: Evaluation: 
-      eval_b: Evaluation: 
-      dataset: KlinkerDataset: 
-      improvement_metric: str:  (Default value = "h3r")
+      blocks_a: KlinkerBlockManager: one blocking result
+      blocks_b: KlinkerBlockManager: other blocking result
+      eval_a: Evaluation: eval of a
+      eval_b: Evaluation: eval of b
+      dataset: KlinkerDataset: dataset from which blocks where calculated
+      improvement_metric: str: used to calculate improvement
 
     Returns:
-
+        Dictionary with improvement metrics.
     """
+
     def percent_improvement(new: float, old: float):
-        """
-
-        Args:
-          new: float: 
-          old: float: 
-
-        Returns:
-
-        """
         return (new - old) / old
 
     blocks_both = KlinkerBlockManager.combine(blocks_a, blocks_b)
     dice_tp = dice(eval_a.tp_set, eval_b.tp_set)
 
-    eval_both = Evaluation.from_dataset(
-        blocks=blocks_both, dataset=dataset)
+    eval_both = Evaluation.from_dataset(blocks=blocks_both, dataset=dataset)
     eval_both_metric = eval_both.to_dict()[improvement_metric]
     improvement_a = percent_improvement(
         eval_both_metric, eval_a.to_dict()[improvement_metric]
@@ -239,21 +197,19 @@ def compare_blocks(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> Dict:
-    """
+    """Compare similarity between blocks using calculated eval.
 
     Args:
-      blocks_a: KlinkerBlockManager: 
-      blocks_b: KlinkerBlockManager: 
-      dataset: KlinkerDataset: 
-      improvement_metric: str:  (Default value = "h3r")
+      blocks_a: KlinkerBlockManager: one blocking result
+      blocks_b: KlinkerBlockManager: other blocking result
+      dataset: KlinkerDataset: dataset from which blocks where calculated
+      improvement_metric: str: used to calculate improvement
 
     Returns:
-
+        Dictionary with improvement metrics.
     """
-    eval_a = Evaluation.from_dataset(
-        blocks=blocks_a, dataset=dataset)
-    eval_b = Evaluation.from_dataset(
-        blocks=blocks_b, dataset=dataset)
+    eval_a = Evaluation.from_dataset(blocks=blocks_a, dataset=dataset)
+    eval_b = Evaluation.from_dataset(blocks=blocks_b, dataset=dataset)
     return compare_blocks_from_eval(
         blocks_a=blocks_a,
         blocks_b=blocks_b,
@@ -269,23 +225,21 @@ def multiple_block_comparison(
     dataset: KlinkerDataset,
     improvement_metric: str = "h3r",
 ) -> pd.DataFrame:
-    """
+    """Compare multiple blocking strategies.
 
     Args:
-      blocks: Dict[str: 
-      KlinkerBlockManager]: 
-      dataset: KlinkerDataset: 
-      improvement_metric: str:  (Default value = "h3r")
+      blocks: Dict[str, KlinkerBlockManager]: Blocking results
+      dataset: KlinkerDataset: Dataset that was used for blocking
+      improvement_metric: str: Metric used for calculating improvement
 
     Returns:
-
+        DataFrame with improvement values.
     """
     blocks_with_eval = OrderedDict(
         {
             name: (
                 blk,
-                Evaluation.from_dataset(
-                    blocks=blk, dataset=dataset),
+                Evaluation.from_dataset(blocks=blk, dataset=dataset),
             )
             for name, blk in blocks.items()
         }

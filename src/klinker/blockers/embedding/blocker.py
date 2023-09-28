@@ -13,10 +13,11 @@ from klinker.data import (
     KlinkerPandasFrame,
     NamedVector,
 )
+from klinker.encoders import FrameEncoder, frame_encoder_resolver
+from klinker.typing import SeriesType
 
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
-from ..base import SchemaAgnosticBlocker, SeriesType
-from ...encoders import FrameEncoder, frame_encoder_resolver
+from ..base import SchemaAgnosticBlocker
 from ...data import generic_upgrade_from_series
 
 ENC_PREFIX = Literal["left_", "right_"]
@@ -44,6 +45,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         save_dir: Directory where to save the embeddings.
         force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
     """
+
     def __init__(
         self,
         frame_encoder: HintOrType[FrameEncoder] = None,

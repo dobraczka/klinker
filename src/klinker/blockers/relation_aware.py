@@ -5,6 +5,8 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
+from klinker.typing import SeriesType
+
 from .base import Blocker, SchemaAgnosticBlocker
 from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
@@ -16,7 +18,6 @@ from ..data import (
     KlinkerPandasFrame,
     KlinkerTripleDaskFrame,
     KlinkerTriplePandasFrame,
-    SeriesType,
 )
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
 from ..typing import Frame
@@ -110,6 +111,7 @@ def concat_neighbor_attributes(
 
 class BaseSimpleRelationalBlocker(Blocker):
     """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
+
     _blocker: SchemaAgnosticBlocker
 
     def concat_relational_info(
@@ -167,7 +169,19 @@ class BaseSimpleRelationalBlocker(Blocker):
 
 
 class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
-    """Token blocking on concatenation of entity attribute values and neighboring values."""
+    """Token blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import SimpleRelationalTokenBlocker
+        >>> blocker = SimpleRelationalTokenBlocker()
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
@@ -177,12 +191,23 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
         self._blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,
             min_token_length=min_token_length,
-            intermediate_saving=intermediate_saving,
         )
 
 
 class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
-    """MinHashLSH blocking on concatenation of entity attribute values and neighboring values."""
+    """MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import SimpleRelationalTokenBlocker
+        >>> blocker = SimpleRelationalMinHashLSHBlocker()
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
@@ -200,6 +225,7 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
 
 class RelationalBlocker(Blocker):
     """Uses seperate blocker for entity attribute values and concatenation of neighboring entity attribute values."""
+
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
 
@@ -237,7 +263,19 @@ class RelationalBlocker(Blocker):
 
 
 class RelationalMinHashLSHBlocker(RelationalBlocker):
-    """Seperate MinHashLSH blocking on concatenation of entity attribute values and neighboring values."""
+    """Seperate MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalMinHashLSHBlocker
+        >>> blocker = RelationalMinHashLSHBlocker(attr_threshold=0.7, rel_threshold=0.9)
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
@@ -263,7 +301,20 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
 
 
 class RelationalTokenBlocker(RelationalBlocker):
-    """Seperate Tokenblocking on concatenation of entity attribute values and neighboring values."""
+    """Seperate Tokenblocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalTokenBlocker
+        >>> blocker = RelationalTokenBlocker(attr_min_token_length=3, rel_min_token_length=5)
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
@@ -281,7 +332,19 @@ class RelationalTokenBlocker(RelationalBlocker):
 
 
 class RelationalDeepBlocker(RelationalBlocker):
-    """Seperate DeepBlocker strategy on concatenation of entity attribute values and neighboring values."""
+    """Seperate DeepBlocker strategy on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalDeepBlocker
+        >>> blocker = RelationalDeepBlocker(attr_frame_encoder="autoencoder", rel_frame_encoder="autoencoder")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         attr_frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
@@ -308,17 +371,3 @@ class RelationalDeepBlocker(RelationalBlocker):
             embedding_block_builder_kwargs=rel_embedding_block_builder_kwargs,
             force=force,
         )
-
-
-if __name__ == "__main__":
-    from sylloge import MovieGraphBenchmark
-
-    from klinker.data import KlinkerDataset
-
-    ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
-    tok = SimpleRelationalTokenBlocker()
-    blocks = tok.assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-
-    import ipdb  # noqa: autoimport
-
-    ipdb.set_trace()  # BREAKPOINT

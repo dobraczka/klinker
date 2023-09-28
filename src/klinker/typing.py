@@ -14,3 +14,4 @@ GeneralVectorLiteral = Literal["np", "pt"]
 TorchVectorLiteral: GeneralVectorLiteral = "pt"
 NumpyVectorLiteral: GeneralVectorLiteral = "np"
 Frame = Union[pd.DataFrame, dd.DataFrame]
+SeriesType = Union[pd.Series, dd.Series]

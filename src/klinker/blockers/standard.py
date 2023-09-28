@@ -4,34 +4,35 @@ import dask.dataframe as dd
 import pandas as pd
 
 from .base import Blocker
-from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerDaskFrame
+from ..data import KlinkerBlockManager, KlinkerDaskFrame, KlinkerFrame
 
 
 class StandardBlocker(Blocker):
     """Block on same values of a specific column.
 
+    Examples:
 
-    Reference: Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210.
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import StandardBlocker
+        >>> blocker = StandardBlocker(blocking_key="tail")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right)
+
+    Quote: Reference
+        Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210.
     """
 
     def __init__(self, blocking_key: Union[str, Tuple[str, str]]):
         self.blocking_key = blocking_key
 
     def _inner_assign(self, kf: KlinkerFrame, blocking_key: str) -> pd.DataFrame:
-        """
-
-        Args:
-          kf: KlinkerFrame:
-          blocking_key: str:
-
-        Returns:
-
-        """
         id_col = kf.id_col
         table_name = kf.table_name
         assert table_name
 
-        #TODO address code duplication
+        # TODO address code duplication
         if isinstance(kf, KlinkerDaskFrame):
             series = (
                 kf[[id_col, self.blocking_key]]
@@ -52,7 +53,7 @@ class StandardBlocker(Blocker):
                     # TODO add in case dask: meta=pd.Series([], dtype=object),
                 )
             )
-        blocked = kf.__class__.upgrade_from_series(
+        blocked = kf.__class__._upgrade_from_series(
             series,
             columns=[table_name],
             table_name=table_name,

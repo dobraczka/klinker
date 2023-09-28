@@ -17,7 +17,10 @@ from klinker.blockers import (
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
-from klinker.blockers.relation_aware import concat_neighbor_attributes, SimpleRelationalTokenBlocker
+from klinker.blockers.relation_aware import (
+    SimpleRelationalTokenBlocker,
+    concat_neighbor_attributes,
+)
 from klinker.data import (
     KlinkerBlockManager,
     KlinkerDaskFrame,
@@ -195,6 +198,7 @@ def expected_token_blocker(example_tables) -> KlinkerBlockManager:
         },
         dataset_names,
     )
+
 
 def assert_parquet(block: KlinkerBlockManager, tmp_dir):
     block.to_parquet(tmp_dir)
@@ -395,7 +399,9 @@ def test_assign_relation_frame_encoder(
 
 @pytest.mark.parametrize("use_dask", [True, False])
 @pytest.mark.parametrize("include_own_attributes", [True, False])
-def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask, include_own_attributes):
+def test_concat_neighbor_attributes(
+    example_tables, example_rel_triples, use_dask, include_own_attributes
+):
     ta = example_tables[0]
     rel_ta = example_rel_triples[0]
     all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
@@ -405,18 +411,24 @@ def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_das
     if use_dask:
         ta = from_klinker_frame(ta, npartitions=2)
         rel_ta = dd.from_pandas(rel_ta, npartitions=2)
-        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes).compute()
+        conc_ta = concat_neighbor_attributes(
+            ta, rel_ta, include_own_attributes=include_own_attributes
+        ).compute()
     else:
-        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes)
+        conc_ta = concat_neighbor_attributes(
+            ta, rel_ta, include_own_attributes=include_own_attributes
+        )
     assert len(conc_ta) == len(all_ids)
     assert set(conc_ta.index) == all_ids
 
 
 @pytest.mark.parametrize("use_dask", [True, False])
-def test_relational_token_blocker(example_tables, example_rel_triples, use_dask, tmpdir):
-    ta, tb,_,_ = example_tables
+def test_relational_token_blocker(
+    example_tables, example_rel_triples, use_dask, tmpdir
+):
+    ta, tb, _, _ = example_tables
     rel_ta, rel_tb = example_rel_triples
-    blocks = SimpleRelationalTokenBlocker().assign(ta,tb,rel_ta,rel_tb)
+    blocks = SimpleRelationalTokenBlocker().assign(ta, tb, rel_ta, rel_tb)
     assert_parquet(blocks, tmpdir)
     if use_dask:
         blocks.blocks.compute()
