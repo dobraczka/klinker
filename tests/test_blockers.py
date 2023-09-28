@@ -238,7 +238,7 @@ def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
 def test_assign_schema_aware(example_with_expected, tmpdir):
     ta, tb, expected, cls = example_with_expected
     if cls == SortedNeighborhoodBlocker and isinstance(ta, KlinkerDaskFrame):
-        with pytest.raises(ValueError):
+        with pytest.raises(NotImplementedError):
             cls(blocking_key="BirthCountry").assign(ta, tb)
     else:
         block = cls(blocking_key="BirthCountry").assign(ta, tb)
