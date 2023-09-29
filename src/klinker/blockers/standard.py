@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Optional
 
 import dask.dataframe as dd
 import pandas as pd
@@ -24,10 +24,10 @@ class StandardBlocker(Blocker):
         Fellegi, Ivan P. and Alan B. Sunter. 'A Theory for Record Linkage.' Journal of the American Statistical Association 64 (1969): 1183-1210.
     """
 
-    def __init__(self, blocking_key: Union[str, Tuple[str, str]]):
+    def __init__(self, blocking_key: str):
         self.blocking_key = blocking_key
 
-    def _inner_assign(self, kf: KlinkerFrame, blocking_key: str) -> pd.DataFrame:
+    def _inner_assign(self, kf: KlinkerFrame) -> pd.DataFrame:
         id_col = kf.id_col
         table_name = kf.table_name
         assert table_name
@@ -40,7 +40,9 @@ class StandardBlocker(Blocker):
                 .apply(
                     lambda x, id_col: list(set(x[id_col])),
                     id_col=kf.id_col,
-                    meta=pd.Series([], dtype=object),
+                    meta=pd.Series(
+                        [], dtype=object, index=pd.Index([], name=self.blocking_key)
+                    ),
                 )
             )
         else:
@@ -50,7 +52,6 @@ class StandardBlocker(Blocker):
                 .apply(
                     lambda x, id_col: list(set(x[id_col])),
                     id_col=kf.id_col,
-                    # TODO add in case dask: meta=pd.Series([], dtype=object),
                 )
             )
         blocked = kf.__class__._upgrade_from_series(
@@ -80,15 +81,9 @@ class StandardBlocker(Blocker):
         Returns:
             KlinkerBlockManager: instance holding the resulting blocks.
         """
-        if isinstance(self.blocking_key, tuple):
-            left_bk = self.blocking_key[0]
-            right_bk = self.blocking_key[0]
-        else:
-            left_bk = self.blocking_key
-            right_bk = self.blocking_key
-        left_assign = self._inner_assign(left, left_bk)
-        right_assign = self._inner_assign(right, right_bk)
+        left_assign = self._inner_assign(left)
+        right_assign = self._inner_assign(right)
         pd_blocks = left_assign.join(right_assign, how="inner")
-        if isinstance(pd_blocks, dd.DataFrame):
+        if isinstance(left_assign, dd.DataFrame):
             return KlinkerBlockManager(pd_blocks)
         return KlinkerBlockManager.from_pandas(pd_blocks)

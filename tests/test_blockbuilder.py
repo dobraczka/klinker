@@ -68,6 +68,7 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
 def example_some_non_overlapping_clusters() -> Tuple[
     NamedVector[np.ndarray], NamedVector[np.ndarray], str, str
 ]:
+    np.random.seed(17)
     # create non-overlapping clusters
     left = np.random.normal(3, 1, size=(10, 4))
     right = np.random.normal(10, 1, size=(10, 4))
