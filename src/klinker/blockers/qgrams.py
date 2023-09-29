@@ -1,10 +1,10 @@
-from typing import Optional, List
+from typing import List, Optional
 
-import pandas as pd
 from nltk.util import ngrams
+import dask.dataframe as dd
 
 from .standard import StandardBlocker
-from ..data import KlinkerBlockManager, KlinkerFrame, KlinkerPandasFrame
+from ..data import KlinkerBlockManager, KlinkerFrame
 
 
 class QgramsBlocker(StandardBlocker):
@@ -68,11 +68,16 @@ class QgramsBlocker(StandardBlocker):
         assert isinstance(self.blocking_key, str)
         qgramed = []
         for tab in [left, right]:
-            series = (
-                tab.set_index(tab.id_col)[self.blocking_key]
-                .apply(self.qgram_tokenize)
-                .explode()
-            )
+
+            reduced = tab.set_index(tab.id_col)[self.blocking_key]
+            if isinstance(left, dd.DataFrame):
+                series = reduced.apply(
+                    self.qgram_tokenize, meta=(self.blocking_key, "object")
+                )
+            else:
+                series = reduced.apply(self.qgram_tokenize)
+            series = series.explode()
+
             kf = tab.__class__._upgrade_from_series(
                 series,
                 table_name=tab.table_name,
