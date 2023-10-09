@@ -9,14 +9,12 @@ from .relation_aware import (
     SimpleRelationalMinHashLSHBlocker,
     SimpleRelationalTokenBlocker,
 )
-from .sorted_neighborhood import SortedNeighborhoodBlocker
 from .standard import StandardBlocker
 from .token_blocking import TokenBlocker
 
 __all__ = [
     "StandardBlocker",
     "QgramsBlocker",
-    "SortedNeighborhoodBlocker",
     "TokenBlocker",
     "MinHashLSHBlocker",
     "EmbeddingBlocker",

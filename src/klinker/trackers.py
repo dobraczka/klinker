@@ -1,5 +1,6 @@
 # copy-pasted from pykeen
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Pattern, Tuple, Union
 
@@ -167,7 +168,7 @@ class WANDBResultTracker(ResultTracker):
     """
 
     #: The WANDB run
-    run: "wandb.wandb_run.Run"
+    run: Optional["wandb.wandb_run.Run"]
 
     def __init__(
         self,
@@ -204,6 +205,7 @@ class WANDBResultTracker(ResultTracker):
         self.run = self.wandb.init(project=self.project, name=run_name, **self.kwargs)  # type: ignore
 
     def end_run(self, success: bool = True) -> None:
+        assert self.run
         self.run.finish(exit_code=0 if success else -1)
         self.run = None
 

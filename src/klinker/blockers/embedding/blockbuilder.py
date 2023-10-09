@@ -266,11 +266,11 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         self,
         min_cluster_size: int = 5,
         min_samples: Optional[int] = None,
-        cluster_selection_epsilon: float=0.0,
-        metric: str="euclidean",
-        alpha: float=1.0,
-        p: Optional[float]=None,
-        cluster_selection_method: str="eom",
+        cluster_selection_epsilon: float = 0.0,
+        metric: str = "euclidean",
+        alpha: float = 1.0,
+        p: Optional[float] = None,
+        cluster_selection_method: str = "eom",
         **kwargs
     ):
         self.clusterer = HDBSCAN(

@@ -130,7 +130,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             triples.append([t, h, 2 * r + 1])
             rel_size = max(rel_size, 2 * r + 1)
         triples = np.unique(triples, axis=0)
-        node_size, rel_size = np.max(triples) + 1, np.max(triples[:, 2]) + 1
+        node_size, rel_size = np.max(triples) + 1, np.max(triples[:, 2]) + 1  # type: ignore
         ent_tuple, triples_idx = [], []
         ent_ent_s, rel_ent_s, ent_rel_s = {}, set(), set()
         last, index = (-1, -1), -1
@@ -153,8 +153,8 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             rel_ent_s.add((r, h))
             ent_rel_s.add((t, r))
 
-        ent_tuple = np.array(ent_tuple)
-        triples_idx = np.unique(np.array(triples_idx), axis=0)
+        ent_tuple = np.array(ent_tuple)  # type: ignore
+        triples_idx = np.unique(np.array(triples_idx), axis=0)  # type: ignore
 
         ent_ent = np.unique(np.array(list(ent_ent_s.keys())), axis=0)
         ent_ent_val = np.array([ent_ent_s[(x, y)] for x, y in ent_ent]).astype(
@@ -188,13 +188,18 @@ class LightEAFrameEncoder(RelationFrameEncoder):
     ):
         ent_feature = ent_feature.to(self.device)
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)
+
         ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple = map(
             torch.tensor,
             [ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple],
         )
-        ent_ent, ent_rel, rel_ent, triples_idx, ent_tuple = map(
-            lambda x: x.t(), [ent_ent, ent_rel, rel_ent, triples_idx, ent_tuple]
-        )
+
+        ent_ent = ent_ent.t()
+        ent_rel = ent_rel.t()
+        rel_ent = rel_ent.t()
+        triples_idx = triples_idx.t()
+        ent_tuple = ent_tuple.t()
+
         ent_ent_graph = torch.sparse_coo_tensor(
             indices=ent_ent, values=ent_ent_val, size=(node_size, node_size)
         ).to(self.device)
@@ -210,7 +215,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ).to(self.device)
 
         ent_list, rel_list = [ent_feature], [rel_feature]
-        for i in trange(self.depth):
+        for _ in trange(self.depth):
             new_rel_feature = torch.from_numpy(
                 _batch_sparse_matmul(rel_ent_graph, ent_feature, self.device)
             ).to(self.device)

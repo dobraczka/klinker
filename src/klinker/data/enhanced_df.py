@@ -641,14 +641,3 @@ def generic_upgrade_from_series(
         id_col=id_col,
         reset_index=reset_index,
     )
-
-
-if __name__ == "__main__":
-    from sylloge import OAEI
-
-    from klinker.data import KlinkerDataset
-
-    ds = KlinkerDataset.from_sylloge(OAEI(backend="dask", npartitions=10))
-    from klinker.blockers import TokenBlocker
-
-    print(TokenBlocker().assign(left=ds.left, right=ds.right))

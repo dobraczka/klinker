@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import IO, BinaryIO, Generic, Tuple, Type, TypeVar, Union
+from typing import IO, BinaryIO, Generic, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -119,7 +119,7 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
@@ -192,7 +192,7 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
@@ -254,7 +254,7 @@ class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):

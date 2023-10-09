@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from strawman import dummy_triples
+from util import assert_block_eq
 
 from klinker.blockers.embedding.blockbuilder import (
     HDBSCANEmbeddingBlockBuilder,
@@ -101,12 +102,12 @@ def expected() -> KlinkerBlockManager:
 
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(*example)
-    assert blocks == expected
+    assert_block_eq(blocks, expected)
 
 
 def test_nn_block_builder(example):
     blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)
-    for bname, btuple in blocks.to_dict().items():
+    for btuple in blocks.to_dict().values():
         for ba in btuple[0]:
             assert ba.startswith("a")
         assert len(btuple[1]) == 2
@@ -124,7 +125,7 @@ def test_from_encoded(example, expected, tmp_path):
     blocks = EmbeddingBlocker(
         embedding_block_builder=block_builder, save_dir=mydir
     ).from_encoded()
-    assert blocks == expected
+    assert_block_eq(blocks, expected)
 
 
 def test_some_non_overlapping_clusters(example_some_non_overlapping_clusters):

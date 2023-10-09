@@ -1,4 +1,4 @@
-from typing import Literal, Sequence, Tuple, Union
+from typing import Literal, Sequence, Tuple, TypeVar, Union
 
 import dask.dataframe as dd
 import numpy as np
@@ -13,5 +13,5 @@ GeneralVector = Union[np.ndarray, torch.Tensor]
 GeneralVectorLiteral = Literal["np", "pt"]
 TorchVectorLiteral: GeneralVectorLiteral = "pt"
 NumpyVectorLiteral: GeneralVectorLiteral = "np"
-Frame = Union[pd.DataFrame, dd.DataFrame]
+Frame = TypeVar("Frame", pd.DataFrame, dd.DataFrame)
 SeriesType = Union[pd.Series, dd.Series]

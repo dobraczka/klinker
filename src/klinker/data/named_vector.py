@@ -79,7 +79,6 @@ class NamedVector(Generic[T]):
 
     @property
     def _tensor_lib(self) -> ModuleType:
-        """ """
         return np if isinstance(self.vectors, np.ndarray) else torch
 
     @property

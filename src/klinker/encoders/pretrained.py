@@ -287,7 +287,7 @@ tokenized_word_embedder_resolver = ClassResolver(
 
 
 def encode_frame(
-    df: Frame, twe: TokenizedWordEmbedder, weight_dict: Dict = None
+    df: Frame, twe: TokenizedWordEmbedder, weight_dict: Optional[Dict] = None
 ) -> np.ndarray:
     """Encode Frame with tokenized word embedder.
 

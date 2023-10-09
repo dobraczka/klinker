@@ -1,7 +1,7 @@
 from typing import List, Optional
 
-from nltk.util import ngrams
 import dask.dataframe as dd
+from nltk.util import ngrams
 
 from .standard import StandardBlocker
 from ..data import KlinkerBlockManager, KlinkerFrame

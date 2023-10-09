@@ -3,7 +3,6 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import pytest
 from strawman import dummy_df, dummy_triples
-from test_blockers import example_tables, example_triples  # noqa: isort
 
 from klinker.data import (
     KlinkerDaskFrame,
@@ -39,7 +38,7 @@ def concat_example() -> Tuple[KlinkerPandasFrame, List[Tuple[str, str]]]:
 
 @pytest.fixture
 def concat_triple_example(
-    example_triples, example_tables
+    example_triples,
 ) -> Tuple[KlinkerPandasFrame, List[Tuple[str, str]]]:
     ta, _, _, _ = example_triples
     expected = [

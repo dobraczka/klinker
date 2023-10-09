@@ -117,21 +117,23 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
                             right_path=right_path,
                             right_name=right_name,
                         )
-
-        # TODO fix typing issue
         left_emb, right_emb = self.frame_encoder.encode(
             left=left,
             right=right,
             left_rel=left_rel,
             right_rel=right_rel,
-        )  # type: ignore
+        )
         if self.save:
             assert self.save_dir  # for mypy
+            assert left.table_name
+            assert right.table_name
             EmbeddingBlocker.save_encoded(
                 self.save_dir,
                 (left_emb, right_emb),
                 (left.table_name, right.table_name),
             )
+        assert left.table_name
+        assert right.table_name
         return self.embedding_block_builder.build_blocks(
             left=left_emb,
             right=right_emb,

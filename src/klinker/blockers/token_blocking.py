@@ -65,15 +65,19 @@ class TokenBlocker(SchemaAgnosticBlocker):
         # TODO figure out why this hack is needed
         # i.e. why does dask assume later for the join, that this is named 0
         # no matter what it is actually named
-        tok_name = 0
+        tok_name = "tok"
         tok_kwargs = dict(
             tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length
         )
         collect_ids_kwargs = dict(id_col=id_col_name)
         if isinstance(tab, dd.Series):
             tok_kwargs["meta"] = (tab.name, "O")
-            collect_ids_kwargs["meta"] = (tab.name, "O")
-
+            collect_ids_kwargs["meta"] = pd.Series(
+                [],
+                name=tab.name,
+                dtype="O",
+                index=pd.Series([], dtype="O", name=tok_name),
+            )
         return (
             tab.apply(tokenize_series, **tok_kwargs)
             .explode()
@@ -105,7 +109,6 @@ class TokenBlocker(SchemaAgnosticBlocker):
         """
         left_tok = self._tok_block(left)
         right_tok = self._tok_block(right)
-
         pd_blocks = left_tok.join(right_tok, how="inner")
         if isinstance(pd_blocks, dd.DataFrame):
             return KlinkerBlockManager(pd_blocks)

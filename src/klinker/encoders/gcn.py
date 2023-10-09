@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Set, Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -24,13 +24,14 @@ from ..typing import GeneralVector
 
 logger = logging.getLogger(__name__)
 
-# adapted from https://github.com/pyg-team/pytorch_geometric/blob/2463371cf290a106e057c0c1f24f7a5a38318328/torch_geometric/utils/loop.py#L218
+
 def _add_remaining_self_loops(
     edge_index: torch.Tensor,
     num_nodes: int,
     edge_attr: Optional[torch.Tensor] = None,
     fill_value: Optional[Union[float, torch.Tensor, str]] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    # adapted from https://github.com/pyg-team/pytorch_geometric/blob/2463371cf290a106e057c0c1f24f7a5a38318328/torch_geometric/utils/loop.py#L218
     N = num_nodes
     mask = edge_index[0] != edge_index[1]
 

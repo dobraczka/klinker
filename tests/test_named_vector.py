@@ -11,7 +11,7 @@ from klinker.data.named_vector import NamedVector
 def test_named_vector(as_dict, change_names, torchify):
     names = ["a", "b", "c", "d"]
     names_mapping = {name: idx for idx, name in enumerate(names)}
-    id_mapping = {idx: name for idx, name in enumerate(names)}
+    id_mapping = dict(enumerate(names))
     orig_names = names
     vector = np.random.rand(4, 10)
     if torchify:

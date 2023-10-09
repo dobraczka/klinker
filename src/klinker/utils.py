@@ -1,22 +1,11 @@
 import logging
-from itertools import chain
-from typing import (
-    Callable,
-    Collection,
-    List,
-    Literal,
-    Sequence,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import Callable, List, Literal, TypeVar, overload
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import torch
 from nltk.tokenize import word_tokenize
-from torch import nn
 
 from .typing import (
     DeviceHint,
@@ -31,7 +20,7 @@ X = TypeVar("X")
 
 logger = logging.getLogger(__name__)
 
-# copy-pasted from pykeen
+
 def resolve_device(device: DeviceHint = None) -> torch.device:
     """Resolve a torch.device given a desired device (string).
 
@@ -41,6 +30,7 @@ def resolve_device(device: DeviceHint = None) -> torch.device:
     Returns:
 
     """
+    # copy-pasted from pykeen
     if device is None or device == "gpu":
         device = "cuda"
     if isinstance(device, str):

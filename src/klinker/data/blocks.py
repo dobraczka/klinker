@@ -124,7 +124,7 @@ class OldKlinkerBlockManager:
                 yield pair
 
         if not remove_duplicates:
-            for block_name, block in self.blocks.items():
+            for block in self.blocks.values():
                 for pair in itertools.product(*block):
                     return _handle_pair(
                         replace_id_mappings=replace_id_mappings,
@@ -242,18 +242,18 @@ class OldKlinkerBlockManager:
         self, entity_id: Union[str, int], dataset_name: str
     ) -> Dict[Union[str, int], Tuple[Set[int], ...]]:
         tuple_id = self.tuple_id_from_dataset_name(dataset_name)
-        return dict(
-            (block_name, block)
+        return {
+            block_name: block
             for block_name, block in self.blocks.items()
             if entity_id in block[tuple_id]
-        )
+        }
 
     def __repr__(self) -> str:
         repr_str = "\n".join(
             [f"{key} | {block_tuple}" for key, block_tuple in self.blocks.items()]
         )
         repr_str += f"\ndataset_names = {self.dataset_names}, "
-        repr_str += f"id_mappings = yes" if self.id_mappings else f"id_mappings = no"
+        repr_str += "id_mappings = yes" if self.id_mappings else "id_mappings = no"
         return repr_str
 
     def __len__(self) -> int:
@@ -366,14 +366,6 @@ class KlinkerBlockManager:
 
     def __getitem__(self, key):
         return self.blocks.loc[key]
-
-    def __eq__(self, other) -> bool:
-        if not len(self) == len(other):
-            return False
-        for blk_name in self.blocks.index:
-            if not self[blk_name].compute().equals(other[blk_name].compute()):
-                return False
-        return True
 
     def __len__(self) -> int:
         return len(self.blocks)
@@ -528,10 +520,10 @@ class KlinkerBlockManager:
           path: Union[str, pathlib.Path]: Where to write.
           **kwargs: passed to the parquet function
         """
-        if not "schema" in kwargs:
+        if "schema" not in kwargs:
             left, right = self.blocks.columns[:2]
             block_type = pa.list_(pa.string())
-            if not self.blocks.index.name:
+            if self.blocks.index.name is None:
                 schema = {
                     left: block_type,
                     right: block_type,
@@ -646,6 +638,11 @@ class KlinkerBlockManager:
             elif isinstance(res, pd.DataFrame):
                 return cls.from_pandas(res)
             elif isinstance(res, OldKlinkerBlockManager):
-                return cls.from_dict(res.blocks)
+                return cls.from_dict(
+                    {
+                        bk: (list(left_v), list(right_v))
+                        for bk, (left_v, right_v) in res.blocks.items()
+                    }
+                )  # type: ignore
             else:
                 raise ValueError(f"Unknown pickled object of type {type(res)}")

@@ -339,7 +339,7 @@ class RelationFrameEncoder(FrameEncoder):
             ent_features=ent_features,
             return_type=return_type,
         )
-        named_features = NamedVector(names=entity_mapping, vectors=features)
+        named_features = NamedVector(names=entity_mapping, vectors=features)  # type: ignore
 
         end = time.time()
         self._encoding_time = end - start

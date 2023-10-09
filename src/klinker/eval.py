@@ -46,7 +46,7 @@ class Evaluation:
     def _calc_tp_fp_fn(self, blocks: KlinkerBlockManager):
         tp_pairs = set()
         fp = 0
-        for pair_number, pair in enumerate(blocks.all_pairs(), start=1):
+        for _pair_number, pair in enumerate(blocks.all_pairs(), start=1):
             if pair in self.gold_pair_set:
                 tp_pairs.add(pair)
             else:
@@ -56,7 +56,7 @@ class Evaluation:
         self.false_negative = len(self.fn_set)
         self.true_positive = len(self.tp_set)
         self.false_positive = fp
-        self.comp_with_blocking = pair_number
+        self.comp_with_blocking = _pair_number
 
     def _check_consistency(self, blocks: KlinkerBlockManager, gold: pd.DataFrame):
         if not len(gold.columns) == 2:
@@ -257,7 +257,6 @@ def multiple_block_comparison(
                 )
                 not in seen_pairs
             ):
-                print(b_a_name, b_b_name)
                 comparison = compare_blocks_from_eval(
                     blocks_a, blocks_b, eval_a, eval_b, dataset, "h3r"
                 )
