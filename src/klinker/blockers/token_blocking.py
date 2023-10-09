@@ -33,7 +33,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
 
     Examples:
 
-        >>> # doctests: +SKIP
+        >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
         >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)

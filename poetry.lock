@@ -5386,26 +5386,6 @@ typing-extensions = "*"
 opt-einsum = ["opt-einsum (>=3.3)"]
 
 [[package]]
-name = "torch-max-mem"
-version = "0.0.5"
-description = "Maximize memory utilization with PyTorch."
-category = "main"
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "torch_max_mem-0.0.5-py3-none-any.whl", hash = "sha256:da144c9eed20108399ec13e2c036dfb7406fd2576cf8c33acdbc109539902a5b"},
-    {file = "torch_max_mem-0.0.5.tar.gz", hash = "sha256:d063296bb7d3752b1c75b50b6d3b7e418b8f9948e56c964f017f7dff962726d7"},
-]
-
-[package.dependencies]
-numpy = "*"
-torch = ">=2.0"
-
-[package.extras]
-docs = ["sphinx", "sphinx-autodoc-typehints", "sphinx-automodapi", "sphinx-click", "sphinx-rtd-theme"]
-tests = ["coverage", "pytest"]
-
-[[package]]
 name = "torchvision"
 version = "0.15.1"
 description = "image and video datasets and models for torch deep learning"
@@ -6011,4 +5991,4 @@ docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkd
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "7e80e2bcb5bbaeed49d2c046cee0e664aeedd43f204f8ded6879c6f88b931fcc"
+content-hash = "d151e78524d31ba632935cc81d8d9e0f6719a6ce98df18e61682fe6f252fd087"
