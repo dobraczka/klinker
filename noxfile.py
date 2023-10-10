@@ -43,7 +43,7 @@ def style_checking(session: Session) -> None:
         "flake8-bugbear",
         "pydocstyle",
     )
-    session.run("pflake8", "--docstring-style", "google", *args)
+    session.run("pflake8", *args)
 
 
 @session()

@@ -17,7 +17,6 @@ from nltk.tokenize import word_tokenize
 from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import TruncatedSVD
 from torch import nn
-from torch_max_mem import MemoryUtilizationMaximizer
 from tqdm.auto import tqdm
 from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
 
@@ -27,11 +26,8 @@ from ..typing import Frame, GeneralVector
 from ..utils import concat_frames, resolve_device
 
 logger = logging.getLogger(__name__)
-memory_utilization_maximizer = MemoryUtilizationMaximizer()
 
 word_embedding_dir = pystow.module("klinker").join("word_embeddings")
-
-memory_utilization_maximizer = MemoryUtilizationMaximizer()
 
 
 def _batch_generator(df, batch_size):
