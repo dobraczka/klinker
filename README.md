@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-<img src="https://github.com/dobraczka/klinker/raw/main/docs/assets/KlinkerArchitectureNoLogo.png" alt="klinker overview", width=200/>
+<img src="https://github.com/dobraczka/klinker/raw/main/docs/assets/KlinkerArchitectureNoLogo.png" alt="klinker overview", width=800/>
 </p>
 
 Installation
