@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from strawman import dummy_triples
+from util import assert_block_eq
 
 from klinker.blockers.embedding.blockbuilder import (
     HDBSCANEmbeddingBlockBuilder,
@@ -63,15 +64,19 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
         "B",
     )
 
+
 @pytest.fixture
-def example_some_non_overlapping_clusters() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, str]:
+def example_some_non_overlapping_clusters() -> Tuple[
+    NamedVector[np.ndarray], NamedVector[np.ndarray], str, str
+]:
+    np.random.seed(17)
     # create non-overlapping clusters
     left = np.random.normal(3, 1, size=(10, 4))
     right = np.random.normal(10, 1, size=(10, 4))
 
     # create common point
-    left[5] = np.array([0.0,0.0,0.0,0.0])
-    right[5] = np.array([0.0,0.0,0.0,0.0])
+    left[5] = np.array([0.0, 0.0, 0.0, 0.0])
+    right[5] = np.array([0.0, 0.0, 0.0, 0.0])
 
     left_names = [f"a{idx}" for idx in range(len(left))]
     right_names = [f"b{idx}" for idx in range(len(right))]
@@ -97,12 +102,12 @@ def expected() -> KlinkerBlockManager:
 
 def test_cluster_block_builder(example, expected):
     blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(*example)
-    assert blocks == expected
+    assert_block_eq(blocks, expected)
 
 
 def test_nn_block_builder(example):
     blocks = KiezEmbeddingBlockBuilder(n_neighbors=2).build_blocks(*example)
-    for bname, btuple in blocks.to_dict().items():
+    for btuple in blocks.to_dict().values():
         for ba in btuple[0]:
             assert ba.startswith("a")
         assert len(btuple[1]) == 2
@@ -120,13 +125,15 @@ def test_from_encoded(example, expected, tmp_path):
     blocks = EmbeddingBlocker(
         embedding_block_builder=block_builder, save_dir=mydir
     ).from_encoded()
-    assert blocks == expected
+    assert_block_eq(blocks, expected)
+
 
 def test_some_non_overlapping_clusters(example_some_non_overlapping_clusters):
     left_v, right_v, lname, rname = example_some_non_overlapping_clusters
-    blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(left=left_v, right=right_v, left_name=lname, right_name=rname)
+    blocks = HDBSCANEmbeddingBlockBuilder(min_cluster_size=2).build_blocks(
+        left=left_v, right=right_v, left_name=lname, right_name=rname
+    )
     final_blocks = blocks.blocks.compute()
     assert len(final_blocks) == 1
     assert final_blocks["A"].values[0] == {"a5"}
     assert final_blocks["B"].values[0] == {"b5"}
-

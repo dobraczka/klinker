@@ -5,6 +5,12 @@ from nox_poetry import Session, session
 def tests(session: Session) -> None:
     args = session.posargs or ["--cov", "--cov-report=xml"]
     session.install(".[all]")
+    session.install(
+        "torch-scatter", "-f", "https://data.pyg.org/whl/torch-2.0.0+cpu.html"
+    )
+    session.install(
+        "torch-sparse", "-f", "https://data.pyg.org/whl/torch-2.0.0+cpu.html"
+    )
     session.install("strawman")
     session.install("pytest")
     session.install("pytest-cov")
@@ -35,10 +41,9 @@ def style_checking(session: Session) -> None:
         "flake8-print",
         "flake8-black",
         "flake8-bugbear",
-        "darglint",
         "pydocstyle",
     )
-    session.run("pflake8", "--docstring-style", "sphinx", *args)
+    session.run("pflake8", *args)
 
 
 @session()

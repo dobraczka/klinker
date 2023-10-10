@@ -24,6 +24,20 @@ FeatureType = TypeVar("FeatureType")
 
 
 class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
+    """Base class for DeepBlocker Frame encoders.
+
+    Args:
+        hidden_dimensions: Tuple[int, int]: Hidden dimensions
+        num_epochs: int: Number of epochs if training
+        batch_size: int: Batch size
+        learning_rate: float: Learning rate if training
+        loss_function: Optional[_Loss]: Loss function if training
+        optimizer: Optional[HintOrType[Optimizer]]: Optimizer if training
+        optimizer_kwargs: OptionalKwargs: Keyword arguments to inizialize optimizer
+        frame_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
+        frame_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing frame encoder
+    """
+
     inner_encoder: TokenizedFrameEncoder
 
     def __init__(
@@ -95,6 +109,20 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
 
 
 class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
+    """Autoencoder class for DeepBlocker Frame encoders.
+
+    Args:
+        hidden_dimensions: Tuple[int, int]: Hidden dimensions
+        num_epochs: int: Number of epochs if training
+        batch_size: int: Batch size
+        learning_rate: float: Learning rate if training
+        loss_function: Optional[_Loss]: Loss function if training
+        optimizer: Optional[HintOrType[Optimizer]]: Optimizer if training
+        optimizer_kwargs: OptionalKwargs: Keyword arguments to inizialize optimizer
+        frame_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
+        frame_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing frame encoder
+    """
+
     def __init__(
         self,
         hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
@@ -123,6 +151,15 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
     def create_features(
         self, left: Frame, right: Frame
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Features for AutoEncoder.
+
+        Args:
+          left: Frame: left attributes.
+          right: Frame: right attributes.
+
+        Returns:
+            Concatenated left/right encoded, left encoded, right encoded
+        """
         left_enc, right_enc = self.inner_encoder._encode_as(
             left, right, return_type="pt"
         )
@@ -138,6 +175,24 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
 
 
 class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
+    """CrossTupleTraining class for DeepBlocker Frame encoders.
+
+    Args:
+        hidden_dimensions: Tuple[int, int]: Hidden dimensions
+        num_epochs: int: Number of epochs
+        batch_size: int: Batch size
+        learning_rate: float: Learning rate
+        synth_tuples_per_tuple: int: Synthetic tuples per tuple
+        pos_to_neg_ratio: float: Ratio of positiv to negative tuples
+        max_perturbation:float: Degree how much tuples should be corrupted
+        random_seed: Seed to control randomness
+        loss_function: Optional[_Loss]: Loss function if training
+        optimizer: Optional[HintOrType[Optimizer]]: Optimizer if training
+        optimizer_kwargs: OptionalKwargs: Keyword arguments to inizialize optimizer
+        frame_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
+        frame_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing frame encoder
+    """
+
     def __init__(
         self,
         hidden_dimensions: Tuple[int, int] = (2 * 150, 150),
@@ -146,8 +201,11 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         learning_rate: float = 1e-3,
         synth_tuples_per_tuple: int = 5,
         pos_to_neg_ratio: float = 1.0,
-        max_perturbation=0.4,
+        max_perturbation: float = 0.4,
         random_seed=None,
+        loss_function: Optional[_Loss] = None,
+        optimizer: Optional[HintOrType[Optimizer]] = None,
+        optimizer_kwargs: OptionalKwargs = None,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
     ):
@@ -159,6 +217,9 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
             learning_rate=learning_rate,
             frame_encoder=frame_encoder,
             frame_encoder_kwargs=frame_encoder_kwargs,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
         )
         self.synth_tuples_per_tuple = synth_tuples_per_tuple
         self.pos_to_neg_ratio = pos_to_neg_ratio
@@ -170,9 +231,18 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
+        """Create features for cross-tuple training
+
+        Args:
+          left: Frame: left attributes.
+          right: Frame: right attributes.
+
+        Returns:
+            (left_training, right_training, labels), left encoded, right encoded
+        """
         if isinstance(left, KlinkerDaskFrame):
             raise NotImplementedError(
-                "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented from dask yet!"
+                "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented for dask yet!"
             )
 
         # TODO refactor this function (copy-pasted from deepblocker repo)
@@ -282,6 +352,26 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
 
 
 class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
+    """Hybrid DeepBlocker class.
+
+    Uses both Autoencoder and CrossTupleTraining strategy.
+
+    Args:
+        frame_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
+        frame_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing frame encoder
+        hidden_dimensions: Tuple[int, int]: Hidden dimensions
+        num_epochs: int: Number of epochs if training
+        batch_size: int: Batch size
+        learning_rate: float: Learning rate
+        synth_tuples_per_tuple: int: Synthetic tuples per tuple
+        pos_to_neg_ratio: float: Ratio of positiv to negative tuples
+        max_perturbation:float: Degree how much tuples should be corrupted
+        random_seed: Seed to control randomness
+        loss_function: Optional[_Loss]: Loss function if training
+        optimizer: Optional[HintOrType[Optimizer]]: Optimizer if training
+        optimizer_kwargs: OptionalKwargs: Keyword arguments to inizialize optimizer
+    """
+
     def __init__(
         self,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
@@ -294,6 +384,9 @@ class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
         pos_to_neg_ratio: float = 1.0,
         max_perturbation=0.4,
         random_seed=None,
+        loss_function: Optional[_Loss] = None,
+        optimizer: Optional[HintOrType[Optimizer]] = None,
+        optimizer_kwargs: OptionalKwargs = None,
     ):
         inner_encoder = AutoEncoderDeepBlockerFrameEncoder(
             frame_encoder=frame_encoder,
@@ -313,6 +406,9 @@ class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
             pos_to_neg_ratio=pos_to_neg_ratio,
             max_perturbation=max_perturbation,
             random_seed=random_seed,
+            loss_function=loss_function,
+            optimizer=optimizer,
+            optimizer_kwargs=optimizer_kwargs,
         )
 
 

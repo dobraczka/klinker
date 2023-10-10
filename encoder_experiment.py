@@ -17,7 +17,7 @@ from klinker.encoders import (
     frame_encoder_resolver,
 )
 from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
-from klinker.eval_metrics import Evaluation
+from klinker.eval import Evaluation
 
 
 def _load_or_create_path(

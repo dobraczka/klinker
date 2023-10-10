@@ -1,5 +1,6 @@
 # copy-pasted from pykeen
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Pattern, Tuple, Union
 
@@ -45,7 +46,14 @@ class ResultTracker:
     """A class that tracks the results from a pipeline run."""
 
     def start_run(self, run_name: Optional[str] = None) -> None:
-        """Start a run with an optional name."""
+        """Start a run with an optional name.
+
+        Args:
+          run_name: Optional[str]:  (Default value = None)
+
+        Returns:
+
+        """
 
     def log_params(
         self, params: Mapping[str, Any], prefix: Optional[str] = None
@@ -60,9 +68,10 @@ class ResultTracker:
     ) -> None:
         """Log metrics to result store.
 
-        :param metrics: The metrics to log.
-        :param step: An optional step to attach the metrics to (e.g. the epoch).
-        :param prefix: An optional prefix to prepend to every key in metrics.
+        Args:
+          metrics: The metrics to log.
+          step: An optional step to attach the metrics to (e.g. the epoch).
+          prefix: An optional prefix to prepend to every key in metrics.
         """
 
     def end_run(self, success: bool = True) -> None:
@@ -70,8 +79,8 @@ class ResultTracker:
 
         HAS to be called after the experiment is finished.
 
-        :param success:
-            Can be used to signal failed runs. May be ignored.
+        Args:
+          success: Can be used to signal failed runs. May be ignored.
         """
 
 
@@ -91,18 +100,13 @@ class ConsoleResultTracker(ResultTracker):
         """
         Initialize the tracker.
 
-        :param track_parameters:
-            Whether to print parameters.
-        :param parameter_filter:
-            A regular expression to filter parameters. If None, print all parameters.
-        :param track_metrics:
-            Whether to print metrics.
-        :param metric_filter:
-            A regular expression to filter metrics. If None, print all parameters.
-        :param start_end_run:
-            Whether to print start/end run messages.
-        :param writer:
-            The writer to use - one of "tqdm", "builtin", or "logger".
+        Args:
+            track_parameters: Whether to print parameters.
+            parameter_filter: A regular expression to filter parameters. If None, print all parameters.
+            track_metrics: Whether to print metrics.
+            metric_filter: A regular expression to filter metrics. If None, print all parameters.
+            start_end_run: Whether to print start/end run messages.
+            writer: The writer to use - one of "tqdm", "builtin", or "logger".
         """
         self.start_end_run = start_end_run
 
@@ -123,15 +127,13 @@ class ConsoleResultTracker(ResultTracker):
         elif writer == "logging":
             self.write = logging.getLogger("klinker").info
 
-    # docstr-coverage: inherited
-    def start_run(self, run_name: Optional[str] = None) -> None:  # noqa: D102
+    def start_run(self, run_name: Optional[str] = None) -> None:
         if run_name is not None and self.start_end_run:
             self.write(f"Starting run: {run_name}")
 
-    # docstr-coverage: inherited
     def log_params(
         self, params: Mapping[str, Any], prefix: Optional[str] = None
-    ) -> None:  # noqa: D102
+    ) -> None:
         if not self.track_parameters:
             return
 
@@ -139,23 +141,20 @@ class ConsoleResultTracker(ResultTracker):
             if not self.parameter_filter or self.parameter_filter.match(key):
                 self.write(f"Parameter: {key} = {value}")
 
-    # docstr-coverage: inherited
     def log_metrics(
         self,
         metrics: Mapping[str, float],
         step: Optional[int] = None,
         prefix: Optional[str] = None,
-    ) -> None:  # noqa: D102
+    ) -> None:
         if not self.track_metrics:
             return
-
         self.write(f"Step: {step}")
         for key, value in flatten_dictionary(dictionary=metrics, prefix=prefix).items():
             if not self.metric_filter or self.metric_filter.match(key):
                 self.write(f"Metric: {key} = {value}")
 
-    # docstr-coverage: inherited
-    def end_run(self, success: bool = True) -> None:  # noqa: D102
+    def end_run(self, success: bool = True) -> None:
         if not success:
             self.write("Run failed.")
         if self.start_end_run:
@@ -169,7 +168,7 @@ class WANDBResultTracker(ResultTracker):
     """
 
     #: The WANDB run
-    run: "wandb.wandb_run.Run"
+    run: Optional["wandb.wandb_run.Run"]
 
     def __init__(
         self,
@@ -179,14 +178,16 @@ class WANDBResultTracker(ResultTracker):
     ):
         """Initialize result tracking via WANDB.
 
-        :param project:
-            project name your WANDB login has access to.
-        :param offline:
-            whether to run in offline mode, i.e, without syncing with the wandb server.
-        :param kwargs:
-            additional keyword arguments passed to :func:`wandb.init`.
-        :raises ValueError:
-            If the project name is given as None
+        Args:
+            project:
+                project name your WANDB login has access to.
+            offline:
+                whether to run in offline mode, i.e, without syncing with the wandb server.
+            kwargs:
+                additional keyword arguments passed to :func:`wandb.init`.
+
+        Raises:
+            ValueError: If the project name is given as None
         """
         import wandb as _wandb
 
@@ -200,31 +201,28 @@ class WANDBResultTracker(ResultTracker):
         self.kwargs = kwargs
         self.run = None
 
-    # docstr-coverage: inherited
-    def start_run(self, run_name: Optional[str] = None) -> None:  # noqa: D102
+    def start_run(self, run_name: Optional[str] = None) -> None:
         self.run = self.wandb.init(project=self.project, name=run_name, **self.kwargs)  # type: ignore
 
-    # docstr-coverage: inherited
-    def end_run(self, success: bool = True) -> None:  # noqa: D102
+    def end_run(self, success: bool = True) -> None:
+        assert self.run
         self.run.finish(exit_code=0 if success else -1)
         self.run = None
 
-    # docstr-coverage: inherited
     def log_metrics(
         self,
         metrics: Mapping[str, float],
         step: Optional[int] = None,
         prefix: Optional[str] = None,
-    ) -> None:  # noqa: D102
+    ) -> None:
         if self.run is None:
             raise AssertionError("start_run must be called before logging any metrics")
         metrics = flatten_dictionary(dictionary=metrics, prefix=prefix)
         self.run.log(metrics, step=step)
 
-    # docstr-coverage: inherited
     def log_params(
         self, params: Mapping[str, Any], prefix: Optional[str] = None
-    ) -> None:  # noqa: D102
+    ) -> None:
         if self.run is None:
             raise AssertionError("start_run must be called before logging any metrics")
         params = flatten_dictionary(dictionary=params, prefix=prefix)

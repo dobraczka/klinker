@@ -5,6 +5,8 @@ import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 from nltk.tokenize import word_tokenize
 
+from klinker.typing import SeriesType
+
 from .base import Blocker, SchemaAgnosticBlocker
 from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
@@ -16,7 +18,6 @@ from ..data import (
     KlinkerPandasFrame,
     KlinkerTripleDaskFrame,
     KlinkerTriplePandasFrame,
-    SeriesType,
 )
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
 from ..typing import Frame
@@ -26,6 +27,14 @@ FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
 
 def reverse_rel(rel_frame: Frame) -> Frame:
+    """Reverse the relations by switching first and last column.
+
+    Args:
+      rel_frame: Frame: Frame with relation triples.
+
+    Returns:
+      rel_frame with reversed relations
+    """
     orig_columns = rel_frame.columns
     rev_rel_frame = rel_frame[rel_frame.columns[::-1]]
     rev_rel_frame[rev_rel_frame.columns[1]] = (
@@ -52,10 +61,17 @@ def concat_neighbor_attributes(
 ) -> SeriesType:
     """Return concatenated attributes of neighboring entities.
 
-    :param attribute_frame: KlinkerFrame with entity attributes
-    :param rel_frame: Frame with relation triples
-    :param include_own_attributes: if True also concatenates attributes of entity itself
-    :return: Series with concatenated attribute values of neighboring entities
+    Args:
+      attribute_frame: KlinkerFrame with entity attributes
+      rel_frame: Frame with relation triples
+      include_own_attributes: if True also concatenates attributes of entity itself
+      attribute_frame: KlinkerFrame:
+      rel_frame: Frame:
+      include_own_attributes: bool:  (Default value = True)
+
+    Returns:
+      Series with concatenated attribute values of neighboring entities
+
     """
     assert attribute_frame.table_name
     rev_rel_frame = reverse_rel(rel_frame)
@@ -94,6 +110,8 @@ def concat_neighbor_attributes(
 
 
 class BaseSimpleRelationalBlocker(Blocker):
+    """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
+
     _blocker: SchemaAgnosticBlocker
 
     def concat_relational_info(
@@ -103,6 +121,17 @@ class BaseSimpleRelationalBlocker(Blocker):
         left_rel: KlinkerFrame,
         right_rel: KlinkerFrame,
     ) -> Tuple[SeriesType, SeriesType]:
+        """Concatenate neighbor entity attribute values with own.
+
+        Args:
+          left: KlinkerFrame: Frame with attribute info of left dataset.
+          right: KlinkerFrame: Frame with attribute info of right dataset.
+          left_rel: KlinkerFrame: Relation triples of left dataset.
+          right_rel: KlinkerFrame: Relation triples of right dataset.
+
+        Returns:
+            (left_conc, right_conc) Concatenated entity attribute values for left and right
+        """
         left_conc = concat_neighbor_attributes(
             left, left_rel, include_own_attributes=True
         )
@@ -118,6 +147,19 @@ class BaseSimpleRelationalBlocker(Blocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
+        """Assign entity ids to blocks.
+
+        Will concat all entity attribute information and neighboring info before proceeding.
+
+        Args:
+          left: KlinkerFrame: Contains entity attribute information of left dataset.
+          right: KlinkerFrame: Contains entity attribute information of right dataset.
+          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+
+        Returns:
+            KlinkerBlockManager: instance holding the resulting blocks.
+        """
         assert left_rel is not None
         assert right_rel is not None
         left_conc, right_conc = self.concat_relational_info(
@@ -127,6 +169,19 @@ class BaseSimpleRelationalBlocker(Blocker):
 
 
 class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
+    """Token blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import SimpleRelationalTokenBlocker
+        >>> blocker = SimpleRelationalTokenBlocker()
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
@@ -136,11 +191,23 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
         self._blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,
             min_token_length=min_token_length,
-            intermediate_saving=intermediate_saving,
         )
 
 
 class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
+    """MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import SimpleRelationalTokenBlocker
+        >>> blocker = SimpleRelationalMinHashLSHBlocker()
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
@@ -157,6 +224,8 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
 
 
 class RelationalBlocker(Blocker):
+    """Uses seperate blocker for entity attribute values and concatenation of neighboring entity attribute values."""
+
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
 
@@ -167,6 +236,21 @@ class RelationalBlocker(Blocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
+        """Assign entity ids to blocks.
+
+        Will concat all entity attribute information before proceeding.
+        Then uses `_attribute_blocker` for entity attribute values and
+        `_relation_blocker` for concatenated neighboring entity attribute values.
+
+        Args:
+          left: KlinkerFrame: Contains entity attribute information of left dataset.
+          right: KlinkerFrame: Contains entity attribute information of right dataset.
+          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+
+        Returns:
+            KlinkerBlockManager: instance holding the resulting blocks.
+        """
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
         left_rel_conc = concat_neighbor_attributes(
             left, left_rel, include_own_attributes=False
@@ -179,6 +263,19 @@ class RelationalBlocker(Blocker):
 
 
 class RelationalMinHashLSHBlocker(RelationalBlocker):
+    """Seperate MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalMinHashLSHBlocker
+        >>> blocker = RelationalMinHashLSHBlocker(attr_threshold=0.7, rel_threshold=0.9)
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
@@ -204,6 +301,20 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
 
 
 class RelationalTokenBlocker(RelationalBlocker):
+    """Seperate Tokenblocking on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalTokenBlocker
+        >>> blocker = RelationalTokenBlocker(attr_min_token_length=3, rel_min_token_length=5)
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+
+    """
+
     def __init__(
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
@@ -218,27 +329,22 @@ class RelationalTokenBlocker(RelationalBlocker):
             tokenize_fn=tokenize_fn,
             min_token_length=rel_min_token_length,
         )
-        # self._relation_blocker = self._attribute_blocker
-
-    # def _assign(
-    #     self,
-    #     left: KlinkerFrame,
-    #     right: KlinkerFrame,
-    #     left_rel: Optional[pd.DataFrame] = None,
-    #     right_rel: Optional[pd.DataFrame] = None,
-    # ) -> pd.DataFrame:
-    #     left_rel_conc = concat_neighbor_attributes(left, left_rel)
-    #     right_rel_conc = concat_neighbor_attributes(right, right_rel)
-    #     import ipdb # noqa: autoimport
-    #     ipdb.set_trace() # BREAKPOINT
-
-    #     attr_blocked = self._attribute_blocker.assign(left=left, right=right)
-    #     rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
-
-    #     return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
 
 
 class RelationalDeepBlocker(RelationalBlocker):
+    """Seperate DeepBlocker strategy on concatenation of entity attribute values and neighboring values.
+
+    Examples:
+
+        >>> # doctest: +SKIP
+        >>> from sylloge import MovieGraphBenchmark
+        >>> from klinker.data import KlinkerDataset
+        >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(),clean=True)
+        >>> from klinker.blockers import RelationalDeepBlocker
+        >>> blocker = RelationalDeepBlocker(attr_frame_encoder="autoencoder", rel_frame_encoder="autoencoder")
+        >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
+    """
+
     def __init__(
         self,
         attr_frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
@@ -265,17 +371,3 @@ class RelationalDeepBlocker(RelationalBlocker):
             embedding_block_builder_kwargs=rel_embedding_block_builder_kwargs,
             force=force,
         )
-
-
-if __name__ == "__main__":
-    from sylloge import MovieGraphBenchmark
-
-    from klinker.data import KlinkerDataset
-
-    ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
-    tok = SimpleRelationalTokenBlocker()
-    blocks = tok.assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-
-    import ipdb  # noqa: autoimport
-
-    ipdb.set_trace()  # BREAKPOINT

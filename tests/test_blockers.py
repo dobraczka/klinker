@@ -6,18 +6,21 @@ import pandas as pd
 import pytest
 from mocks import MockKeyedVector
 from strawman import dummy_triples
+from util import assert_block_eq
 
 from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
     MinHashLSHBlocker,
     QgramsBlocker,
-    SortedNeighborhoodBlocker,
     StandardBlocker,
     TokenBlocker,
 )
 from klinker.blockers.base import Blocker
-from klinker.blockers.relation_aware import concat_neighbor_attributes, SimpleRelationalTokenBlocker
+from klinker.blockers.relation_aware import (
+    SimpleRelationalTokenBlocker,
+    concat_neighbor_attributes,
+)
 from klinker.data import (
     KlinkerBlockManager,
     KlinkerDaskFrame,
@@ -27,68 +30,6 @@ from klinker.data import (
     from_klinker_frame,
 )
 from klinker.encoders.base import _get_ids
-
-
-@pytest.fixture
-def example_tables() -> Tuple[
-    KlinkerFrame, KlinkerFrame, Tuple[str, str], Tuple[Dict[int, str], Dict[int, str]]
-]:
-    dataset_names = ("A", "B")
-    id_mappings = (
-        {id_num: f"a{id_num}" for id_num in range(0, 5)},
-        {id_num: f"b{id_num}" for id_num in range(0, 5)},
-    )
-    table_A = KlinkerPandasFrame(
-        data=[
-            ["a1", "John McExample", "11-12-1973", "USA", "Engineer"],
-            ["a2", "Maggie Smith", "02-02-1983", "USA", "Scientist"],
-            ["a3", "Rebecca Smith", "04-12-1990", "Bulgaria", "Chemist"],
-            ["a4", "Nushi Devi", "14-03-1990", "India", None],
-            ["a5", "Grzegorz Brzęczyszczykiewicz", "02-04-1970", "Poland", "Soldier"],
-        ],
-        columns=["id", "Name", "Birthdate", "BirthCountry", "Occupation"],
-        table_name=dataset_names[0],
-    )
-
-    table_B = KlinkerPandasFrame(
-        data=[
-            ["b1", "John", "McExample", "11-12-1973", None],
-            ["b2", "Maggie", "Smith", "02-02-1983", "USA"],
-            ["b3", "Rebecca", "Smith", "04-12-1990", "Bulgaria"],
-            ["b4", "Anh", "Nguyen", "04-12-1990", "Indonesia"],
-            ["b5", "Nushi", "Zhang", "21-08-1989", "China"],
-        ],
-        columns=["id", "FirstName", "GivenName", "Birthdate", "BirthCountry"],
-        table_name=dataset_names[1],
-    )
-    return table_A, table_B, dataset_names, id_mappings
-
-
-@pytest.fixture
-def example_triples(
-    example_tables,
-) -> Tuple[
-    KlinkerFrame, KlinkerFrame, Tuple[str, str], Tuple[Dict[int, str], Dict[int, str]]
-]:
-    def triplify(df: pd.DataFrame) -> pd.DataFrame:
-        new_df = (
-            df.set_index("id")
-            .apply(lambda row: [key for key, val in row.items()], axis=1)
-            .explode()
-            .to_frame()
-            .rename(columns={df.table_name: "rel"})
-        )
-        new_df["tail"] = (
-            df.set_index("id")
-            .apply(lambda row: [val for key, val in row.items()], axis=1)
-            .explode()
-        )
-        return KlinkerTriplePandasFrame.from_df(
-            new_df.reset_index(), table_name=df.table_name, id_col=df.id_col
-        )
-
-    table_A, table_B, dataset_names, id_mappings = example_tables
-    return triplify(table_A), triplify(table_B), dataset_names, id_mappings
 
 
 @pytest.fixture
@@ -187,7 +128,6 @@ def expected_token_blocker(example_tables) -> KlinkerBlockManager:
             "John": (["a1"], ["b1"]),
             "Maggie": (["a2"], ["b2"]),
             "McExample": (["a1"], ["b1"]),
-            "None": (["a4"], ["b1"]),
             "Nushi": (["a4"], ["b5"]),
             "Rebecca": (["a3"], ["b3"]),
             "Smith": (["a2", "a3"], ["b2", "b3"]),
@@ -196,10 +136,11 @@ def expected_token_blocker(example_tables) -> KlinkerBlockManager:
         dataset_names,
     )
 
+
 def assert_parquet(block: KlinkerBlockManager, tmp_dir):
     block.to_parquet(tmp_dir)
     block_pq = block.read_parquet(tmp_dir)
-    block == block_pq
+    assert_block_eq(block, block_pq)
 
 
 @pytest.fixture
@@ -219,11 +160,6 @@ def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
             [
                 ("expected_standard_blocker", StandardBlocker, None),
                 ("expected_qgrams_blocker", QgramsBlocker, None),
-                (
-                    "expected_sorted_neighborhood_blocker",
-                    SortedNeighborhoodBlocker,
-                    None,
-                ),
             ],
             [True, False],
             [False, True],
@@ -233,13 +169,9 @@ def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
 )
 def test_assign_schema_aware(example_with_expected, tmpdir):
     ta, tb, expected, cls = example_with_expected
-    if cls == SortedNeighborhoodBlocker and isinstance(ta, KlinkerDaskFrame):
-        with pytest.raises(ValueError):
-            cls(blocking_key="BirthCountry").assign(ta, tb)
-    else:
-        block = cls(blocking_key="BirthCountry").assign(ta, tb)
-        assert_parquet(block, tmpdir)
-        block == expected
+    block = cls(blocking_key="BirthCountry").assign(ta, tb)
+    assert_parquet(block, tmpdir)
+    assert_block_eq(block, expected)
 
 
 @pytest.mark.parametrize(
@@ -261,7 +193,7 @@ def test_assign_schema_agnostic(example_with_expected, tmpdir):
     ta, tb, expected, cls = example_with_expected
     block = cls().assign(ta, tb)
     assert_parquet(block, tmpdir)
-    block == expected
+    assert_block_eq(block, expected)
 
 
 embedding_based_cases: List[Tuple] = list(
@@ -334,7 +266,7 @@ def test_assign_embedding_blocker(
         save=False,
     )
     if use_dask and any(
-        [frame_encoder == noimp for noimp in ["CrossTupleTraining", "Hybrid"]]
+        frame_encoder == noimp for noimp in ["CrossTupleTraining", "Hybrid"]
     ):
         with pytest.raises(NotImplementedError):
             block = blocker.assign(ta, tb)
@@ -395,7 +327,9 @@ def test_assign_relation_frame_encoder(
 
 @pytest.mark.parametrize("use_dask", [True, False])
 @pytest.mark.parametrize("include_own_attributes", [True, False])
-def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_dask, include_own_attributes):
+def test_concat_neighbor_attributes(
+    example_tables, example_rel_triples, use_dask, include_own_attributes
+):
     ta = example_tables[0]
     rel_ta = example_rel_triples[0]
     all_ids = set(rel_ta["head"].values).union(set(rel_ta["tail"].values))
@@ -405,18 +339,24 @@ def test_concat_neighbor_attributes(example_tables, example_rel_triples, use_das
     if use_dask:
         ta = from_klinker_frame(ta, npartitions=2)
         rel_ta = dd.from_pandas(rel_ta, npartitions=2)
-        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes).compute()
+        conc_ta = concat_neighbor_attributes(
+            ta, rel_ta, include_own_attributes=include_own_attributes
+        ).compute()
     else:
-        conc_ta = concat_neighbor_attributes(ta, rel_ta, include_own_attributes=include_own_attributes)
+        conc_ta = concat_neighbor_attributes(
+            ta, rel_ta, include_own_attributes=include_own_attributes
+        )
     assert len(conc_ta) == len(all_ids)
     assert set(conc_ta.index) == all_ids
 
 
 @pytest.mark.parametrize("use_dask", [True, False])
-def test_relational_token_blocker(example_tables, example_rel_triples, use_dask, tmpdir):
-    ta, tb,_,_ = example_tables
+def test_relational_token_blocker(
+    example_tables, example_rel_triples, use_dask, tmpdir
+):
+    ta, tb, _, _ = example_tables
     rel_ta, rel_tb = example_rel_triples
-    blocks = SimpleRelationalTokenBlocker().assign(ta,tb,rel_ta,rel_tb)
+    blocks = SimpleRelationalTokenBlocker().assign(ta, tb, rel_ta, rel_tb)
     assert_parquet(blocks, tmpdir)
     if use_dask:
         blocks.blocks.compute()

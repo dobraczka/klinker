@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import IO, BinaryIO, Generic, Tuple, Type, TypeVar, Union
+from typing import IO, BinaryIO, Generic, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch
@@ -15,6 +15,8 @@ FeatureType = TypeVar("FeatureType")
 
 
 class FeatureDataset(Dataset[torch.Tensor]):
+    """Dataset that simply consists of feature vector."""
+
     def __init__(self, features: torch.Tensor):
         self.features = features
 
@@ -26,6 +28,8 @@ class FeatureDataset(Dataset[torch.Tensor]):
 
 
 class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
+    """Dataset consisting of left, right features and label."""
+
     def __init__(self, left: torch.Tensor, right: torch.Tensor, labels: torch.Tensor):
         assert all(
             left.size(0) == tensor.size(0) for tensor in [right, labels]
@@ -42,6 +46,8 @@ class TripletDataset(Dataset[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
 
 
 class DeepBlockerModel(nn.Module):
+    """Base DeepBlockerModel."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__()
         self.input_dimension = input_dimension
@@ -52,6 +58,8 @@ class DeepBlockerModel(nn.Module):
 
 
 class AutoEncoderDeepBlockerModel(DeepBlockerModel):
+    """DeepBlockerModel using Autoencoder."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__(
             input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
@@ -78,6 +86,8 @@ class AutoEncoderDeepBlockerModel(DeepBlockerModel):
 
 
 class CTTDeepBlockerModel(DeepBlockerModel):
+    """CrossTupleTraining DeepBlocker model."""
+
     def __init__(self, input_dimension: int, hidden_dimensions: Tuple[int, int]):
         super().__init__(
             input_dimension=input_dimension, hidden_dimensions=hidden_dimensions
@@ -102,12 +112,14 @@ class CTTDeepBlockerModel(DeepBlockerModel):
 
 
 class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
+    """Base DeepBlocker Model Trainer."""
+
     def __init__(
         self,
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
@@ -173,12 +185,14 @@ class DeepBlockerModelTrainer(Generic[FeatureType], ABC):
 
 
 class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
+    """Trainer for DeepBlocker AutoEncoder."""
+
     def __init__(
         self,
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
@@ -233,12 +247,14 @@ class AutoEncoderDeepBlockerModelTrainer(DeepBlockerModelTrainer):
 
 
 class CTTDeepBlockerModelTrainer(DeepBlockerModelTrainer):
+    """Trainer for CrossTupleTraining model of DeepBlocker."""
+
     def __init__(
         self,
         input_dimension: int,
         hidden_dimensions: Tuple[int, int],
         learning_rate: float,
-        loss_function: _Loss = None,
+        loss_function: Optional[_Loss] = None,
         optimizer: HintOrType[Optimizer] = None,
         optimizer_kwargs: OptionalKwargs = None,
     ):
