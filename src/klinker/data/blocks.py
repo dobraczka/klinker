@@ -523,24 +523,18 @@ class KlinkerBlockManager:
         if "schema" not in kwargs:
             left, right = self.blocks.columns[:2]
             block_type = pa.list_(pa.string())
-            if self.blocks.index.name is None:
-                schema = {
-                    left: block_type,
-                    right: block_type,
-                }
-            else:
-                index_type = (
-                    pa.string() if self.blocks.index.dtype == "O" else pa.int64()
-                )
-                schema = {
-                    self.blocks.index.name: index_type,
-                    left: block_type,
-                    right: block_type,
-                }
-            schema = pa.schema(schema)
+            schema = {
+                left: block_type,
+                right: block_type,
+            }
         else:
             schema = kwargs.pop["schema"]  # type: ignore
-        self.blocks.to_parquet(path, schema=schema, **kwargs)
+        try:
+            self.blocks.to_parquet(path, schema=schema, **kwargs)
+        except ValueError:
+            schema["__null_dask_index__"] = pa.int64()
+            self.blocks.to_parquet(path, schema=schema, **kwargs)
+
 
     @classmethod
     def read_parquet(
@@ -637,7 +631,7 @@ class KlinkerBlockManager:
                 return cls.from_dict(res)
             elif isinstance(res, pd.DataFrame):
                 return cls.from_pandas(res)
-            elif isinstance(res, OldKlinkerBlockManager):
+            elif hasattr(res, "blocks") and isinstance(res.blocks, dict):
                 return cls.from_dict(
                     {
                         bk: (list(left_v), list(right_v))
