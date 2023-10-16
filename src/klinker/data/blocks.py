@@ -532,6 +532,9 @@ class KlinkerBlockManager:
         try:
             self.blocks.to_parquet(path, schema=schema, **kwargs)
         except ValueError:
+            # If index is incorrectly assumed by dask to be string
+            # and it turns out to be int64 an error would be thrown
+            # This is kind of a dirty hack
             schema["__null_dask_index__"] = pa.int64()
             self.blocks.to_parquet(path, schema=schema, **kwargs)
 
