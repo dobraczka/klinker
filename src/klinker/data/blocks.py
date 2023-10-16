@@ -538,7 +538,6 @@ class KlinkerBlockManager:
             schema["__null_dask_index__"] = pa.int64()
             self.blocks.to_parquet(path, schema=schema, **kwargs)
 
-
     @classmethod
     def read_parquet(
         cls,
