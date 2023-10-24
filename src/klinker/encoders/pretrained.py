@@ -14,11 +14,19 @@ from gensim import downloader as gensim_downloader
 from gensim.models import KeyedVectors
 from more_itertools import chunked
 from nltk.tokenize import word_tokenize
-from sentence_transformers import SentenceTransformer
 from sklearn.decomposition import TruncatedSVD
 from torch import nn
 from tqdm.auto import tqdm
-from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+
+try:
+    from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
+except ImportError:
+    AutoModel = None
 
 from .base import TokenizedFrameEncoder
 from ..data import KlinkerDaskFrame
@@ -89,8 +97,10 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         max_length: int = 128,
         batch_size: int = 512,
     ):
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        if AutoModel is None:
+            raise ImportError("Please install the transformers library!")
         self.model = AutoModel.from_pretrained(pretrained_model_name_or_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
         self.max_length = max_length
         self.batch_size = batch_size
 
@@ -169,6 +179,8 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         max_length: int = 128,
         batch_size: int = 512,
     ):
+        if SentenceTransformer is None:
+            raise ImportError("Please install the sentence-transformers library!")
         self.model = SentenceTransformer(model_name)
         self.model.max_seq_length = max_length
         self.batch_size = batch_size

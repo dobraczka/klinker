@@ -7,22 +7,21 @@ channels:
   - pytorch
   - esri
 dependencies:
-  - pytorch-cuda=11.8
-  - dask
-  - faiss-gpu
-  - cudatoolkit=11.8
-  - pytorch=2.0.0
   - python=3.10
+  - pytorch::pytorch=2.0.0
+  - pytorch::pytorch-cuda=11.8
+  - dask
+  - pytorch::faiss-gpu
+  - mkl=2021
+  - blas=1.0=mkl
   - rapids=23.06
   - pandas
   - numpy
-  - transformers
   - fasttext
   - gensim
   - pyarrow
   - nltk
-  - faiss-gpu
-  - pyg::pytorch-sparse
-  - pyg::pytorch-scatter
+  - pyg::pytorch-sparse=0.6.17
+  - pyg::pytorch-scatter=2.1.1 
 
 prefix: /home/sc.uni-leipzig.de/se302qele/miniconda3/envs/klinker-conda
