@@ -411,7 +411,7 @@ def relational_lsh_blocker(
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str)
+@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
 def deepblocker(
@@ -485,7 +485,7 @@ def deepblocker(
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str)
+@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--attr-n-neighbors", type=int, default=100)
 @click.option("--rel-n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
@@ -586,7 +586,7 @@ def relational_token_blocker(
 @click.option("--rel-dim", type=int)
 @click.option("--batch-size", type=int)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str)
+@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
 def light_ea_blocker(
@@ -644,7 +644,7 @@ def light_ea_blocker(
 @click.option("--use-weight-layers", type=bool, default=True)
 @click.option("--aggr", type=str, default="sum")
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str)
+@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
 def gcn_blocker(
@@ -702,7 +702,7 @@ def gcn_blocker(
 )
 @click.option("--embeddings", type=str, default="fasttext")
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str)
+@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
 def only_embeddings_blocker(
