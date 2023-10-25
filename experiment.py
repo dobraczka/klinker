@@ -8,6 +8,7 @@ import random
 import shutil
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
@@ -83,6 +84,7 @@ def set_random_seed(seed: Optional[int] = None):
     np.random.seed(seed=seed)
     torch.manual_seed(seed=seed)
     random.seed(seed)
+    return seed
 
 
 @dataclass
@@ -136,7 +138,7 @@ def _handle_artifacts(
 
 
 def prepare(
-    blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool
+    blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool, seed: int
 ) -> ExperimentInfo:
 
     # clean names
@@ -148,6 +150,7 @@ def prepare(
             "FrameEncoder", ""
         )
     params["blocker_name"] = blocker_name
+    params["random_seed"] = seed
 
     # create tracker
     tracker: ResultTracker
@@ -169,9 +172,22 @@ def prepare(
     artifact_name = _create_artifact_name(tracker, params)
     encodings_dir = None
     if isinstance(blocker, EmbeddingBlocker):
-        encodings_dir = _create_artifact_path(
-            artifact_name, experiment_artifact_dir, suffix="_encoded"
-        )
+        if blocker.force:
+            encodings_dir = _create_artifact_path(
+                artifact_name, experiment_artifact_dir, suffix="_encoded"
+            )
+        else:
+            encodings_dir = _create_artifact_path(
+                "ignoring_params", experiment_artifact_dir, suffix="_encoded"
+            )
+            if not os.path.exists(encodings_dir):
+                os.makedirs(encodings_dir)
+                run_info_path = _create_artifact_path(
+                    f"created_by_{artifact_name}",
+                    experiment_artifact_dir,
+                    suffix="_encoded",
+                )
+                Path(run_info_path).touch()
         blocker.save = True
         blocker.save_dir = encodings_dir
 
@@ -213,7 +229,7 @@ def process_pipeline(
     nextcloud: bool,
     random_seed: Optional[int],
 ):
-    set_random_seed(random_seed)
+    seed = set_random_seed(random_seed)
     assert (
         len(blocker_and_dataset) == 2
     ), "Only 1 dataset and 1 blocker command can be used!"
@@ -228,7 +244,7 @@ def process_pipeline(
     params = {**ds_params, **bl_params}
 
     experiment_info = prepare(
-        blocker=blocker, dataset=dataset, params=params, wandb=wandb
+        blocker=blocker, dataset=dataset, params=params, wandb=wandb, seed=seed
     )
     tracker = experiment_info.tracker
 
