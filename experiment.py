@@ -55,6 +55,23 @@ from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTra
 
 logger = logging.getLogger("KlinkerExperiment")
 
+KIEZ_FAISS_DEFAULT_KEY = "faissdefault"
+KIEZ_FAISS_DEFAULT = {
+    "algorithm": "Faiss",
+    "algorithm_kwargs": {"index_key": "HNSW32", "index_param": "efSearch=918"},
+}
+
+
+def parse_bb_kwargs(block_builder_kwargs: str, n_neighbors: int) -> Dict[str, Any]:
+    bb_kwargs: Dict[str, Any] = {}
+    if block_builder_kwargs:
+        if block_builder_kwargs == KIEZ_FAISS_DEFAULT_KEY:
+            bb_kwargs = KIEZ_FAISS_DEFAULT
+        else:
+            bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs["n_neighbors"] = n_neighbors
+    return bb_kwargs
+
 
 @dataclass
 class ExperimentInfo:
@@ -422,10 +439,7 @@ def deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs: Dict[str, Any] = {}
-    if block_builder_kwargs:
-        bb_kwargs = ast.literal_eval(block_builder_kwargs)
-    bb_kwargs["n_neighbors"] = n_neighbors
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
     start = time.time()
     blocker = DeepBlocker(
         frame_encoder=encoder,
@@ -443,7 +457,7 @@ def deepblocker(
     "--encoder", default="autoencoder", as_string=True
 )
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
+    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--num-epochs", type=int, default=50)
@@ -498,9 +512,7 @@ def relational_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs: Dict[str, Any] = {}
-    if block_builder_kwargs:
-        bb_kwargs = ast.literal_eval(block_builder_kwargs)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100)
     attr_bb_kwargs = bb_kwargs
     rel_bb_kwargs = bb_kwargs
     attr_bb_kwargs["n_neighbors"] = attr_n_neighbors
@@ -524,13 +536,9 @@ def relational_deepblocker(
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
 @click.option("--intermediate-saving", type=bool, default=False)
-def token_blocker(
-    min_token_length: int, intermediate_saving: bool
-) -> Tuple[Blocker, Dict, float]:
+def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
     start = time.time()
-    blocker = TokenBlocker(
-        min_token_length=min_token_length, intermediate_saving=intermediate_saving
-    )
+    blocker = TokenBlocker(min_token_length=min_token_length)
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 
@@ -551,7 +559,7 @@ def relational_token_blocker(
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
+    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--ent-dim", type=int, default=256)
@@ -586,10 +594,7 @@ def light_ea_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs: Dict[str, Any] = {}
-    if block_builder_kwargs:
-        bb_kwargs = ast.literal_eval(block_builder_kwargs)
-    bb_kwargs["n_neighbors"] = n_neighbors
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=LightEAFrameEncoder(
@@ -609,7 +614,7 @@ def light_ea_blocker(
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
+    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--depth", type=int, default=2)
@@ -638,10 +643,7 @@ def gcn_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs: Dict[str, Any] = {}
-    if block_builder_kwargs:
-        bb_kwargs = ast.literal_eval(block_builder_kwargs)
-    bb_kwargs["n_neighbors"] = n_neighbors
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=GCNFrameEncoder(
@@ -678,10 +680,7 @@ def only_embeddings_blocker(
     frame_encoder_kwargs = dict(
         tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
     )
-    bb_kwargs: Dict[str, Any] = {}
-    if block_builder_kwargs:
-        bb_kwargs = ast.literal_eval(block_builder_kwargs)
-    bb_kwargs["n_neighbors"] = n_neighbors
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=encoder,
