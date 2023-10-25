@@ -184,7 +184,7 @@ def prepare(
                 os.makedirs(encodings_dir)
                 run_info_path = _create_artifact_path(
                     f"created_by_{artifact_name}",
-                    experiment_artifact_dir,
+                    encodings_dir,
                     suffix="_encoded",
                 )
                 Path(run_info_path).touch()
