@@ -524,7 +524,7 @@ name = "cmake"
 version = "3.26.3"
 description = "CMake is an open-source, cross-platform family of tools designed to build, test and package software"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "cmake-3.26.3-py2.py3-none-macosx_10_10_universal2.macosx_10_10_x86_64.macosx_11_0_arm64.macosx_11_0_universal2.whl", hash = "sha256:9d38ea5b4999f8f042a071bea3e213f085bac26d7ab54cb5a4c6a193c4baf132"},
@@ -1492,7 +1492,7 @@ name = "huggingface-hub"
 version = "0.14.1"
 description = "Client library to download and publish models, datasets and other repos on the huggingface.co hub"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7.0"
 files = [
     {file = "huggingface_hub-0.14.1-py3-none-any.whl", hash = "sha256:9fc619170d800ff3793ad37c9757c255c8783051e1b5b00501205eb43ccc4f27"},
@@ -2130,37 +2130,30 @@ files = [
 
 [[package]]
 name = "kiez"
-version = "0.4.3"
+version = "0.4.4"
 description = "Hubness reduced nearest neighbor search for entity alignment with knowledge graph embeddings"
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
-files = []
-develop = false
+files = [
+    {file = "kiez-0.4.4-py3-none-any.whl", hash = "sha256:fef7191c213774b09fea7e23add655d3cc0eb62ce3bb06e71a54e0d769ee8a2c"},
+    {file = "kiez-0.4.4.tar.gz", hash = "sha256:5fcd966d3c1ff22b2499b10a4d2fbe4fe4389d71d29f40b55244596e386c1432"},
+]
 
 [package.dependencies]
 class-resolver = ">=0.3"
-joblib = "^1.2.0"
-numpy = "^1.21.0"
-pandas = "^1.1.5"
+joblib = ">=1.2.0,<2.0.0"
+numpy = ">=1.21.0,<2.0.0"
+pandas = ">=1.1.5,<2.0.0"
 scikit-learn = ">=0.24.1,<2.0.0"
-scipy = "^1.3.2"
-tqdm = "^4.62.3"
+scipy = ">=1.3.2,<2.0.0"
+tqdm = ">=4.62.3,<5.0.0"
 
 [package.extras]
-all = ["annoy (>=1.17.0,<2.0.0)", "autofaiss (>=2.4.0,<3.0.0)", "faiss-cpu (>=1.7.1,<2.0.0)", "faiss-gpu (>=1.7.1,<2.0.0)", "ngt (>=1.8)", "nmslib (>=2.1.1,<3.0.0)"]
 annoy = ["annoy (>=1.17.0,<2.0.0)"]
 docs = ["Sphinx (>=5.0.0,<6.0.0)", "insegel (>=1.3.1,<2.0.0)"]
-faiss-cpu = ["autofaiss (>=2.4.0,<3.0.0)", "faiss-cpu (>=1.7.1,<2.0.0)"]
-faiss-gpu = ["autofaiss (>=2.4.0,<3.0.0)", "faiss-gpu (>=1.7.1,<2.0.0)"]
-ngt = ["ngt (>=1.8)"]
+ngt = ["ngt (>=1.8,<2.0)"]
 nmslib = ["nmslib (>=2.1.1,<3.0.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/dobraczka/kiez.git"
-reference = "main"
-resolved_reference = "150e8345aef5c703149100f5b31d8e9f6c7e0fe2"
 
 [[package]]
 name = "kiwisolver"
@@ -2245,7 +2238,7 @@ name = "lit"
 version = "16.0.3"
 description = "A Software Testing Tool"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "lit-16.0.3.tar.gz", hash = "sha256:25524fe51fa3261212cfd86a8891429ed0460e247384c5a2001612d08e362e00"},
@@ -2857,7 +2850,7 @@ name = "mpmath"
 version = "1.3.0"
 description = "Python library for arbitrary-precision floating-point arithmetic"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"},
@@ -3089,7 +3082,7 @@ name = "networkx"
 version = "3.1"
 description = "Python package for creating and manipulating graphs and networks"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "networkx-3.1-py3-none-any.whl", hash = "sha256:4f33f68cb2afcf86f28a45f43efc27a9386b535d567d2127f8f61d51dec58d36"},
@@ -3263,7 +3256,7 @@ name = "nvidia-cublas-cu11"
 version = "11.10.3.66"
 description = "CUBLAS native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cublas_cu11-11.10.3.66-py3-none-manylinux1_x86_64.whl", hash = "sha256:d32e4d75f94ddfb93ea0a5dda08389bcc65d8916a25cb9f37ac89edaeed3bded"},
@@ -3279,7 +3272,7 @@ name = "nvidia-cuda-cupti-cu11"
 version = "11.7.101"
 description = "CUDA profiling tools runtime libs."
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cuda_cupti_cu11-11.7.101-py3-none-manylinux1_x86_64.whl", hash = "sha256:e0cfd9854e1f2edaa36ca20d21cd0bdd5dcfca4e3b9e130a082e05b33b6c5895"},
@@ -3295,7 +3288,7 @@ name = "nvidia-cuda-nvrtc-cu11"
 version = "11.7.99"
 description = "NVRTC native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cuda_nvrtc_cu11-11.7.99-2-py3-none-manylinux1_x86_64.whl", hash = "sha256:9f1562822ea264b7e34ed5930567e89242d266448e936b85bc97a3370feabb03"},
@@ -3312,7 +3305,7 @@ name = "nvidia-cuda-runtime-cu11"
 version = "11.7.99"
 description = "CUDA Runtime native Libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cuda_runtime_cu11-11.7.99-py3-none-manylinux1_x86_64.whl", hash = "sha256:cc768314ae58d2641f07eac350f40f99dcb35719c4faff4bc458a7cd2b119e31"},
@@ -3328,7 +3321,7 @@ name = "nvidia-cudnn-cu11"
 version = "8.5.0.96"
 description = "cuDNN runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cudnn_cu11-8.5.0.96-2-py3-none-manylinux1_x86_64.whl", hash = "sha256:402f40adfc6f418f9dae9ab402e773cfed9beae52333f6d86ae3107a1b9527e7"},
@@ -3344,7 +3337,7 @@ name = "nvidia-cufft-cu11"
 version = "10.9.0.58"
 description = "CUFFT native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cufft_cu11-10.9.0.58-py3-none-manylinux1_x86_64.whl", hash = "sha256:222f9da70c80384632fd6035e4c3f16762d64ea7a843829cb278f98b3cb7dd81"},
@@ -3356,7 +3349,7 @@ name = "nvidia-curand-cu11"
 version = "10.2.10.91"
 description = "CURAND native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_curand_cu11-10.2.10.91-py3-none-manylinux1_x86_64.whl", hash = "sha256:eecb269c970fa599a2660c9232fa46aaccbf90d9170b96c462e13bcb4d129e2c"},
@@ -3372,7 +3365,7 @@ name = "nvidia-cusolver-cu11"
 version = "11.4.0.1"
 description = "CUDA solver native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cusolver_cu11-11.4.0.1-2-py3-none-manylinux1_x86_64.whl", hash = "sha256:72fa7261d755ed55c0074960df5904b65e2326f7adce364cbe4945063c1be412"},
@@ -3389,7 +3382,7 @@ name = "nvidia-cusparse-cu11"
 version = "11.7.4.91"
 description = "CUSPARSE native runtime libraries"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_cusparse_cu11-11.7.4.91-py3-none-manylinux1_x86_64.whl", hash = "sha256:a3389de714db63321aa11fbec3919271f415ef19fda58aed7f2ede488c32733d"},
@@ -3405,7 +3398,7 @@ name = "nvidia-nccl-cu11"
 version = "2.14.3"
 description = "NVIDIA Collective Communication Library (NCCL) Runtime"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_nccl_cu11-2.14.3-py3-none-manylinux1_x86_64.whl", hash = "sha256:5e5534257d1284b8e825bc3a182c6f06acd6eb405e9f89d49340e98cd8f136eb"},
@@ -3416,7 +3409,7 @@ name = "nvidia-nvtx-cu11"
 version = "11.7.91"
 description = "NVIDIA Tools Extension"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3"
 files = [
     {file = "nvidia_nvtx_cu11-11.7.91-py3-none-manylinux1_x86_64.whl", hash = "sha256:b22c64eee426a62fc00952b507d6d29cf62b4c9df7a480fcc417e540e05fd5ac"},
@@ -3590,7 +3583,7 @@ name = "pillow"
 version = "9.5.0"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "Pillow-9.5.0-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:ace6ca218308447b9077c14ea4ef381ba0b67ee78d64046b3f19cf4e1139ad16"},
@@ -4770,7 +4763,7 @@ name = "sentence-transformers"
 version = "2.2.2"
 description = "Multilingual text embeddings"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.6.0"
 files = [
     {file = "sentence-transformers-2.2.2.tar.gz", hash = "sha256:dbc60163b27de21076c9a30d24b5b7b6fa05141d68cf2553fa9a77bf79a29136"},
@@ -4793,7 +4786,7 @@ name = "sentencepiece"
 version = "0.1.99"
 description = "SentencePiece python wrapper"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "sentencepiece-0.1.99-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:0eb528e70571b7c02723e5804322469b82fe7ea418c96051d0286c0fa028db73"},
@@ -5140,7 +5133,7 @@ name = "sympy"
 version = "1.12"
 description = "Computer algebra system (CAS) in Python"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "sympy-1.12-py3-none-any.whl", hash = "sha256:c3588cd4295d0c0f603d0f2ae780587e64e2efeedb3521e46b9bb1d08d184fa5"},
@@ -5231,7 +5224,7 @@ name = "tokenizers"
 version = "0.13.3"
 description = "Fast and Customizable Tokenizers"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "tokenizers-0.13.3-cp310-cp310-macosx_10_11_x86_64.whl", hash = "sha256:f3835c5be51de8c0a092058a4d4380cb9244fb34681fd0a295fbf0a52a5fdf33"},
@@ -5334,7 +5327,7 @@ name = "torch"
 version = "2.0.0"
 description = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8.0"
 files = [
     {file = "torch-2.0.0-1-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:c9090bda7d2eeeecd74f51b721420dbeb44f838d4536cc1b284e879417e3064a"},
@@ -5390,7 +5383,7 @@ name = "torchvision"
 version = "0.15.1"
 description = "image and video datasets and models for torch deep learning"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.8"
 files = [
     {file = "torchvision-0.15.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:bc10d48e9a60d006d0c1b48dea87f1ec9b63d856737d592f7c5c44cd87f3f4b7"},
@@ -5487,7 +5480,7 @@ name = "transformers"
 version = "4.29.1"
 description = "State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7.0"
 files = [
     {file = "transformers-4.29.1-py3-none-any.whl", hash = "sha256:75f851f2420c26410edbdf4a2a1a5b434ab2b96aea36eb5931d06cc3b2e7b509"},
@@ -5556,7 +5549,7 @@ name = "triton"
 version = "2.0.0"
 description = "A language and compiler for custom Deep Learning operations"
 category = "main"
-optional = false
+optional = true
 python-versions = "*"
 files = [
     {file = "triton-2.0.0-1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:38806ee9663f4b0f7cd64790e96c579374089e58f49aac4a6608121aa55e2505"},
@@ -5833,7 +5826,7 @@ name = "wheel"
 version = "0.40.0"
 description = "A built-package format for Python"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 files = [
     {file = "wheel-0.40.0-py3-none-any.whl", hash = "sha256:d236b20e7cb522daf2390fa84c55eea81c5c30190f90f29ae2ca1ad8355bf247"},
@@ -5985,10 +5978,10 @@ docs = ["furo", "jaraco.packaging (>=9)", "jaraco.tidelift (>=1.4)", "rst.linker
 testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more-itertools", "pytest (>=6)", "pytest-black (>=0.3.7)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=1.3)", "pytest-flake8", "pytest-mypy (>=0.9.1)"]
 
 [extras]
-all = ["transformers", "torch", "fasttext-wheel", "gensim", "click", "wandb", "matplotlib", "seaborn", "jupyter", "ipython", "dask", "pyarrow"]
+all = ["transformers", "torch", "fasttext-wheel", "gensim", "click", "wandb", "matplotlib", "seaborn", "jupyter", "ipython", "dask", "pyarrow", "sentence-transformers"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "d151e78524d31ba632935cc81d8d9e0f6719a6ce98df18e61682fe6f252fd087"
+content-hash = "f67dd34b0551fbeb0fb7b12a702dd30d55d75d3a83170bd44a779db345058d86"

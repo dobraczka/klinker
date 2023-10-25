@@ -29,10 +29,10 @@ mkdocs-section-index = {version = "^0.3.5", optional = true}
 pandas = "^1.5.3"
 numpy = "^1.24.2"
 datasketch = "^1.5.9"
-kiez = {git = "https://github.com/dobraczka/kiez.git", rev = "main"}
+kiez = "^0.4.4"
 sylloge = "^0.2.1"
 hdbscan = "^0.8.32"
-sentence-transformers = "^2.2.2"
+sentence-transformers = {version = "^2.2.2", optional = true}
 more-itertools = "^9.1.0"
 nltk = "^3.8.1"
 dask = ">=2023.4.1"
@@ -79,7 +79,7 @@ memray = "^1.9.1"
 
 [tool.poetry.extras]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkdocs-gen-files", "mkdocs-section-index"]
-all = ["transformers","torch","fasttext-wheel","gensim","click","wandb","matplotlib","seaborn","jupyter","ipython","dask","pyarrow"]
+all = ["transformers","torch","fasttext-wheel","gensim","click","wandb","matplotlib","seaborn","jupyter","ipython","dask","pyarrow","sentence-transformers"]
 
 
 [build-system]
