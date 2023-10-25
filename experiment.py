@@ -4,12 +4,15 @@ import json
 import logging
 import os
 import pickle
+import random
 import shutil
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
+import numpy as np
+import torch
 from nephelai import upload
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
 from sylloge.base import EADataset
@@ -54,6 +57,15 @@ from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 
 logger = logging.getLogger("KlinkerExperiment")
+
+
+def set_random_seed(seed: Optional[int] = None):
+    if seed is None:
+        seed = np.random.randint(0, 2**16)
+        logger.info(f"No random seed provided. Using {seed}")
+    np.random.seed(seed=seed)
+    torch.manual_seed(seed=seed)
+    random.seed(seed)
 
 
 @dataclass
@@ -194,21 +206,27 @@ def prepare(
 @click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 @click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
-def cli(clean: bool, wandb: bool, nextcloud: bool):
+@click.option("--random-seed", type=int, default=None)
+def cli(clean: bool, wandb: bool, nextcloud: bool, random_seed: Optional[int]):
     pass
 
 
 @cli.result_callback()
 def process_pipeline(
-    blocker_and_dataset: List, clean: bool, wandb: bool, nextcloud: bool
+    blocker_and_dataset: List,
+    clean: bool,
+    wandb: bool,
+    nextcloud: bool,
+    random_seed: Optional[int],
 ):
+    set_random_seed(random_seed)
     assert (
         len(blocker_and_dataset) == 2
     ), "Only 1 dataset and 1 blocker command can be used!"
     if not isinstance(blocker_and_dataset[0][0], EADataset):
         raise ValueError("First command must be dataset command!")
     if not isinstance(blocker_and_dataset[1][0], Blocker):
-        raise ValueError("First command must be blocker command!")
+        raise ValueError("Second command must be blocker command!")
     dataset_with_params, blocker_with_params = blocker_and_dataset
     dataset, ds_params = dataset_with_params
     blocker, bl_params, blocker_creation_time = blocker_with_params
@@ -609,20 +627,32 @@ def light_ea_blocker(
 
 @cli.command()
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
+    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
+@click.option("--batch-size", type=int)
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--depth", type=int, default=2)
-@click.option("--batch-size", type=int)
+@click.option("--edge-weight", type=float, default=1.0)
+@click.option("--self-loop-weight", type=float, default=2.0)
+@click.option("--layer-dims", type=int, default=300)
+@click.option("--bias", type=bool, default=True)
+@click.option("--use-weight-layers", type=bool, default=True)
+@click.option("--aggr", type=str, default="sum")
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
 def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
+    batch_size: Optional[int],
     embeddings: str,
     depth: int,
-    batch_size: Optional[int],
+    edge_weight: float,
+    self_loop_weight: float,
+    layer_dims: int,
+    bias: bool,
+    use_weight_layers: bool,
+    aggr: str,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -646,6 +676,12 @@ def gcn_blocker(
     blocker = EmbeddingBlocker(
         frame_encoder=GCNFrameEncoder(
             depth=depth,
+            edge_weight=edge_weight,
+            self_loop_weight=self_loop_weight,
+            layer_dims=layer_dims,
+            bias=bias,
+            use_weight_layers=use_weight_layers,
+            aggr=aggr,
             attribute_encoder=inner_encoder,
             attribute_encoder_kwargs=attribute_encoder_kwargs,
         ),
