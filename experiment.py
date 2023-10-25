@@ -378,7 +378,7 @@ def relational_lsh_blocker(
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
-@click.option("--embeddings", type=str, default="glove")
+@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--learning-rate", type=float, default=1e-3)
@@ -454,7 +454,7 @@ def deepblocker(
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
-@click.option("--embeddings", type=str, default="glove")
+@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--learning_rate", type=float, default=1e-3)
@@ -556,7 +556,7 @@ def relational_token_blocker(
 @tokenized_frame_encoder_resolver.get_option(
     "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
-@click.option("--embeddings", type=str, default="glove")
+@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--ent-dim", type=int, default=256)
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
@@ -612,7 +612,7 @@ def light_ea_blocker(
     "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
 @click.option("--batch-size", type=int)
-@click.option("--embeddings", type=str, default="glove")
+@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--depth", type=int, default=2)
 @click.option("--edge-weight", type=float, default=1.0)
 @click.option("--self-loop-weight", type=float, default=2.0)
