@@ -21,14 +21,7 @@ from klinker.blockers.relation_aware import (
     SimpleRelationalTokenBlocker,
     concat_neighbor_attributes,
 )
-from klinker.data import (
-    KlinkerBlockManager,
-    KlinkerDaskFrame,
-    KlinkerFrame,
-    KlinkerPandasFrame,
-    KlinkerTriplePandasFrame,
-    from_klinker_frame,
-)
+from klinker.data import KlinkerBlockManager, KlinkerFrame, from_klinker_frame
 from klinker.encoders.base import _get_ids
 
 
@@ -287,7 +280,12 @@ def test_assign_embedding_blocker(
 
 
 @pytest.mark.parametrize(
-    "cls, params", [("LightEAFrameEncoder", dict(mini_dim=3)), ("GCNFrameEncoder", {})]
+    "cls, params",
+    [
+        ("LightEAFrameEncoder", dict(mini_dim=3)),
+        ("GCNFrameEncoder", dict(layer_dims=3, use_weight_layers=True)),
+        ("GCNFrameEncoder", dict(layer_dims=3, use_weight_layers=False)),
+    ],
 )
 def test_assign_relation_frame_encoder(
     cls,
