@@ -117,29 +117,6 @@ def _create_artifact_name(tracker: ResultTracker, params: Dict) -> str:
         return hashlib.sha1(json.dumps(params, sort_keys=True).encode()).hexdigest()
 
 
-# def _create_block_artifact_path(artifact_name: str, artifact_dir: str, tracker: ResultTracker, params: Dict) -> str:
-#     if isinstance(tracker, WANDBResultTracker):
-#         artifact_file_path = _create_artifact_path(artifact_name, artifact_dir)
-#     else:
-#         params_artifact_path = _create_artifact_path(
-#             artifact_name, artifact_dir, suffix="_params.pkl"
-#         )
-#         with open(params_artifact_path, "wb") as out_file:
-#             pickle.dump(params, out_file)
-#         logger.info(f"Saved parameters artifact in {params_artifact_path}")
-#         counter = 0
-#         while True:
-#             counter_artifact_name = f"{artifact_name}_{counter}"
-#             artifact_file_path = _create_artifact_path(
-#                 counter_artifact_name, artifact_dir
-#             )
-#             if os.path.exists(artifact_file_path):
-#                 counter += 1
-#             else:
-#                 break
-#     return artifact_file_path
-
-
 def _handle_artifacts(
     wandb: bool,
     params: Dict,
