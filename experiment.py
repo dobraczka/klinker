@@ -1,10 +1,10 @@
 import ast
-import shutil
 import hashlib
 import json
 import logging
 import os
 import pickle
+import shutil
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type, get_args
@@ -364,7 +364,7 @@ def relational_lsh_blocker(
     "--encoder", default="autoencoder", as_string=True
 )
 @tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="TransformerTokenizedFrameEncoder", as_string=True
+    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
 )
 @click.option("--embeddings", type=str, default="glove")
 @click.option("--num-epochs", type=int, default=50)
@@ -373,6 +373,8 @@ def relational_lsh_blocker(
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
+@click.option("--embedding-dimension", type=int, default=300)
+@click.option("--hidden-dimension", type=int, default=150)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str)
 @click.option("--n-neighbors", type=int, default=100)
@@ -387,6 +389,8 @@ def deepblocker(
     synth_tuples_per_tuple: int,
     pos_to_neg_ratio: float,
     max_perturbation: float,
+    embedding_dimension: int,
+    hidden_dimension: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -408,6 +412,7 @@ def deepblocker(
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
+        "hidden_dimensions": (embedding_dimension, hidden_dimension),
     }
     if not encoder == "autoencoder":
         encoder_kwargs.update(
