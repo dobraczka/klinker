@@ -1,8 +1,10 @@
 import logging
-from typing import Optional, Tuple, Union
+import math
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+import torch.nn as nn
 from class_resolver import HintOrType, OptionalKwargs
 
 try:
@@ -72,12 +74,11 @@ def _gcn_norm(
     edge_index,
     num_nodes: int,
     edge_weight=None,
-    improved=True,
+    fill_value=2.0,
     add_self_loops=True,
     flow="source_to_target",
     dtype=None,
 ):
-    fill_value = 2.0 if improved else 1.0
     assert flow in ["source_to_target", "target_to_source"]
 
     if edge_weight is None:
@@ -104,11 +105,72 @@ def _gcn_norm(
     return edge_index, edge_weight
 
 
+class BasicMessagePassing:
+    def __init__(
+        self,
+        edge_weight: float = 1.0,
+        self_loop_weight: float = 2.0,
+        aggr: str = "add",
+    ):
+        self.edge_weight = edge_weight
+        self.self_loop_weight = self_loop_weight
+        self.aggr = aggr
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        edge_index_with_loops, edge_weights = _gcn_norm(
+            edge_index,
+            num_nodes=len(x),
+            edge_weight=torch.tensor([self.edge_weight] * len(edge_index[0])),
+            fill_value=self.self_loop_weight,
+        )
+        return sparse_matmul(
+            SparseTensor.from_edge_index(edge_index_with_loops, edge_attr=edge_weights),
+            x,
+            reduce=self.aggr,
+        )
+
+
+def _glorot(value: torch.Tensor):
+    # see https://github.com/pyg-team/pytorch_geometric/blob/3e55a4c263f04ed6676618226f9a0aaf406d99b9/torch_geometric/nn/inits.py#L30
+    stdv = math.sqrt(6.0 / (value.size(-2) + value.size(-1)))
+    value.data.uniform_(-stdv, stdv)
+
+
+class FrozenGCNConv(BasicMessagePassing):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        bias: bool = False,
+        edge_weight: float = 1.0,
+        self_loop_weight: float = 2.0,
+        aggr: str = "add",
+    ):
+        super().__init__(
+            edge_weight=edge_weight, self_loop_weight=self_loop_weight, aggr=aggr
+        )
+        self.lin = nn.Linear(in_channels, out_channels, bias=bias)
+        for param in self.lin.parameters():
+            param.requires_grad = False
+        # Use glorot initialization
+        _glorot(self.lin.weight)
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        x = self.lin(x)
+        return super().forward(x, edge_index)
+
+
 class GCNFrameEncoder(RelationFrameEncoder):
     """Use untrained GCN for aggregating neighboring embeddings with self.
 
     Args:
         depth: How many hops of neighbors should be incorporated
+        edge_weight: Weighting of non-self-loops
+        self_loop_weight: Weighting of self-loops
+        layer_dims: Dimensionality of layers if used
+        bias: Whether to use bias in layers
+        use_weight_layers: Whether to use randomly initialized layers in aggregation
+        aggr: Which aggregation to use. Can be :obj:`"sum"`, :obj:`"mean"`, :obj:`"min"` or :obj:`"max"`
         attribute_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
         attribute_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing encoder
     """
@@ -116,23 +178,46 @@ class GCNFrameEncoder(RelationFrameEncoder):
     def __init__(
         self,
         depth: int = 2,
+        edge_weight: float = 1.0,
+        self_loop_weight: float = 2.0,
+        layer_dims: int = 300,
+        bias: bool = False,
+        use_weight_layers: bool = True,
+        aggr: str = "sum",
         attribute_encoder: HintOrType[TokenizedFrameEncoder] = None,
         attribute_encoder_kwargs: OptionalKwargs = None,
     ):
         if not TORCH_SCATTER:
             logger.error("Could not find torch_scatter and/or torch_sparse package!")
         self.depth = depth
+        self.edge_weight = edge_weight
+        self.self_loop_weight = self_loop_weight
         self.device = resolve_device()
         self.attribute_encoder = tokenized_frame_encoder_resolver.make(
             attribute_encoder, attribute_encoder_kwargs
         )
-
-    def _forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
-        edge_index_with_loops, edge_weights = _gcn_norm(edge_index, num_nodes=len(x))
-        return sparse_matmul(
-            SparseTensor.from_edge_index(edge_index_with_loops, edge_attr=edge_weights),
-            x,
-        )
+        layers: List[BasicMessagePassing]
+        if use_weight_layers:
+            layers = [
+                FrozenGCNConv(
+                    in_channels=layer_dims,
+                    out_channels=layer_dims,
+                    edge_weight=edge_weight,
+                    self_loop_weight=self_loop_weight,
+                    aggr=aggr,
+                )
+                for _ in range(self.depth)
+            ]
+        else:
+            layers = [
+                BasicMessagePassing(
+                    edge_weight=edge_weight,
+                    self_loop_weight=self_loop_weight,
+                    aggr=aggr,
+                )
+                for _ in range(self.depth)
+            ]
+        self.layers = layers
 
     def _encode_rel(
         self,
@@ -143,6 +228,6 @@ class GCNFrameEncoder(RelationFrameEncoder):
         full_graph = np.concatenate([rel_triples_left, rel_triples_right])
         edge_index = torch.from_numpy(full_graph[:, [0, 2]]).t()
         x = ent_features.vectors
-        for _ in range(self.depth):
-            x = self._forward(x, edge_index)
+        for layer in self.layers:
+            x = layer.forward(x, edge_index)
         return x
