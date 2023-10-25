@@ -372,7 +372,7 @@ def relational_lsh_blocker(
 @click.option("--learning_rate", type=float, default=1e-3)
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
-@click.option("--perturbation", type=float, default=0.4)
+@click.option("--max-perturbation", type=float, default=0.4)
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
@@ -388,7 +388,7 @@ def deepblocker(
     learning_rate: float,
     synth_tuples_per_tuple: int,
     pos_to_neg_ratio: float,
-    perturbation: float,
+    max_perturbation: float,
     embedding_dimension: int,
     hidden_dimension: int,
     block_builder: Type[EmbeddingBlockBuilder],
@@ -419,7 +419,7 @@ def deepblocker(
             {
                 "synth_tuples_per_tuple": synth_tuples_per_tuple,
                 "pos_to_neg_ratio": pos_to_neg_ratio,
-                "max_perturbation": perturbation,
+                "max_perturbation": max_perturbation,
             }
         )
     bb_kwargs: Dict[str, Any] = {}
