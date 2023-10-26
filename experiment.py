@@ -137,6 +137,31 @@ def _handle_artifacts(
         upload(artifact_dir, artifact_dir)
 
 
+def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
+    if isinstance(blocker, (EmbeddingBlocker, RelationalDeepBlocker)):
+        if blocker.force:
+            encodings_dir = _create_artifact_path(
+                artifact_name, experiment_artifact_dir, suffix="_encoded"
+            )
+        else:
+            encodings_dir = _create_artifact_path(
+                "ignoring_params", experiment_artifact_dir, suffix="_encoded"
+            )
+            if not os.path.exists(encodings_dir):
+                os.makedirs(encodings_dir)
+                run_info_path = _create_artifact_path(
+                    f"created_by_{artifact_name}",
+                    encodings_dir,
+                    suffix="_encoded",
+                )
+                Path(run_info_path).touch()
+        blocker.save = True
+        blocker.save_dir = encodings_dir
+        return encodings_dir
+    else:
+        return None
+
+
 def prepare(
     blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool, seed: int
 ) -> ExperimentInfo:
@@ -170,26 +195,9 @@ def prepare(
         os.makedirs(experiment_artifact_dir)
     tracker.start_run()
     artifact_name = _create_artifact_name(tracker, params)
-    encodings_dir = None
-    if isinstance(blocker, EmbeddingBlocker):
-        if blocker.force:
-            encodings_dir = _create_artifact_path(
-                artifact_name, experiment_artifact_dir, suffix="_encoded"
-            )
-        else:
-            encodings_dir = _create_artifact_path(
-                "ignoring_params", experiment_artifact_dir, suffix="_encoded"
-            )
-            if not os.path.exists(encodings_dir):
-                os.makedirs(encodings_dir)
-                run_info_path = _create_artifact_path(
-                    f"created_by_{artifact_name}",
-                    encodings_dir,
-                    suffix="_encoded",
-                )
-                Path(run_info_path).touch()
-        blocker.save = True
-        blocker.save_dir = encodings_dir
+    encodings_dir = _handle_encodings_dir(
+        blocker, artifact_name, experiment_artifact_dir
+    )
 
     params_artifact_path = (
         _create_artifact_path(
