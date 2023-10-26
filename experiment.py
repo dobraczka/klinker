@@ -485,6 +485,8 @@ def deepblocker(
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
+@click.option("--embedding-dimension", type=int, default=300)
+@click.option("--hidden-dimension", type=int, default=150)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--attr-n-neighbors", type=int, default=100)
@@ -500,6 +502,8 @@ def relational_deepblocker(
     synth_tuples_per_tuple: int,
     pos_to_neg_ratio: float,
     max_perturbation: float,
+    embedding_dimension: int,
+    hidden_dimension: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     attr_n_neighbors: int,
@@ -522,6 +526,7 @@ def relational_deepblocker(
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
+        "hidden_dimensions": (embedding_dimension, hidden_dimension),
     }
     if not encoder == "autoencoder":
         encoder_kwargs.update(
