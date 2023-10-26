@@ -1,4 +1,5 @@
-from typing import Callable, List, Optional, Tuple, TypeVar
+import pathlib
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 import dask.dataframe as dd
 import pandas as pd
@@ -345,6 +346,9 @@ class RelationalDeepBlocker(RelationalBlocker):
         >>> blocks = blocker.assign(left=ds.left, right=ds.right, left_rel=ds.left_rel, right_rel=ds.right_rel)
     """
 
+    _attribute_blocker: DeepBlocker
+    _relation_blocker: DeepBlocker
+
     def __init__(
         self,
         attr_frame_encoder: HintOrType[DeepBlockerFrameEncoder] = None,
@@ -355,6 +359,8 @@ class RelationalDeepBlocker(RelationalBlocker):
         rel_frame_encoder_kwargs: OptionalKwargs = None,
         rel_embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
         rel_embedding_block_builder_kwargs: OptionalKwargs = None,
+        save: bool = True,
+        save_dir: Optional[Union[str, pathlib.Path]] = None,
         force: bool = False,
     ):
         self._attribute_blocker = DeepBlocker(
@@ -362,12 +368,50 @@ class RelationalDeepBlocker(RelationalBlocker):
             frame_encoder_kwargs=attr_frame_encoder_kwargs,
             embedding_block_builder=attr_embedding_block_builder,
             embedding_block_builder_kwargs=attr_embedding_block_builder_kwargs,
-            force=force,
         )
         self._relation_blocker = DeepBlocker(
             frame_encoder=rel_frame_encoder,
             frame_encoder_kwargs=rel_frame_encoder_kwargs,
             embedding_block_builder=rel_embedding_block_builder,
             embedding_block_builder_kwargs=rel_embedding_block_builder_kwargs,
-            force=force,
         )
+        # set after instatiating seperate blocker to use setter
+        self.save = save
+        self.force = force
+        self.save_dir = save_dir
+
+    @property
+    def save(self) -> bool:
+        return self._save
+
+    @save.setter
+    def save(self, value: bool):
+        self._save = value
+        self._attribute_blocker.save = value
+        self._relation_blocker.save = value
+
+    @property
+    def force(self) -> bool:
+        return self._force
+
+    @force.setter
+    def force(self, value: bool):
+        self._force = value
+        self._attribute_blocker.force = value
+        self._relation_blocker.force = value
+
+    @property
+    def save_dir(self) -> Optional[Union[str, pathlib.Path]]:
+        return self._save_dir
+
+    @save_dir.setter
+    def save_dir(self, value: Optional[Union[str, pathlib.Path]]):
+        if value is None:
+            self._save_dir = None
+            self._attribute_blocker.save_dir = None
+            self._relation_blocker.save_dir = None
+        else:
+            sd = pathlib.Path(value)
+            self._save_dir = sd
+            self._attribute_blocker.save_dir = sd.joinpath("attributes")
+            self._relation_blocker.save_dir = sd.joinpath("relation")
