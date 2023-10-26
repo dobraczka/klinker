@@ -481,7 +481,7 @@ def deepblocker(
 @click.option("--embeddings", type=str, default="fasttext")
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
-@click.option("--learning_rate", type=float, default=1e-3)
+@click.option("--learning-rate", type=float, default=1e-3)
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
 @click.option("--max-perturbation", type=float, default=0.4)
