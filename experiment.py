@@ -149,11 +149,6 @@ def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
             )
         else:
             ignoring_params_name = "ignoring_params"
-            if isinstance(blocker, RelationalDeepBlocker):
-                import ipdb  # noqa: autoimport
-
-                ipdb.set_trace()  # BREAKPOINT
-
             encodings_dir = _create_artifact_path(
                 "ignoring_params", experiment_artifact_dir, suffix="_encoded"
             )
