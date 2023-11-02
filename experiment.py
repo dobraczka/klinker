@@ -148,6 +148,12 @@ def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
                 artifact_name, experiment_artifact_dir, suffix="_encoded"
             )
         else:
+            ignoring_params_name = "ignoring_params"
+            if isinstance(blocker, RelationalDeepBlocker):
+                import ipdb  # noqa: autoimport
+
+                ipdb.set_trace()  # BREAKPOINT
+
             encodings_dir = _create_artifact_path(
                 "ignoring_params", experiment_artifact_dir, suffix="_encoded"
             )
@@ -177,6 +183,13 @@ def prepare(
     if isinstance(blocker, EmbeddingBlocker):
         blocker_name = blocker.frame_encoder.__class__.__name__.replace(
             "FrameEncoder", ""
+        )
+    if isinstance(blocker, RelationalDeepBlocker):
+        blocker_name = (
+            "Relational"
+            + blocker._attribute_blocker.frame_encoder.__class__.__name__.replace(
+                "FrameEncoder", ""
+            )
         )
     params["blocker_name"] = blocker_name
     params["random_seed"] = seed
