@@ -103,6 +103,20 @@ class ExperimentInfo:
 
 
 def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
+    if isinstance(instance, RelationalDeepBlocker):
+        known_attr = {
+            f"attr_{key}": val
+            for key, val in _get_encoder_times(
+                instance._attribute_blocker, known
+            ).items()
+        }
+        known_rel = {
+            f"rel_{key}": val
+            for key, val in _get_encoder_times(
+                instance._relation_blocker, known
+            ).items()
+        }
+        return {**known_attr, **known_rel}
     for _, value in instance.__dict__.items():
         if isinstance(value, FrameEncoder):
             if hasattr(value, "_encoding_time"):
@@ -148,7 +162,6 @@ def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
                 artifact_name, experiment_artifact_dir, suffix="_encoded"
             )
         else:
-            ignoring_params_name = "ignoring_params"
             encodings_dir = _create_artifact_path(
                 "ignoring_params", experiment_artifact_dir, suffix="_encoded"
             )
@@ -581,14 +594,11 @@ def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
-@click.option("--intermediate-saving", type=bool, default=False)
 def relational_token_blocker(
     min_token_length: int, intermediate_saving: bool
 ) -> Tuple[Blocker, Dict, float]:
     start = time.time()
-    blocker = SimpleRelationalTokenBlocker(
-        min_token_length=min_token_length, intermediate_saving=intermediate_saving
-    )
+    blocker = SimpleRelationalTokenBlocker(min_token_length=min_token_length)
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 

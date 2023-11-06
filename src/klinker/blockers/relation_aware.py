@@ -187,7 +187,6 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         min_token_length: int = 3,
-        intermediate_saving: bool = False,
     ):
         self._blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,

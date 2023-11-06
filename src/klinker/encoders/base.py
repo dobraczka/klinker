@@ -97,11 +97,14 @@ class FrameEncoder:
         right_rel: Optional[Frame] = None,
         return_type: GeneralVectorLiteral = "pt",
     ) -> Tuple[GeneralVector, GeneralVector]:
+        start = time.time()
         left_enc, right_enc = self._encode(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
         left_enc = cast_general_vector(left_enc, return_type=return_type)
         right_enc = cast_general_vector(right_enc, return_type=return_type)
+        end = time.time()
+        self._encoding_time = end - start
         return left_enc, right_enc
 
     def encode(
@@ -129,7 +132,6 @@ class FrameEncoder:
         # TODO check if series can't be used everywhere instead
         # of upgrading in prepare
         left, right = self.prepare(left, right)
-        start = time.time()
         left_enc, right_enc = self._encode_as(
             left=left,
             right=right,
@@ -137,8 +139,6 @@ class FrameEncoder:
             right_rel=right_rel,
             return_type=return_type,
         )
-        end = time.time()
-        self._encoding_time = end - start
         if isinstance(left, dd.DataFrame):
             left_names = left.index.compute().tolist()
             right_names = right.index.compute().tolist()
