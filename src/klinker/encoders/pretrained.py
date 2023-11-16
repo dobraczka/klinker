@@ -224,6 +224,7 @@ class TokenizedWordEmbedder:
         embedding_fn: Union[str, Callable[[str], GeneralVector]] = "fasttext",
         tokenizer_fn: Callable[[str], List[str]] = word_tokenize,
     ):
+        # TODO delay loading
         if isinstance(embedding_fn, str):
             if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
                 actual_name = TokenizedWordEmbedder._gensim_mapping_download[

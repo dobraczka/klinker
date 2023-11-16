@@ -19,6 +19,7 @@ from ..data import (
     KlinkerPandasFrame,
     KlinkerTripleDaskFrame,
     KlinkerTriplePandasFrame,
+    combine_blocks,
 )
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
 from ..typing import Frame
@@ -259,7 +260,7 @@ class RelationalBlocker(Blocker):
             right, right_rel, include_own_attributes=False
         )
         rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
-        return KlinkerBlockManager.combine(attr_blocked, rel_blocked)
+        return combine_blocks(attr_blocked, rel_blocked)
 
 
 class RelationalMinHashLSHBlocker(RelationalBlocker):

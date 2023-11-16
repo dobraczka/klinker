@@ -94,6 +94,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
                     f"{left.table_name}_{right.table_name}_{self.frame_encoder.__class__.__name__}"
                 )
                 self.save_dir = save_dir
+            # check if loadable
             if os.path.exists(self.save_dir):
                 left_path, left_name = self._encoding_path_and_table_name_from_dir(
                     "left_", left.table_name
@@ -117,6 +118,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
                             right_path=right_path,
                             right_name=right_name,
                         )
+
+        # else encode
         left_emb, right_emb = self.frame_encoder.encode(
             left=left,
             right=right,

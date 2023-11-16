@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -8,7 +9,12 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from ...data import KlinkerBlockManager, KlinkerFrame, NamedVector
+from ...data import (
+    KlinkerBlockManager,
+    KlinkerFrame,
+    NamedVector,
+    NNBasedKlinkerBlockManager,
+)
 from ...typing import GeneralVector
 
 try:
@@ -78,14 +84,16 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         Returns:
             Blocks
         """
+        start = time.time()
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
-        df = pd.DataFrame(neighbors)
-        df[right_name] = df.applymap(
-            lambda x, right: right.names[x],
-            right=right,
-        ).values.tolist()
-        df[left_name] = [[name] for name in left.names]
-        return KlinkerBlockManager.from_pandas(df[[left_name, right_name]])
+        print(f"Neighbors shape: {neighbors.shape}")
+        end = time.time()
+        print(f"Got neighbors in {end - start}")
+        reverse_mapping = np.vectorize(right.id_entity_mapping.get)
+        df = pd.DataFrame(reverse_mapping(neighbors), index=left.names)
+        # parquet does not like int column names
+        df.columns = df.columns.astype(str)
+        return NNBasedKlinkerBlockManager.from_pandas(df)
 
 
 class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
@@ -271,7 +279,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         alpha: float = 1.0,
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
-        **kwargs
+        **kwargs,
     ):
         self.clusterer = HDBSCAN(
             min_cluster_size=min_cluster_size,
@@ -280,7 +288,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
             metric=metric,
             alpha=alpha,
             p=p,
-            **kwargs
+            **kwargs,
         )
 
     def _cluster(

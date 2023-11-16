@@ -358,11 +358,7 @@ class KlinkerBlockManager:
 
     def __init__(self, blocks: dd.DataFrame):
         self.blocks = blocks
-        grouped = []
-        for column_name in self.blocks.columns:
-            cur_ex = self.blocks[column_name].explode()
-            grouped.append(cur_ex.to_frame().groupby(by=column_name))
-        self._grouped = tuple(grouped)
+        self._grouped: Optional[Tuple] = None
 
     def __getitem__(self, key):
         return self.blocks.loc[key]
@@ -395,6 +391,13 @@ class KlinkerBlockManager:
         Returns:
             Blocks where entity id belongs to.
         """
+        if self._grouped is None:
+            grouped = []
+            for column_name in self.blocks.columns:
+                cur_ex = self.blocks[column_name].explode()
+                grouped.append(cur_ex.to_frame().groupby(by=column_name))
+            self._grouped = tuple(grouped)
+        assert self._grouped  # for mypy
         return self._grouped[column_id].get_group(entity_id).index.values.compute()
 
     def entity_pairs(
@@ -538,9 +541,8 @@ class KlinkerBlockManager:
             schema["__null_dask_index__"] = pa.int64()
             self.blocks.to_parquet(path, schema=schema, **kwargs)
 
-    @classmethod
+    @staticmethod
     def read_parquet(
-        cls,
         path: Union[str, pathlib.Path],
         calculate_divisions: bool = True,
         **kwargs,
@@ -555,13 +557,17 @@ class KlinkerBlockManager:
         Returns:
             Blocks as KlinkerBlockManager
         """
-        return cls(
-            dd.read_parquet(
-                path=path,
-                calculate_divisions=calculate_divisions,
-                **kwargs,
-            )
+        blocks = dd.read_parquet(
+            path=path,
+            calculate_divisions=calculate_divisions,
+            **kwargs,
         )
+        if len(blocks.columns) > 2:
+            return NNBasedKlinkerBlockManager(blocks)
+        # for the rare case, that NN was <=2
+        if not isinstance(blocks[blocks.columns[0]].head(1), list):
+            return NNBasedKlinkerBlockManager(blocks)
+        return KlinkerBlockManager(blocks)
 
     @classmethod
     def from_pandas(
@@ -642,3 +648,73 @@ class KlinkerBlockManager:
                 )  # type: ignore
             else:
                 raise ValueError(f"Unknown pickled object of type {type(res)}")
+
+
+class NNBasedKlinkerBlockManager(KlinkerBlockManager):
+    def to_dict(self) -> Dict[Union[str, int], Tuple[Union[str, int], Union[str, int]]]:
+        raise NotImplementedError
+
+    def find_blocks(self, entity_id: Union[str, int], column_id: int) -> np.ndarray:
+        raise NotImplementedError
+
+    @classmethod
+    def from_dict(
+        cls,
+        block_dict: Dict[
+            BlockIdTypeVar, Tuple[List[EntityIdTypeVar], List[EntityIdTypeVar]]
+        ],
+        dataset_names: Tuple[str, str] = ("left", "right"),
+        npartitions: int = 1,
+        **kwargs,
+    ) -> "KlinkerBlockManager":
+        raise NotImplementedError
+
+    def to_parquet(self, path: Union[str, pathlib.Path], **kwargs):
+        self.blocks.to_parquet(path, **kwargs)
+
+    def entity_pairs(
+        self, entity_id: Union[str, int], column_id: int
+    ) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        raise NotImplementedError
+
+    def all_pairs(self) -> Generator[Tuple[Union[int, str], ...], None, None]:
+        """Get all pairs
+
+        Returns:
+            Generator that creates all pairs, from blocks (including duplicates).
+        """
+        for row in self.blocks.itertuples(name=None):
+            # first entry in itertuples here is index
+            for pair in itertools.product([row[0]], row[1:]):
+                if pair[1] is None:
+                    continue
+                yield pair
+
+    @property
+    def block_sizes(self) -> pd.DataFrame:
+        """Sizes of blocks"""
+        return self.blocks.apply(
+            np.count_nonzero, axis=1, meta=pd.Series([], dtype="int64")
+        ).compute()
+
+    @classmethod
+    def combine(
+        cls, this: "KlinkerBlockManager", other: "KlinkerBlockManager"
+    ) -> "NNBasedKlinkerBlockManager":
+        len_this = len(this.blocks.columns)
+        len_other = len(other.blocks.columns)
+        # we need string columns for saving to parquet
+        new_cols = list(map(str, range(len_this + len_other)))
+        cc = this.blocks.join(other.blocks, lsuffix="l", rsuffix="r", how="outer")
+        cc.columns = new_cols
+        return cls(cc)
+
+
+def combine_blocks(
+    this: "KlinkerBlockManager", other: "KlinkerBlockManager"
+) -> "KlinkerBlockManager":
+    if isinstance(this, NNBasedKlinkerBlockManager) and isinstance(
+        other, NNBasedKlinkerBlockManager
+    ):
+        return NNBasedKlinkerBlockManager.combine(this, other)
+    return KlinkerBlockManager.combine(this, other)

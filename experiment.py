@@ -126,7 +126,7 @@ def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
 
 
 def _create_artifact_path(artifact_name: str, artifact_dir: str, suffix: str) -> str:
-    return os.path.join(os.path.join(artifact_dir, f"{artifact_name}{suffix}"))
+    return os.path.join(artifact_dir, f"{artifact_name}{suffix}")
 
 
 def _create_artifact_name(tracker: ResultTracker, params: Dict) -> str:
@@ -199,6 +199,10 @@ def prepare(
                 "FrameEncoder", ""
             )
         )
+
+    if "kiez" in params.values():
+        # TODO remove
+        params["improved_time"] = True
     params["blocker_name"] = blocker_name
     params["random_seed"] = seed
 
@@ -562,8 +566,9 @@ def relational_deepblocker(
             }
         )
     bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100)
-    attr_bb_kwargs = bb_kwargs
-    rel_bb_kwargs = bb_kwargs
+    # deep-copy
+    attr_bb_kwargs = {**bb_kwargs}
+    rel_bb_kwargs = {**bb_kwargs}
     attr_bb_kwargs["n_neighbors"] = attr_n_neighbors
     rel_bb_kwargs["n_neighbors"] = rel_n_neighbors
     start = time.time()
