@@ -72,12 +72,15 @@ KIEZ_FAISS_DEFAULT = {
 }
 
 
-def parse_bb_kwargs(block_builder_kwargs: str, n_neighbors: int) -> Dict[str, Any]:
+def parse_bb_kwargs(
+    block_builder_kwargs: str, n_neighbors: int, block_builder: str
+) -> Dict[str, Any]:
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
-        if block_builder_kwargs == KIEZ_FAISS_DEFAULT_KEY:
-            bb_kwargs = KIEZ_FAISS_DEFAULT
-        else:
+        if block_builder == "kiez":
+            if block_builder_kwargs == KIEZ_FAISS_DEFAULT_KEY:
+                bb_kwargs = KIEZ_FAISS_DEFAULT
+        elif block_builder_kwargs != KIEZ_FAISS_DEFAULT_KEY:
             bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
     return bb_kwargs
@@ -489,7 +492,7 @@ def deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
     start = time.time()
     blocker = DeepBlocker(
         frame_encoder=encoder,
@@ -567,7 +570,7 @@ def relational_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder)
     # deep-copy
     attr_bb_kwargs = {**bb_kwargs}
     rel_bb_kwargs = {**bb_kwargs}
@@ -647,7 +650,7 @@ def light_ea_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=LightEAFrameEncoder(
@@ -708,7 +711,7 @@ def gcn_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=GCNFrameEncoder(
@@ -809,7 +812,7 @@ def gcn_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
 
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -902,7 +905,7 @@ def light_ea_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
 
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -945,7 +948,7 @@ def only_embeddings_blocker(
     frame_encoder_kwargs = dict(
         tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
     )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=encoder,
