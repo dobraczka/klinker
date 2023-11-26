@@ -160,8 +160,8 @@ def sparse_sinkhorn_sims_pytorch(
     dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
     param = "Flat"
     index = faiss.index_factory(dim, param, measure)
-    res = faiss.StandardGpuResources()
-    index = faiss.index_cpu_to_gpu(res, 1, index)
+    faiss.StandardGpuResources()
+    index = faiss.index_cpu_to_all_gpus(index)
     index.train(features_r)
     index.add(features_r)
     sims, index = index.search(features_l, top_k)
