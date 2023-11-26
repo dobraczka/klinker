@@ -146,50 +146,59 @@ def tokenize_row(
 
 @torch.no_grad()
 def sparse_sinkhorn_sims_pytorch(
-    features_l, features_r, top_k=500, iteration=15, reg=0.02, device=None
+    features_l,
+    features_r,
+    top_k=500,
+    iteration=15,
+    reg=0.02,
+    device=None,
+    use_faiss=False,
 ):
-    import faiss
     import torch_scatter
 
     device = resolve_device(device)
     features_l = cast_general_vector(features_l, "np")
     features_r = cast_general_vector(features_r, "np")
-    faiss.normalize_L2(features_l)
-    faiss.normalize_L2(features_r)
 
-    dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
-    param = "Flat"
-    index = faiss.index_factory(dim, param, measure)
-    faiss.StandardGpuResources()
-    index = faiss.index_cpu_to_all_gpus(index)
-    index.train(features_r)
-    index.add(features_r)
-    sims, index = index.search(features_l, top_k)
+    if use_faiss:
+        import faiss
+
+        faiss.normalize_L2(features_l)
+        faiss.normalize_L2(features_r)
+
+        dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
+        param = "Flat"
+        index = faiss.index_factory(dim, param, measure)
+        faiss.StandardGpuResources()
+        index = faiss.index_cpu_to_all_gpus(index)
+        index.train(features_l)
+        index.add(features_l)
+        sims, index = index.search(features_r, top_k)
+    else:
+        from kiez import Kiez
+
+        kiez = Kiez(n_neighbors=top_k, algorithm="Sklearnnn")
+        kiez.fit(features_l, features_r)
+        dist, index = kiez.kneighbors()
+        x = -dist
+        sims = (x - np.min(x)) / (np.max(x) - np.min(x))
     sims = torch.tensor(sims).to(device)
     index = torch.tensor(index).to(device)
 
     row_sims = torch.exp(sims.flatten() / reg)
-    index = torch.flatten(index.to(torch.int64))
 
     size = features_l.shape[0]
     row_index = (
         torch.stack(
             [
                 torch.arange(size * top_k).to(device) // top_k,
-                index,
+                torch.flatten(index.to(torch.int64)),
                 torch.arange(size * top_k).to(device),
             ]
         )
     ).t()
     col_index = row_index[torch.argsort(row_index[:, 1])]
     covert_idx = torch.argsort(col_index[:, 2])
-    list(
-        map(
-            lambda x: print(x.size(), x.max(), x.min()),
-            [row_sims, row_index, col_index, covert_idx, index],
-        )
-    )
-
     for _ in tqdm(range(iteration), desc="Sinkhorn Iterations"):
         row_sims = (
             row_sims
@@ -202,7 +211,7 @@ def sparse_sinkhorn_sims_pytorch(
         )
         row_sims = col_sims[covert_idx]
 
-    index, sims = torch.reshape(row_index[:, 1], (-1, top_k)), torch.reshape(
-        row_sims, (-1, top_k)
-    )
-    return index, sims
+    sims = torch.reshape(row_sims, (-1, top_k))
+    ranks = np.argsort(-sims.cpu().numpy(), -1)
+    new_index = np.take_along_axis(index.cpu().numpy(), ranks, axis=-1)
+    return new_index, sims

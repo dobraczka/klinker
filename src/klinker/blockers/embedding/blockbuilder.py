@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -17,6 +18,8 @@ try:
     from cuml.cluster import HDBSCAN
 except ImportError:
     from hdbscan import HDBSCAN
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingBlockBuilder:
@@ -97,6 +100,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
 
     Args:
         n_neighbors: number k nearest neighbors.
+        n_candidates: number candidates, when using hubness reduction.
         algorithm: nearest neighbor algorithm.
         algorithm_kwargs: keyword arguments for initialising nearest neighbor algorithm.
         hubness: hubness reduction method if wanted.
@@ -125,11 +129,18 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     def __init__(
         self,
         n_neighbors: int = 5,
+        n_candidates: Optional[int] = None,
         algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
         algorithm_kwargs: Optional[Dict[str, Any]] = None,
         hubness: Optional[Union[str, HubnessReduction, Type[HubnessReduction]]] = None,
         hubness_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if n_candidates:
+            if "n_candidates" in algorithm_kwargs:
+                logger.warn(
+                    f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
+                )
+            algorithm_kwargs["n_candidates"] = n_candidates
         self.kiez = Kiez(
             n_neighbors=n_neighbors,
             algorithm=algorithm,
@@ -163,10 +174,15 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
 
 class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     def __init__(
-        self, n_neighbors=100, top_k_candidates=500, iteration=15, reg=0.02, device=None
+        self, n_neighbors=10, n_candidates=50, iteration=10, reg=0.05, device=None
     ):
+        if top_k_candidates < n_neighbors:
+            logger.warn(
+                "n_candidates cannot be smaller than n_neighbors! Setting n_candidates = n_neighbors"
+            )
+            n_candidates = n_neighbors
         self.n_neighbors = n_neighbors
-        self.top_k_candidates = top_k_candidates
+        self.n_candidates = n_candidates
         self.iteration = iteration
         self.reg = reg
         self.device = device
@@ -179,12 +195,12 @@ class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         neighs, _ = sparse_sinkhorn_sims_pytorch(
             left,
             right,
-            top_k=self.top_k_candidates,
+            top_k=self.n_candidates,
             iteration=self.iteration,
             reg=self.reg,
             device=self.device,
         )
-        return neighs.detach().cpu().numpy()[:, : self.n_neighbors]
+        return neighs[:, : self.n_neighbors]
 
 
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):

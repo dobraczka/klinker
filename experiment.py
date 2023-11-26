@@ -73,7 +73,10 @@ KIEZ_FAISS_DEFAULT = {
 
 
 def parse_bb_kwargs(
-    block_builder_kwargs: str, n_neighbors: int, block_builder: str
+    block_builder_kwargs: str,
+    n_neighbors: int,
+    block_builder: str,
+    n_candidates: Optional[int] = None,
 ) -> Dict[str, Any]:
     bb_kwargs: Dict[str, Any] = {}
     if block_builder_kwargs:
@@ -83,6 +86,8 @@ def parse_bb_kwargs(
         elif block_builder_kwargs != KIEZ_FAISS_DEFAULT_KEY:
             bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
+    if n_candidates:
+        bb_kwargs["n_candidates"] = n_candidates
     return bb_kwargs
 
 
@@ -448,6 +453,7 @@ def relational_lsh_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
@@ -464,6 +470,7 @@ def deepblocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -492,7 +499,9 @@ def deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates=n_candidates
+    )
     start = time.time()
     blocker = DeepBlocker(
         frame_encoder=encoder,
@@ -525,6 +534,7 @@ def deepblocker(
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--attr-n-neighbors", type=int, default=100)
 @click.option("--rel-n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def relational_deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
@@ -542,6 +552,7 @@ def relational_deepblocker(
     block_builder_kwargs: str,
     attr_n_neighbors: int,
     rel_n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -570,7 +581,7 @@ def relational_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder)
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder, n_candidates)
     # deep-copy
     attr_bb_kwargs = {**bb_kwargs}
     rel_bb_kwargs = {**bb_kwargs}
@@ -626,6 +637,7 @@ def relational_token_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -638,6 +650,7 @@ def light_ea_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -650,7 +663,9 @@ def light_ea_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=LightEAFrameEncoder(
@@ -684,6 +699,7 @@ def light_ea_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -699,6 +715,7 @@ def gcn_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -711,7 +728,9 @@ def gcn_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=GCNFrameEncoder(
@@ -759,10 +778,7 @@ def gcn_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
-@click.option("--force", type=bool, default=True)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def gcn_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -786,6 +802,7 @@ def gcn_deepblocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -812,7 +829,9 @@ def gcn_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
 
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -860,6 +879,7 @@ def gcn_deepblocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def light_ea_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
@@ -879,6 +899,7 @@ def light_ea_deepblocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
@@ -905,7 +926,9 @@ def light_ea_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
 
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -936,6 +959,7 @@ def light_ea_deepblocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
+@click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
 def only_embeddings_blocker(
     encoder: str,
@@ -943,12 +967,15 @@ def only_embeddings_blocker(
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
+    n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
     frame_encoder_kwargs = dict(
         tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
     )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, n_neighbors, block_builder)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=encoder,
