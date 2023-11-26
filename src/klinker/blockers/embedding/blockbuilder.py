@@ -176,7 +176,7 @@ class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     def __init__(
         self, n_neighbors=10, n_candidates=50, iteration=10, reg=0.05, device=None
     ):
-        if top_k_candidates < n_neighbors:
+        if n_candidates < n_neighbors:
             logger.warn(
                 "n_candidates cannot be smaller than n_neighbors! Setting n_candidates = n_neighbors"
             )
