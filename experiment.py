@@ -858,10 +858,6 @@ def gcn_deepblocker(
 @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--force", type=bool, default=True)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--force", type=bool, default=True)
 def light_ea_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     te_batch_size: Optional[int],

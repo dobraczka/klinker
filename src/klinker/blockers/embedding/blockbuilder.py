@@ -9,13 +9,9 @@ from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
 
-from ...data import (
-    KlinkerBlockManager,
-    KlinkerFrame,
-    NamedVector,
-    NNBasedKlinkerBlockManager,
-)
+from ...data import KlinkerBlockManager, NamedVector, NNBasedKlinkerBlockManager
 from ...typing import GeneralVector
+from ...utils import sparse_sinkhorn_sims_pytorch
 
 try:
     from cuml.cluster import HDBSCAN
@@ -165,6 +161,32 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         return neighs
 
 
+class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
+    def __init__(
+        self, n_neighbors=100, top_k_candidates=500, iteration=15, reg=0.02, device=None
+    ):
+        self.n_neighbors = n_neighbors
+        self.top_k_candidates = top_k_candidates
+        self.iteration = iteration
+        self.reg = reg
+        self.device = device
+
+    def _get_neighbors(
+        self,
+        left: GeneralVector,
+        right: GeneralVector,
+    ) -> np.ndarray:
+        neighs, _ = sparse_sinkhorn_sims_pytorch(
+            left,
+            right,
+            top_k=self.top_k_candidates,
+            iteration=self.iteration,
+            reg=self.reg,
+            device=self.device,
+        )
+        return neighs.detach().cpu().numpy()[:, : self.n_neighbors]
+
+
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
     """Use clustering of embeddings for blockbuilding."""
 
@@ -310,7 +332,11 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
 
 
 block_builder_resolver = ClassResolver(
-    [KiezEmbeddingBlockBuilder, HDBSCANEmbeddingBlockBuilder],
+    [
+        KiezEmbeddingBlockBuilder,
+        HDBSCANEmbeddingBlockBuilder,
+        SparseSinkhornEmbeddingBlockBuilder,
+    ],
     base=EmbeddingBlockBuilder,
     default=KiezEmbeddingBlockBuilder,
 )

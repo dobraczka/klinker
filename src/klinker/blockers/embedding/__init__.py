@@ -4,6 +4,7 @@ from .blockbuilder import (
     HDBSCANEmbeddingBlockBuilder,
     KiezEmbeddingBlockBuilder,
     NearestNeighborEmbeddingBlockBuilder,
+    SparseSinkhornEmbeddingBlockBuilder,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "KiezEmbeddingBlockBuilder",
     "HDBSCANEmbeddingBlockBuilder",
     "ClusteringEmbeddingBlockBuilder",
+    "SparseSinkhornEmbeddingBlockBuilder",
 ]

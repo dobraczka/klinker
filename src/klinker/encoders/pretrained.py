@@ -451,7 +451,6 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             svd = TruncatedSVD(n_components=1, n_iter=7, random_state=0)
             svd.fit(embeddings)
             pc = svd.components_
-
             sif_embeddings = embeddings - embeddings.dot(pc.transpose()) * pc
         else:
             sif_embeddings = embeddings

@@ -141,3 +141,67 @@ def tokenize_row(
             )
         )
     return list(set(res))
+
+
+@torch.no_grad()
+def sparse_sinkhorn_sims_pytorch(
+    features_l, features_r, top_k=500, iteration=15, reg=0.02, device=None
+):
+    import faiss
+    import torch_scatter
+
+    device = resolve_device(device)
+    features_l = cast_general_vector(features_l, "pt")
+    features_r = cast_general_vector(features_r, "pt")
+    faiss.normalize_L2(features_l)
+    faiss.normalize_L2(features_r)
+
+    dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
+    param = "Flat"
+    index = faiss.index_factory(dim, param, measure)
+    res = faiss.StandardGpuResources()
+    index = faiss.index_cpu_to_gpu(res, 1, index)
+    index.train(features_r)
+    index.add(features_r)
+    sims, index = index.search(features_l, top_k)
+    sims = torch.tensor(sims).to(device)
+    index = torch.tensor(index).to(device)
+
+    row_sims = torch.exp(sims.flatten() / reg)
+    index = torch.flatten(index.to(torch.int64))
+
+    size = features_l.shape[0]
+    row_index = (
+        torch.stack(
+            [
+                torch.arange(size * top_k).to(device) // top_k,
+                index,
+                torch.arange(size * top_k).to(device),
+            ]
+        )
+    ).t()
+    col_index = row_index[torch.argsort(row_index[:, 1])]
+    covert_idx = torch.argsort(col_index[:, 2])
+    list(
+        map(
+            lambda x: print(x.size(), x.max(), x.min()),
+            [row_sims, row_index, col_index, covert_idx, index],
+        )
+    )
+
+    for _ in range(iteration):
+        row_sims = (
+            row_sims
+            / torch_scatter.scatter_add(row_sims, row_index[:, 0])[row_index[:, 0]]
+        )
+        col_sims = row_sims[col_index[:, 2]]
+        col_sims = (
+            col_sims
+            / torch_scatter.scatter_add(col_sims, col_index[:, 1])[col_index[:, 1]]
+        )
+        row_sims = col_sims[covert_idx]
+
+    index, sims = torch.reshape(row_index[:, 1], (-1, top_k)), torch.reshape(
+        row_sims, (-1, top_k)
+    )
+    return index, sims

@@ -301,6 +301,10 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
                 label_list[training_data_index] = 0
                 training_data_index += 1
 
+        import ipdb  # noqa: autoimport
+
+        ipdb.set_trace()  # BREAKPOINT
+
         left_train_enc, right_train_enc = self.inner_encoder._encode_as(
             pd.DataFrame(left_tuple_list),
             pd.DataFrame(right_tuple_list),
@@ -419,5 +423,5 @@ deep_blocker_encoder_resolver = ClassResolver(
         HybridDeepBlockerFrameEncoder,
     ],
     base=DeepBlockerFrameEncoder,
-    default=CrossTupleTrainingDeepBlockerFrameEncoder,
+    default=AutoEncoderDeepBlockerFrameEncoder,
 )
