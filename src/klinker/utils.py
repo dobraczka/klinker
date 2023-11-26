@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 from nltk.tokenize import word_tokenize
+from tqdm.auto import tqdm
 
 from .typing import (
     DeviceHint,
@@ -151,8 +152,8 @@ def sparse_sinkhorn_sims_pytorch(
     import torch_scatter
 
     device = resolve_device(device)
-    features_l = cast_general_vector(features_l, "pt")
-    features_r = cast_general_vector(features_r, "pt")
+    features_l = cast_general_vector(features_l, "np")
+    features_r = cast_general_vector(features_r, "np")
     faiss.normalize_L2(features_l)
     faiss.normalize_L2(features_r)
 
@@ -189,7 +190,7 @@ def sparse_sinkhorn_sims_pytorch(
         )
     )
 
-    for _ in range(iteration):
+    for _ in tqdm(range(iteration), desc="Sinkhorn Iterations"):
         row_sims = (
             row_sims
             / torch_scatter.scatter_add(row_sims, row_index[:, 0])[row_index[:, 0]]
