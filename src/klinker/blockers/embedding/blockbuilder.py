@@ -136,6 +136,8 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         hubness_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
         if n_candidates:
+            if algorithm_kwargs is None:
+                algorithm_kwargs = dict()
             if "n_candidates" in algorithm_kwargs:
                 logger.warn(
                     f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
