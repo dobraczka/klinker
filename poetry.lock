@@ -171,6 +171,26 @@ tests = ["attrs[tests-no-zope]", "zope-interface"]
 tests-no-zope = ["cloudpickle", "hypothesis", "mypy (>=1.1.1)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "pytest-xdist[psutil]"]
 
 [[package]]
+name = "autorank"
+version = "1.1.3"
+description = "Automated ranking of populations in a repeated measures experiment, e.g., to rank different machine learning approaches tested on the same data."
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "autorank-1.1.3-py3-none-any.whl", hash = "sha256:617b061d71695dc55a04f12caf6578ab6f4e319b6e3cbb9fe5f95670e0d55524"},
+    {file = "autorank-1.1.3.tar.gz", hash = "sha256:81b5b8bef4b1cbce518e15ad06a344f7ff8baa647eab9992fafccc2da53bf903"},
+]
+
+[package.dependencies]
+baycomp = ">=1.0.2"
+matplotlib = ">=3.1.3"
+numpy = "*"
+pandas = ">=0.25.0"
+scipy = ">=1.5.0"
+statsmodels = ">=0.10.0"
+
+[[package]]
 name = "backcall"
 version = "0.2.0"
 description = "Specifications for callback functions passed in to an API"
@@ -181,6 +201,22 @@ files = [
     {file = "backcall-0.2.0-py2.py3-none-any.whl", hash = "sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255"},
     {file = "backcall-0.2.0.tar.gz", hash = "sha256:5cbdbf27be5e7cfadb448baf0aa95508f91f2bbc6c6437cd9cd06e2a4c215e1e"},
 ]
+
+[[package]]
+name = "baycomp"
+version = "1.0.3"
+description = "Bayesian tests for comparison of classifiers"
+category = "dev"
+optional = false
+python-versions = ">=3"
+files = [
+    {file = "baycomp-1.0.3.tar.gz", hash = "sha256:32b25ad7b16d5b251ddb9f6110a32d7b3953b987096da1d25ef277935d25daec"},
+]
+
+[package.dependencies]
+matplotlib = ">=2.1.2"
+numpy = ">=1.13.1"
+scipy = ">=0.19.1"
 
 [[package]]
 name = "bcrypt"
@@ -597,6 +633,17 @@ files = [
 ]
 
 [[package]]
+name = "colorizelatextables"
+version = "1.1"
+description = "Utility script to transform csv files or pandas dataframes to colorized LaTex tables"
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "colorizelatextables-1.1-py3-none-any.whl", hash = "sha256:69c7d6551d76767f832851d30aace4ce3a85e7f9734f207461fae4782307583d"},
+]
+
+[[package]]
 name = "colorlog"
 version = "6.7.0"
 description = "Add colours to the output of Python's logging module."
@@ -639,7 +686,7 @@ name = "contourpy"
 version = "1.0.7"
 description = "Python library for calculating contours of 2D quadrilateral grids"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "contourpy-1.0.7-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:95c3acddf921944f241b6773b767f1cbce71d03307270e2d769fd584d5d1092d"},
@@ -827,7 +874,7 @@ name = "cycler"
 version = "0.11.0"
 description = "Composable style cycles"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6"
 files = [
     {file = "cycler-0.11.0-py3-none-any.whl", hash = "sha256:3a27e95f763a428a739d2add979fa7494c912a32c17c4c38c4d5f082cad165a3"},
@@ -1356,7 +1403,7 @@ name = "fonttools"
 version = "4.39.4"
 description = "Tools to manipulate font files"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "fonttools-4.39.4-py3-none-any.whl", hash = "sha256:106caf6167c4597556b31a8d9175a3fdc0356fdcd70ab19973c3b0d4c893c461"},
@@ -1637,7 +1684,7 @@ name = "importlib-resources"
 version = "5.12.0"
 description = "Read resources from Python packages"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 files = [
     {file = "importlib_resources-5.12.0-py3-none-any.whl", hash = "sha256:7b1deeebbf351c7578e09bf2f63fa2ce8b5ffec296e0d349139d43cca061a81a"},
@@ -2241,7 +2288,7 @@ name = "kiwisolver"
 version = "1.4.4"
 description = "A fast implementation of the Cassowary constraint solver"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 files = [
     {file = "kiwisolver-1.4.4-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:2f5e60fabb7343a836360c4f0919b8cd0d6dbf08ad2ca6b9cf90bf0c76a3c4f6"},
@@ -2553,7 +2600,7 @@ name = "matplotlib"
 version = "3.7.1"
 description = "Python plotting package"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "matplotlib-3.7.1-cp310-cp310-macosx_10_12_universal2.whl", hash = "sha256:95cbc13c1fc6844ab8812a525bbc237fa1470863ff3dace7352e910519e194b1"},
@@ -3655,6 +3702,25 @@ files = [
 ]
 
 [[package]]
+name = "patsy"
+version = "0.5.3"
+description = "A Python package for describing statistical models and for building design matrices."
+category = "dev"
+optional = false
+python-versions = "*"
+files = [
+    {file = "patsy-0.5.3-py2.py3-none-any.whl", hash = "sha256:7eb5349754ed6aa982af81f636479b1b8db9d5b1a6e957a6016ec0534b5c86b7"},
+    {file = "patsy-0.5.3.tar.gz", hash = "sha256:bdc18001875e319bc91c812c1eb6a10be4bb13cb81eb763f466179dca3b67277"},
+]
+
+[package.dependencies]
+numpy = ">=1.4"
+six = "*"
+
+[package.extras]
+test = ["pytest", "pytest-cov", "scipy"]
+
+[[package]]
 name = "pexpect"
 version = "4.8.0"
 description = "Pexpect allows easy control of interactive console applications."
@@ -3686,7 +3752,7 @@ name = "pillow"
 version = "9.5.0"
 description = "Python Imaging Library (Fork)"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.7"
 files = [
     {file = "Pillow-9.5.0-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:ace6ca218308447b9077c14ea4ef381ba0b67ee78d64046b3f19cf4e1139ad16"},
@@ -4098,7 +4164,7 @@ name = "pyparsing"
 version = "3.0.9"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
 category = "main"
-optional = true
+optional = false
 python-versions = ">=3.6.8"
 files = [
     {file = "pyparsing-3.0.9-py3-none-any.whl", hash = "sha256:5026bae9a10eeaefb61dab2f09052b9f4307d44aee4eda64b309723d8d206bbc"},
@@ -5228,6 +5294,60 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "statsmodels"
+version = "0.14.0"
+description = "Statistical computations and models for Python"
+category = "dev"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "statsmodels-0.14.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:16bfe0c96a53b20fa19067e3b6bd2f1d39e30d4891ea0d7bc20734a0ae95942d"},
+    {file = "statsmodels-0.14.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5a6a0a1a06ff79be8aa89c8494b33903442859add133f0dda1daf37c3c71682e"},
+    {file = "statsmodels-0.14.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:77b3cd3a5268ef966a0a08582c591bd29c09c88b4566c892a7c087935234f285"},
+    {file = "statsmodels-0.14.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9c64ebe9cf376cba0c31aed138e15ed179a1d128612dd241cdf299d159e5e882"},
+    {file = "statsmodels-0.14.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:229b2f676b4a45cb62d132a105c9c06ca8a09ffba060abe34935391eb5d9ba87"},
+    {file = "statsmodels-0.14.0-cp310-cp310-win_amd64.whl", hash = "sha256:fb471f757fc45102a87e5d86e87dc2c8c78b34ad4f203679a46520f1d863b9da"},
+    {file = "statsmodels-0.14.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:582f9e41092e342aaa04920d17cc3f97240e3ee198672f194719b5a3d08657d6"},
+    {file = "statsmodels-0.14.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7ebe885ccaa64b4bc5ad49ac781c246e7a594b491f08ab4cfd5aa456c363a6f6"},
+    {file = "statsmodels-0.14.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b587ee5d23369a0e881da6e37f78371dce4238cf7638a455db4b633a1a1c62d6"},
+    {file = "statsmodels-0.14.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0ef7fa4813c7a73b0d8a0c830250f021c102c71c95e9fe0d6877bcfb56d38b8c"},
+    {file = "statsmodels-0.14.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:afe80544ef46730ea1b11cc655da27038bbaa7159dc5af4bc35bbc32982262f2"},
+    {file = "statsmodels-0.14.0-cp311-cp311-win_amd64.whl", hash = "sha256:a6ad7b8aadccd4e4dd7f315a07bef1bca41d194eeaf4ec600d20dea02d242fce"},
+    {file = "statsmodels-0.14.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:0eea4a0b761aebf0c355b726ac5616b9a8b618bd6e81a96b9f998a61f4fd7484"},
+    {file = "statsmodels-0.14.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4c815ce7a699047727c65a7c179bff4031cff9ae90c78ca730cfd5200eb025dd"},
+    {file = "statsmodels-0.14.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:575f61337c8e406ae5fa074d34bc6eb77b5a57c544b2d4ee9bc3da6a0a084cf1"},
+    {file = "statsmodels-0.14.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8be53cdeb82f49c4cb0fda6d7eeeb2d67dbd50179b3e1033510e061863720d93"},
+    {file = "statsmodels-0.14.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:6f7d762df4e04d1dde8127d07e91aff230eae643aa7078543e60e83e7d5b40db"},
+    {file = "statsmodels-0.14.0-cp312-cp312-win_amd64.whl", hash = "sha256:fc2c7931008a911e3060c77ea8933f63f7367c0f3af04f82db3a04808ad2cd2c"},
+    {file = "statsmodels-0.14.0-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:3757542c95247e4ab025291a740efa5da91dc11a05990c033d40fce31c450dc9"},
+    {file = "statsmodels-0.14.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:de489e3ed315bdba55c9d1554a2e89faa65d212e365ab81bc323fa52681fc60e"},
+    {file = "statsmodels-0.14.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:76e290f4718177bffa8823a780f3b882d56dd64ad1c18cfb4bc8b5558f3f5757"},
+    {file = "statsmodels-0.14.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:71054f9dbcead56def14e3c9db6f66f943110fdfb19713caf0eb0f08c1ec03fd"},
+    {file = "statsmodels-0.14.0-cp38-cp38-win_amd64.whl", hash = "sha256:d7fda067837df94e0a614d93d3a38fb6868958d37f7f50afe2a534524f2660cb"},
+    {file = "statsmodels-0.14.0-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:1c7724ad573af26139a98393ae64bc318d1b19762b13442d96c7a3e793f495c3"},
+    {file = "statsmodels-0.14.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:3b0a135f3bfdeec987e36e3b3b4c53e0bb87a8d91464d2fcc4d169d176f46fdb"},
+    {file = "statsmodels-0.14.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ce28eb1c397dba437ec39b9ab18f2101806f388c7a0cf9cdfd8f09294ad1c799"},
+    {file = "statsmodels-0.14.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:68b1c768dd94cc5ba8398121a632b673c625491aa7ed627b82cb4c880a25563f"},
+    {file = "statsmodels-0.14.0-cp39-cp39-win_amd64.whl", hash = "sha256:8d1e3e10dfbfcd58119ba5a4d3c7d519182b970a2aebaf0b6f539f55ae16058d"},
+    {file = "statsmodels-0.14.0.tar.gz", hash = "sha256:6875c7d689e966d948f15eb816ab5616f4928706b180cf470fd5907ab6f647a4"},
+]
+
+[package.dependencies]
+numpy = [
+    {version = ">=1.18", markers = "python_version != \"3.10\" or platform_system != \"Windows\" or platform_python_implementation == \"PyPy\""},
+    {version = ">=1.22.3", markers = "python_version == \"3.10\" and platform_system == \"Windows\" and platform_python_implementation != \"PyPy\""},
+]
+packaging = ">=21.3"
+pandas = ">=1.0"
+patsy = ">=0.5.2"
+scipy = ">=1.4,<1.9.2 || >1.9.2"
+
+[package.extras]
+build = ["cython (>=0.29.26)"]
+develop = ["colorama", "cython (>=0.29.26)", "cython (>=0.29.28,<3.0.0)", "flake8", "isort", "joblib", "matplotlib (>=3)", "oldest-supported-numpy (>=2022.4.18)", "pytest (>=7.0.1,<7.1.0)", "pytest-randomly", "pytest-xdist", "pywinpty", "setuptools-scm[toml] (>=7.0.0,<7.1.0)"]
+docs = ["ipykernel", "jupyter-client", "matplotlib", "nbconvert", "nbformat", "numpydoc", "pandas-datareader", "sphinx"]
+
+[[package]]
 name = "strawman"
 version = "0.1.2"
 description = "Library for simple dummy objects"
@@ -6129,4 +6249,4 @@ docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkd
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "46926438db8c9039acec76bd9c55d9e7a9fe189683d37624d144c0c0e415b2fe"
+content-hash = "604806408e5e0a8ec7f8d80ac0214a2b91abe30afff4aa709ccf3ba2919d8d3d"

@@ -565,7 +565,7 @@ class KlinkerBlockManager:
         if len(blocks.columns) > 2:
             return NNBasedKlinkerBlockManager(blocks)
         # for the rare case, that NN was <=2
-        if not isinstance(blocks[blocks.columns[0]].head(1), list):
+        if isinstance(blocks[blocks.columns[0]].head(1).values[0], (str, int)):
             return NNBasedKlinkerBlockManager(blocks)
         return KlinkerBlockManager(blocks)
 
@@ -693,9 +693,12 @@ class NNBasedKlinkerBlockManager(KlinkerBlockManager):
     @property
     def block_sizes(self) -> pd.DataFrame:
         """Sizes of blocks"""
-        return self.blocks.apply(
-            np.count_nonzero, axis=1, meta=pd.Series([], dtype="int64")
-        ).compute()
+        return (
+            self.blocks.apply(
+                np.count_nonzero, axis=1, meta=pd.Series([], dtype="int64")
+            ).compute()
+            + 1
+        )
 
     @classmethod
     def combine(
