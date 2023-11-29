@@ -65,8 +65,7 @@ KIEZ_FAISS_DEFAULT_KEY = "faissdefault"
 KIEZ_FAISS_DEFAULT = {
     "algorithm": "Faiss",
     "algorithm_kwargs": {
-        "index_key": "HNSW32",
-        "index_param": "efSearch=918",
+        "index_key": "Flat",
         "use_gpu": True,
     },
 }
