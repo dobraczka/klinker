@@ -152,7 +152,7 @@ def sparse_sinkhorn_sims_pytorch(
     iteration=15,
     reg=0.02,
     device=None,
-    use_faiss=False,
+    use_faiss=True,
 ):
     import torch_scatter
 
