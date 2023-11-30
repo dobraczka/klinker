@@ -160,28 +160,32 @@ def sparse_sinkhorn_sims_pytorch(
     features_l = cast_general_vector(features_l, "np")
     features_r = cast_general_vector(features_r, "np")
 
-    if use_faiss:
-        import faiss
+    # if use_faiss:
+    #     import faiss
 
-        faiss.normalize_L2(features_l)
-        faiss.normalize_L2(features_r)
+    #     faiss.normalize_L2(features_l)
+    #     faiss.normalize_L2(features_r)
 
-        dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
-        param = "Flat"
-        index = faiss.index_factory(dim, param, measure)
-        faiss.StandardGpuResources()
-        index = faiss.index_cpu_to_all_gpus(index)
-        index.train(features_l)
-        index.add(features_l)
-        sims, index = index.search(features_r, top_k)
-    else:
-        from kiez import Kiez
+    #     dim, measure = features_l.shape[1], faiss.METRIC_INNER_PRODUCT
+    #     param = "Flat"
+    #     index = faiss.index_factory(dim, param, measure)
+    #     faiss.StandardGpuResources()
+    #     index = faiss.index_cpu_to_all_gpus(index)
+    #     index.train(features_l)
+    #     index.add(features_l)
+    #     sims, index = index.search(features_r, top_k)
+    # else:
+    from kiez import Kiez
 
-        kiez = Kiez(n_neighbors=top_k, algorithm="Sklearnnn")
-        kiez.fit(features_l, features_r)
-        dist, index = kiez.kneighbors()
-        x = -dist
-        sims = (x - np.min(x)) / (np.max(x) - np.min(x))
+    kiez = Kiez(
+        n_neighbors=top_k,
+        algorithm="Faiss",
+        algorithm_kwargs={"index_key": "Flat", "use_gpu": True},
+    )
+    kiez.fit(features_l, features_r)
+    dist, index = kiez.kneighbors()
+    x = -dist
+    sims = (x - np.min(x)) / (np.max(x) - np.min(x))
     sims = torch.tensor(sims).to(device)
     index = torch.tensor(index).to(device)
 
