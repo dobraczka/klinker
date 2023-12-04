@@ -180,7 +180,12 @@ def sparse_sinkhorn_sims_pytorch(
     kiez = Kiez(
         n_neighbors=top_k,
         algorithm="Faiss",
-        algorithm_kwargs={"index_key": "Flat", "use_gpu": True},
+        algorithm_kwargs={
+            "index_key": "HNSW32",
+            "index_param": "efSearch=918",
+            "index_key": "HNSW",
+            "use_gpu": True,
+        },
     )
     kiez.fit(features_l, features_r)
     dist, index = kiez.kneighbors()
