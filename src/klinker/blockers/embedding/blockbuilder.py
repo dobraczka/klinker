@@ -144,13 +144,14 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
                     f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
                 )
             algorithm_kwargs["n_candidates"] = n_candidates
-        self.kiez = Kiez(
-            n_neighbors=n_neighbors,
-            algorithm=algorithm,
-            algorithm_kwargs=algorithm_kwargs,
-            hubness=hubness,
-            hubness_kwargs=hubness_kwargs,
-        )
+        self.n_neighbors = n_neighbors
+        # self.kiez = Kiez(
+        #     n_neighbors=n_neighbors,
+        #     algorithm=algorithm,
+        #     algorithm_kwargs=algorithm_kwargs,
+        #     hubness=hubness,
+        #     hubness_kwargs=hubness_kwargs,
+        # )
 
     def _get_neighbors_with_distance(
         self,
@@ -170,11 +171,18 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
             left = left.detach().cpu().numpy()
             right = right.detach().cpu().numpy()
-        self.kiez.fit(left, right)
-        dist, neighs = self.kiez.kneighbors(return_distance=True)
-        assert isinstance(neighs, np.ndarray)  # for mypy
-        assert isinstance(dist, np.ndarray)  # for mypy
-        return dist, neighs
+        dim = left.shape[1]
+        index = faiss.index_factory(dim, "HNSW")
+        res = faiss.StandardGpuResources()
+        index = faiss.index_cpu_to_gpu(res, 1, index)
+        index.train(right)
+        index.add(right)
+        return index.search(features_l, self.n_neighbors)
+        # self.kiez.fit(left, right)
+        # dist, neighs = self.kiez.kneighbors(return_distance=True)
+        # assert isinstance(neighs, np.ndarray)  # for mypy
+        # assert isinstance(dist, np.ndarray)  # for mypy
+        # return dist, neighs
 
     def _get_neighbors(
         self,
@@ -237,7 +245,8 @@ class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
         size = left.shape[0]
         top_k = self.n_candidates
         device = resolve_device(self.device)
-        x = -dist
+        # x = -dist
+        x = dist
         sims = (x - np.min(x)) / (np.max(x) - np.min(x))
         sims = torch.tensor(sims).to(device)
         index = torch.tensor(neighs).to(device)
