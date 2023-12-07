@@ -691,7 +691,7 @@ def light_ea_blocker(
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
     )
-    print(blocker.embedding_block_builder)
+    print(blocker.embedding_block_builder.kiez)
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 
