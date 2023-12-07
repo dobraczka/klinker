@@ -678,6 +678,7 @@ def light_ea_blocker(
         n_neighbors=n_neighbors,
         n_candidates=n_candidates,
     )
+    print(bb_kwargs)
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=LightEAFrameEncoder(
