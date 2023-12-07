@@ -635,7 +635,9 @@ def relational_token_blocker(
 @click.option("--rel-dim", type=int)
 @click.option("--batch-size", type=int)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
+@click.option("--faiss-index", type=str, default="HNSW")
+@click.option("--faiss-hnsw-ef-search", type=int, default=918)
+@click.option("--faiss-use-gpu", type=bool, default=True)
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
@@ -648,7 +650,9 @@ def light_ea_blocker(
     rel_dim: Optional[int],
     batch_size: Optional[int],
     block_builder: Type[EmbeddingBlockBuilder],
-    block_builder_kwargs: str,
+    faiss_index: str,
+    faiss_hnsw_ef_search: int,
+    faiss_use_gpu: bool,
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
@@ -663,8 +667,16 @@ def light_ea_blocker(
         attribute_encoder_kwargs = dict(
             tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
         )
-    bb_kwargs = parse_bb_kwargs(
-        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+
+    algorithm_kwargs: Dict[str, Any] = dict(index_key=faiss_index)
+    if faiss_index == "HNSW":
+        algorithm_kwargs["index_param"] = f"efSearch={faiss_hnsw_ef_search}"
+    algorithm_kwargs["use_gpu"] = faiss_use_gpu
+    bb_kwargs = dict(
+        algorithm="Faiss",
+        algorithm_kwargs=algorithm_kwargs,
+        n_neighbors=n_neighbors,
+        n_candidates=n_candidates,
     )
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -679,6 +691,7 @@ def light_ea_blocker(
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
     )
+    print(blocker.embedding_block_builder)
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 

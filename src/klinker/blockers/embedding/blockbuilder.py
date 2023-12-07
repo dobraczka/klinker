@@ -12,7 +12,7 @@ from kiez.neighbors import NNAlgorithm
 
 from ...data import KlinkerBlockManager, NamedVector, NNBasedKlinkerBlockManager
 from ...typing import GeneralVector
-from ...utils import sparse_sinkhorn_sims_pytorch
+from ...utils import resolve_device
 
 try:
     from cuml.cluster import HDBSCAN
@@ -151,6 +151,29 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
             hubness_kwargs=hubness_kwargs,
         )
 
+    def _get_neighbors_with_distance(
+        self,
+        left: GeneralVector,
+        right: GeneralVector,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Get nearest neighbors (and distances) of of left entities in right embeddings.
+
+        Args:
+          left: GeneralVector: Left embeddings.
+          right: GeneralVector: Right embeddings.
+
+        Returns:
+            distances, nearest neighbors
+        """
+        if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
+            left = left.detach().cpu().numpy()
+            right = right.detach().cpu().numpy()
+        self.kiez.fit(left, right)
+        dist, neighs = self.kiez.kneighbors(return_distance=True)
+        assert isinstance(neighs, np.ndarray)  # for mypy
+        assert isinstance(dist, np.ndarray)  # for mypy
+        return dist, neighs
+
     def _get_neighbors(
         self,
         left: GeneralVector,
@@ -165,25 +188,36 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         Returns:
             nearest neighbors
         """
-        if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
-            left = left.detach().cpu().numpy()
-            right = right.detach().cpu().numpy()
-        self.kiez.fit(left, right)
-        neighs = self.kiez.kneighbors(return_distance=False)
-        assert isinstance(neighs, np.ndarray)  # for mypy
+        _, neighs = self._get_neighbors_with_distance(left, right)
         return neighs
 
 
-class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
+class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
     def __init__(
-        self, n_neighbors=10, n_candidates=50, iteration=10, reg=0.05, device=None
+        self,
+        n_neighbors: int = 5,
+        n_candidates: Optional[int] = None,
+        algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
+        algorithm_kwargs: Optional[Dict[str, Any]] = None,
+        iteration=10,
+        reg=0.05,
+        device=None,
     ):
+
+        if n_candidates is None:
+            logger.warn("n_candidates not set! Setting n_candidates = n_neighbors")
+            n_candidates = n_neighbors
         if n_candidates < n_neighbors:
             logger.warn(
                 "n_candidates cannot be smaller than n_neighbors! Setting n_candidates = n_neighbors"
             )
             n_candidates = n_neighbors
         self.n_neighbors = n_neighbors
+        super().__init__(
+            n_neighbors=n_candidates,
+            algorithm=algorithm,
+            algorithm_kwargs=algorithm_kwargs,
+        )
         self.n_candidates = n_candidates
         self.iteration = iteration
         self.reg = reg
@@ -194,15 +228,47 @@ class SparseSinkhornEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         left: GeneralVector,
         right: GeneralVector,
     ) -> np.ndarray:
-        neighs, _ = sparse_sinkhorn_sims_pytorch(
-            left,
-            right,
-            top_k=self.n_candidates,
-            iteration=self.iteration,
-            reg=self.reg,
-            device=self.device,
-        )
-        return neighs[:, : self.n_neighbors]
+        import torch_scatter
+
+        dist, neighs = self._get_neighbors_with_distance(left, right)
+
+        size = left.shape[0]
+        top_k = self.n_candidates
+        device = resolve_device(self.device)
+        x = -dist
+        sims = (x - np.min(x)) / (np.max(x) - np.min(x))
+        sims = torch.tensor(sims).to(device)
+        index = torch.tensor(neighs).to(device)
+
+        row_sims = torch.exp(sims.flatten() / self.reg)
+
+        row_index = (
+            torch.stack(
+                [
+                    torch.arange(size * top_k).to(device) // top_k,
+                    torch.flatten(index.to(torch.int64)),
+                    torch.arange(size * top_k).to(device),
+                ]
+            )
+        ).t()
+        col_index = row_index[torch.argsort(row_index[:, 1])]
+        covert_idx = torch.argsort(col_index[:, 2])
+        for _ in range(self.iteration):
+            row_sims = (
+                row_sims
+                / torch_scatter.scatter_add(row_sims, row_index[:, 0])[row_index[:, 0]]
+            )
+            col_sims = row_sims[col_index[:, 2]]
+            col_sims = (
+                col_sims
+                / torch_scatter.scatter_add(col_sims, col_index[:, 1])[col_index[:, 1]]
+            )
+            row_sims = col_sims[covert_idx]
+
+        sims = torch.reshape(row_sims, (-1, top_k))
+        ranks = np.argsort(-sims.cpu().numpy(), -1)
+        new_index = np.take_along_axis(index.cpu().numpy(), ranks, axis=-1)
+        return new_index[:, : self.n_neighbors]
 
 
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
