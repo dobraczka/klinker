@@ -321,6 +321,8 @@ def process_pipeline(
         "blocker_creation_time": blocker_creation_time,
         **encoder_times,
     }
+    if hasattr(blocker, "_loading_time"):
+        results["encoded_loading_time"] = blocker._loading_time
     tracker.log_metrics(results)
 
     _handle_artifacts(

@@ -83,6 +83,7 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         Returns:
             Blocks
         """
+        print("Started nn search")
         start = time.time()
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         print(f"Neighbors shape: {neighbors.shape}")
@@ -165,10 +166,12 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         Returns:
             distances, nearest neighbors
         """
+
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
             left = left.detach().cpu().numpy()
             right = right.detach().cpu().numpy()
-        self.kiez.fit(left, right)
+        # kiez indexes on target and uses source as search query by default
+        self.kiez.fit(right, left)
         dist, neighs = self.kiez.kneighbors(return_distance=True)
         assert isinstance(neighs, np.ndarray)  # for mypy
         assert isinstance(dist, np.ndarray)  # for mypy

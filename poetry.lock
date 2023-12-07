@@ -2263,25 +2263,29 @@ description = "Hubness reduced nearest neighbor search for entity alignment with
 category = "main"
 optional = false
 python-versions = ">=3.8,<4.0"
-files = [
-    {file = "kiez-0.4.4-py3-none-any.whl", hash = "sha256:fef7191c213774b09fea7e23add655d3cc0eb62ce3bb06e71a54e0d769ee8a2c"},
-    {file = "kiez-0.4.4.tar.gz", hash = "sha256:5fcd966d3c1ff22b2499b10a4d2fbe4fe4389d71d29f40b55244596e386c1432"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 class-resolver = ">=0.3"
-joblib = ">=1.2.0,<2.0.0"
-numpy = ">=1.21.0,<2.0.0"
-pandas = ">=1.1.5,<2.0.0"
+joblib = "^1.2.0"
+numpy = "^1.21.0"
+pandas = "^1.1.5"
 scikit-learn = ">=0.24.1,<2.0.0"
-scipy = ">=1.3.2,<2.0.0"
-tqdm = ">=4.62.3,<5.0.0"
+scipy = "^1.3.2"
+tqdm = "^4.62.3"
 
 [package.extras]
 annoy = ["annoy (>=1.17.0,<2.0.0)"]
 docs = ["Sphinx (>=5.0.0,<6.0.0)", "insegel (>=1.3.1,<2.0.0)"]
 ngt = ["ngt (>=1.8,<2.0)"]
 nmslib = ["nmslib (>=2.1.1,<3.0.0)"]
+
+[package.source]
+type = "git"
+url = "https://github.com/dobraczka/kiez.git"
+reference = "improve-no-hubness"
+resolved_reference = "f9249e1003a6919ce0c5eafea7d7f1f3e6128cc9"
 
 [[package]]
 name = "kiwisolver"
@@ -6249,4 +6253,4 @@ docs = ["mkdocs", "mkdocs-material", "mkdocstrings", "mkdocs-literate-nav", "mkd
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "604806408e5e0a8ec7f8d80ac0214a2b91abe30afff4aa709ccf3ba2919d8d3d"
+content-hash = "d635106375fc101d8661b803a5acf54ab8c14411a23ac334d07857f3a7eed5a2"

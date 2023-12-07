@@ -29,7 +29,7 @@ mkdocs-section-index = {version = "^0.3.5", optional = true}
 pandas = "^1.5.3"
 numpy = "^1.24.2"
 datasketch = "^1.5.9"
-kiez = "^0.4.4"
+kiez = {git = "https://github.com/dobraczka/kiez.git", rev = "improve-no-hubness"}
 sylloge = "^0.2.1"
 hdbscan = "^0.8.32"
 sentence-transformers = {version = "^2.2.2", optional = true}

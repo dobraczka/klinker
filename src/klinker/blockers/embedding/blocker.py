@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import time
 import warnings
 from typing import Literal, Optional, Tuple, Union, get_args
 
@@ -218,6 +219,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         Returns:
           Calculated blocks.
         """
+        start = time.time()
         if self.save_dir is None:
             raise ValueError("Cannot run `from_encoded` if `self.save_dir` is None!")
         if left_path is None:
@@ -228,6 +230,8 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
 
         left_enc = NamedVector.from_pickle(left_path)
         right_enc = NamedVector.from_pickle(right_path)
+        end = time.time()
+        self._loading_time = end - start
         return self.embedding_block_builder.build_blocks(
             left=left_enc,
             right=right_enc,
