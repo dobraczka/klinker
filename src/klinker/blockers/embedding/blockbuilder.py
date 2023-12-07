@@ -170,8 +170,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
             left = left.detach().cpu().numpy()
             right = right.detach().cpu().numpy()
-        # kiez indexes on target and uses source as search query by default
-        self.kiez.fit(right, left)
+        self.kiez.fit(left, right)
         dist, neighs = self.kiez.kneighbors(return_distance=True)
         assert isinstance(neighs, np.ndarray)  # for mypy
         assert isinstance(dist, np.ndarray)  # for mypy
