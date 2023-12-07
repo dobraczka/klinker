@@ -171,13 +171,15 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
             left = left.detach().cpu().numpy()
             right = right.detach().cpu().numpy()
+        import faiss
+
         dim = left.shape[1]
         index = faiss.index_factory(dim, "HNSW")
         res = faiss.StandardGpuResources()
         index = faiss.index_cpu_to_gpu(res, 1, index)
         index.train(right)
         index.add(right)
-        return index.search(features_l, self.n_neighbors)
+        return index.search(left, self.n_neighbors)
         # self.kiez.fit(left, right)
         # dist, neighs = self.kiez.kneighbors(return_distance=True)
         # assert isinstance(neighs, np.ndarray)  # for mypy
