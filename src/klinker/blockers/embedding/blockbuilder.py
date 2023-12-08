@@ -247,8 +247,8 @@ class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
         size = left.shape[0]
         top_k = self.n_candidates
         device = resolve_device(self.device)
-        # x = -dist
-        x = dist
+        x = -dist
+        # x = dist
         sims = (x - np.min(x)) / (np.max(x) - np.min(x))
         sims = torch.tensor(sims).to(device)
         index = torch.tensor(neighs).to(device)
