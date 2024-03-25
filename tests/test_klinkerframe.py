@@ -2,23 +2,21 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 import pytest
-from strawman import dummy_df, dummy_triples
-
 from klinker.data import (
-    KlinkerDaskFrame,
     KlinkerPandasFrame,
     KlinkerTriplePandasFrame,
     from_klinker_frame,
 )
+from strawman import dummy_df, dummy_triples
 
 
-@pytest.fixture
+@pytest.fixture()
 def example() -> Dict:
     df = dummy_df((10, 3), columns=["colA", "colB", "colC"])
     return df.reset_index().to_dict()
 
 
-@pytest.fixture
+@pytest.fixture()
 def concat_example() -> Tuple[KlinkerPandasFrame, List[Tuple[str, str]]]:
     df = pd.DataFrame()
     wanted_cols = ["wc1", "wc2"]
@@ -36,7 +34,7 @@ def concat_example() -> Tuple[KlinkerPandasFrame, List[Tuple[str, str]]]:
     return KlinkerPandasFrame.from_df(df, table_name="A", id_col="id"), expected
 
 
-@pytest.fixture
+@pytest.fixture()
 def concat_triple_example(
     example_triples,
 ) -> Tuple[KlinkerPandasFrame, List[Tuple[str, str]]]:
@@ -51,7 +49,7 @@ def concat_triple_example(
     return ta, expected
 
 
-@pytest.fixture
+@pytest.fixture()
 def triple_example() -> Dict:
     return dummy_triples(10, relation_triples=False).to_dict()
 

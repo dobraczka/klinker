@@ -22,7 +22,7 @@ def flatten_dictionary(
     sep: str = ".",
 ) -> Dict[str, Any]:
     """Flatten a nested dictionary."""
-    real_prefix = tuple() if prefix is None else (prefix,)
+    real_prefix = () if prefix is None else (prefix,)
     partial_result = _flatten_dictionary(dictionary=dictionary, prefix=real_prefix)
     return {sep.join(map(str, k)): v for k, v in partial_result.items()}
 
@@ -34,7 +34,7 @@ def _flatten_dictionary(
     """Help flatten a nested dictionary."""
     result = {}
     for k, v in dictionary.items():
-        new_prefix = prefix + (k,)
+        new_prefix = (*prefix, k)
         if isinstance(v, dict):
             result.update(_flatten_dictionary(dictionary=v, prefix=new_prefix))
         else:
@@ -49,9 +49,11 @@ class ResultTracker:
         """Start a run with an optional name.
 
         Args:
+        ----
           run_name: Optional[str]:  (Default value = None)
 
         Returns:
+        -------
 
         """
 
@@ -69,6 +71,7 @@ class ResultTracker:
         """Log metrics to result store.
 
         Args:
+        ----
           metrics: The metrics to log.
           step: An optional step to attach the metrics to (e.g. the epoch).
           prefix: An optional prefix to prepend to every key in metrics.
@@ -80,6 +83,7 @@ class ResultTracker:
         HAS to be called after the experiment is finished.
 
         Args:
+        ----
           success: Can be used to signal failed runs. May be ignored.
         """
 
@@ -97,10 +101,10 @@ class ConsoleResultTracker(ResultTracker):
         start_end_run: bool = False,
         writer: str = "tqdm",
     ):
-        """
-        Initialize the tracker.
+        """Initialize the tracker.
 
         Args:
+        ----
             track_parameters: Whether to print parameters.
             parameter_filter: A regular expression to filter parameters. If None, print all parameters.
             track_metrics: Whether to print metrics.
@@ -123,7 +127,7 @@ class ConsoleResultTracker(ResultTracker):
         if writer == "tqdm":
             self.write = tqdm.write
         elif writer == "builtin":
-            self.write = print  # noqa:T202
+            self.write = print
         elif writer == "logging":
             self.write = logging.getLogger("klinker").info
 
@@ -179,6 +183,7 @@ class WANDBResultTracker(ResultTracker):
         """Initialize result tracking via WANDB.
 
         Args:
+        ----
             project:
                 project name your WANDB login has access to.
             offline:
@@ -187,6 +192,7 @@ class WANDBResultTracker(ResultTracker):
                 additional keyword arguments passed to :func:`wandb.init`.
 
         Raises:
+        ------
             ValueError: If the project name is given as None
         """
         import wandb as _wandb

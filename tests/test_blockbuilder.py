@@ -3,9 +3,6 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 import pytest
-from strawman import dummy_triples
-from util import assert_block_eq
-
 from klinker.blockers.embedding.blockbuilder import (
     HDBSCANEmbeddingBlockBuilder,
     KiezEmbeddingBlockBuilder,
@@ -17,6 +14,8 @@ from klinker.data import (
     KlinkerPandasFrame,
     NamedVector,
 )
+from strawman import dummy_triples
+from util import assert_block_eq
 
 
 def create_dummy_data(
@@ -36,7 +35,7 @@ def create_dummy_data(
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, str]:
     data = np.array(
         [
@@ -65,10 +64,10 @@ def example() -> Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, st
     )
 
 
-@pytest.fixture
-def example_some_non_overlapping_clusters() -> Tuple[
-    NamedVector[np.ndarray], NamedVector[np.ndarray], str, str
-]:
+@pytest.fixture()
+def example_some_non_overlapping_clusters() -> (
+    Tuple[NamedVector[np.ndarray], NamedVector[np.ndarray], str, str]
+):
     np.random.seed(17)
     # create non-overlapping clusters
     left = np.random.normal(3, 1, size=(10, 4))
@@ -88,7 +87,7 @@ def example_some_non_overlapping_clusters() -> Tuple[
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected() -> KlinkerBlockManager:
     return KlinkerBlockManager.from_pandas(
         pd.DataFrame(

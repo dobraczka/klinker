@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import torch
 from nltk.tokenize import word_tokenize
-from tqdm.auto import tqdm
 
 from .typing import (
     DeviceHint,
@@ -26,9 +25,11 @@ def resolve_device(device: DeviceHint = None) -> torch.device:
     """Resolve a torch.device given a desired device (string).
 
     Args:
+    ----
       device: DeviceHint:  (Default value = None)
 
     Returns:
+    -------
 
     """
     # copy-pasted from pykeen
@@ -56,9 +57,11 @@ def concat_frames(frames: List[Frame]) -> Frame:
     """Concatenate dask or pandas frames.
 
     Args:
+    ----
       frames: List[Frame]: List of dataframes.
 
     Returns:
+    -------
         concatenated dataframes
     """
     if isinstance(frames[0], pd.DataFrame):
@@ -85,17 +88,19 @@ def cast_general_vector(
     vector: GeneralVector,
     return_type: GeneralVectorLiteral,
 ) -> GeneralVector:
-    """Cast a vector to the desired type
+    """Cast a vector to the desired type.
 
     Args:
+    ----
       vector: GeneralVector: Vector to cast
       return_type: GeneralVectorLiteral: Wanted return type.
 
     Returns:
+    -------
         Vector in desired format
 
     Examples:
-
+    --------
         >>> from klinker.utils import cast_general_vector
         >>> import numpy as np
         >>> arr = np.array([1,2,3])
@@ -124,11 +129,13 @@ def tokenize_row(
     """Tokenize rows of series.
 
     Args:
+    ----
       row: pd.Series: row with values to tokenize
       tokenize_fn: Callable[[str], List[str]]: Tokenization function
       min_token_length: int: Discard tokens below this value
 
     Returns:
+    -------
         List of tokens
     """
     res = []

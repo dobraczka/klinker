@@ -5,7 +5,6 @@ from .data import (
     KlinkerDaskFrame,
     KlinkerDataset,
     KlinkerFrame,
-    KlinkerTriplePandasFrame,
     NNBasedKlinkerBlockManager,
 )
 

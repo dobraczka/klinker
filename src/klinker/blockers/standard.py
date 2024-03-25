@@ -3,15 +3,15 @@ from typing import Optional
 import dask.dataframe as dd
 import pandas as pd
 
-from .base import Blocker
 from ..data import KlinkerBlockManager, KlinkerDaskFrame, KlinkerFrame
+from .base import Blocker
 
 
 class StandardBlocker(Blocker):
     """Block on same values of a specific column.
 
-    Examples:
-
+    Examples
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
@@ -54,14 +54,13 @@ class StandardBlocker(Blocker):
                     id_col=kf.id_col,
                 )
             )
-        blocked = kf.__class__._upgrade_from_series(
+        return kf.__class__._upgrade_from_series(
             series,
             columns=[table_name],
             table_name=table_name,
             id_col=id_col,
             reset_index=False,
         )
-        return blocked
 
     def assign(
         self,
@@ -73,12 +72,14 @@ class StandardBlocker(Blocker):
         """Assign entity ids to blocks.
 
         Args:
+        ----
           left: KlinkerFrame: Contains entity attribute information of left dataset.
           right: KlinkerFrame: Contains entity attribute information of right dataset.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         left_assign = self._inner_assign(left)

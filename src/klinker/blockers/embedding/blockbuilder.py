@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import torch
 from class_resolver import ClassResolver
-from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
+from kiez import Kiez
 
 from ...data import KlinkerBlockManager, NamedVector, NNBasedKlinkerBlockManager
 from ...typing import GeneralVector
@@ -35,12 +35,14 @@ class EmbeddingBlockBuilder:
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
         raise NotImplementedError
@@ -53,14 +55,16 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         self,
         left: GeneralVector,
         right: GeneralVector,
-    ) -> np.ndarray:
+    ) -> GeneralVector:
         """Get nearest neighbors of of left entities in right embeddings.
 
         Args:
+        ----
           left: GeneralVector: Left embeddings.
           right: GeneralVector: Right embeddings.
 
         Returns:
+        -------
             nearest neighbors
         """
         raise NotImplementedError
@@ -75,20 +79,22 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
         print("Started nn search")
         start = time.time()
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
         print(f"Neighbors shape: {neighbors.shape}")
-        end = time.time()
-        print(f"Got neighbors in {end - start}")
+        self._nn_search_time = time.time() - start
+        print(f"Got neighbors in {self._nn_search_time}")
         reverse_mapping = np.vectorize(right.id_entity_mapping.get)
         df = pd.DataFrame(reverse_mapping(neighbors), index=left.names)
         # parquet does not like int column names
@@ -100,6 +106,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     """Use kiez for nearest neighbor calculation.
 
     Args:
+    ----
         n_neighbors: number k nearest neighbors.
         n_candidates: number candidates, when using hubness reduction.
         algorithm: nearest neighbor algorithm.
@@ -108,7 +115,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         hubness_kwargs: keyword arguments for initialising hubness reduction.
 
     Examples:
-
+    --------
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding import KiezEmbeddingBlockBuilder
@@ -138,66 +145,55 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     ) -> None:
         if n_candidates:
             if algorithm_kwargs is None:
-                algorithm_kwargs = dict()
+                algorithm_kwargs = {}
             if "n_candidates" in algorithm_kwargs:
                 logger.warn(
                     f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
                 )
             algorithm_kwargs["n_candidates"] = n_candidates
         self.n_neighbors = n_neighbors
-        # self.kiez = Kiez(
-        #     n_neighbors=n_neighbors,
-        #     algorithm=algorithm,
-        #     algorithm_kwargs=algorithm_kwargs,
-        #     hubness=hubness,
-        #     hubness_kwargs=hubness_kwargs,
-        # )
+        self.kiez = Kiez(
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            algorithm_kwargs=algorithm_kwargs,
+            hubness=hubness,
+            hubness_kwargs=hubness_kwargs,
+        )
 
     def _get_neighbors_with_distance(
         self,
         left: GeneralVector,
         right: GeneralVector,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[GeneralVector, GeneralVector]:
         """Get nearest neighbors (and distances) of of left entities in right embeddings.
 
         Args:
+        ----
           left: GeneralVector: Left embeddings.
           right: GeneralVector: Right embeddings.
 
         Returns:
+        -------
             distances, nearest neighbors
         """
-
-        if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
-            left = left.detach().cpu().numpy()
-            right = right.detach().cpu().numpy()
-        import faiss
-
-        dim = left.shape[1]
-        index = faiss.index_factory(dim, "HNSW")
-        res = faiss.StandardGpuResources()
-        index = faiss.index_cpu_to_gpu(res, 1, index)
-        index.train(right)
-        index.add(right)
-        return index.search(left, self.n_neighbors)
-        # self.kiez.fit(left, right)
-        # dist, neighs = self.kiez.kneighbors(return_distance=True)
-        # assert isinstance(neighs, np.ndarray)  # for mypy
-        # assert isinstance(dist, np.ndarray)  # for mypy
-        # return dist, neighs
+        self.kiez.fit(left, right)
+        dist, neighs = self.kiez.kneighbors(return_distance=True)
+        return dist, neighs
 
     def _get_neighbors(
         self,
         left: GeneralVector,
         right: GeneralVector,
-    ) -> np.ndarray:
+    ) -> GeneralVector:
         """Get nearest neighbors of of left entities in right embeddings.
 
         Args:
+        ----
           left: GeneralVector: Left embeddings.
           right: GeneralVector: Right embeddings.
 
         Returns:
+        -------
             nearest neighbors
         """
         _, neighs = self._get_neighbors_with_distance(left, right)
@@ -215,7 +211,6 @@ class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
         reg=0.05,
         device=None,
     ):
-
         if n_candidates is None:
             logger.warn("n_candidates not set! Setting n_candidates = n_neighbors")
             n_candidates = n_neighbors
@@ -295,10 +290,12 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Cluster embeddings.
 
         Args:
+        ----
           left: GeneralVector: left embeddings.
           right: GeneralVector: right embeddings.
 
         Returns:
+        -------
             cluster labels of left/right
         """
         raise NotImplementedError
@@ -310,11 +307,13 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Create blocks form cluster labels for one side.
 
         Args:
+        ----
           cluster_labels: np.ndarray: Cluster labels.
           names: List[str]: Entity names.
           data_name: str: Name of dataset.
 
         Returns:
+        -------
             Blocks for one side as pandas DataFrame
         """
         blocked = pd.DataFrame([names, cluster_labels]).transpose().groupby(1).agg(set)
@@ -332,12 +331,14 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
         left_cluster_labels, right_cluster_labels = self._cluster(
@@ -360,6 +361,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
     For information about parameter selection visit <https://hdbscan.readthedocs.io/en/latest/parameter_selection.html>.
 
     Args:
+    ----
         min_cluster_size: int: The minimum size of clusters.
         min_samples: Optional[int]: The number of samples in a neighbourhood for a point to be considered a core point.
         cluster_selection_epsilon: float: A distance threshold. Clusters below this value will be merged.
@@ -370,7 +372,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         kwargs: Arguments passed to the distance metric
 
     Examples:
-
+    --------
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding.blockbuilder import HDBSCANEmbeddingBlockBuilder
@@ -418,10 +420,12 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         """Cluster embeddings.
 
         Args:
+        ----
           left: GeneralVector: left embeddings.
           right: GeneralVector: right embeddings.
 
         Returns:
+        -------
             cluster labels of left/right
         """
         cluster_labels = self.clusterer.fit_predict(np.concatenate([left, right]))

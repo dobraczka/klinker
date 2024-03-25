@@ -2,18 +2,22 @@ from typing import Dict, Tuple
 
 import pandas as pd
 import pytest
-
 from klinker.data import KlinkerFrame, KlinkerPandasFrame, KlinkerTriplePandasFrame
 
 
-@pytest.fixture
-def example_tables() -> Tuple[
-    KlinkerFrame, KlinkerFrame, Tuple[str, str], Tuple[Dict[int, str], Dict[int, str]]
-]:
+@pytest.fixture()
+def example_tables() -> (
+    Tuple[
+        KlinkerFrame,
+        KlinkerFrame,
+        Tuple[str, str],
+        Tuple[Dict[int, str], Dict[int, str]],
+    ]
+):
     dataset_names = ("A", "B")
     id_mappings = (
-        {id_num: f"a{id_num}" for id_num in range(0, 5)},
-        {id_num: f"b{id_num}" for id_num in range(0, 5)},
+        {id_num: f"a{id_num}" for id_num in range(5)},
+        {id_num: f"b{id_num}" for id_num in range(5)},
     )
     table_A = KlinkerPandasFrame(
         data=[
@@ -41,7 +45,7 @@ def example_tables() -> Tuple[
     return table_A, table_B, dataset_names, id_mappings
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_triples(
     example_tables,
 ) -> Tuple[

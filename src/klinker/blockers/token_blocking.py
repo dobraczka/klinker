@@ -3,13 +3,12 @@ from typing import Callable, List, Optional
 
 import dask.dataframe as dd
 import pandas as pd
-import pyarrow as pa
 from nltk.tokenize import word_tokenize
 
-from .base import SchemaAgnosticBlocker
 from ..data import KlinkerFrame
 from ..data.blocks import KlinkerBlockManager
 from ..typing import Frame, SeriesType
+from .base import SchemaAgnosticBlocker
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +17,13 @@ def tokenize_series(x, tokenize_fn, min_token_length):
     """Tokenize a series and return set.
 
     Args:
+    ----
       x: series with values to tokenize
       tokenize_fn: tokenization function
       min_token_length: minimum length of tokens
 
     Returns:
+    -------
         set of tokens
     """
     return set(filter(lambda tok: len(tok) >= min_token_length, tokenize_fn(str(x))))
@@ -31,8 +32,8 @@ def tokenize_series(x, tokenize_fn, min_token_length):
 class TokenBlocker(SchemaAgnosticBlocker):
     """Concatenates and tokenizes entity attribute values and blocks on tokens.
 
-    Examples:
-
+    Examples
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
@@ -55,9 +56,11 @@ class TokenBlocker(SchemaAgnosticBlocker):
         """Perform token blocking on this series.
 
         Args:
+        ----
           tab: SeriesType: series on which token blocking should be done.
 
         Returns:
+        -------
             token blocked series.
         """
         name = tab.name
@@ -66,10 +69,11 @@ class TokenBlocker(SchemaAgnosticBlocker):
         # i.e. why does dask assume later for the join, that this is named 0
         # no matter what it is actually named
         tok_name = "tok"
-        tok_kwargs = dict(
-            tokenize_fn=self.tokenize_fn, min_token_length=self.min_token_length
-        )
-        collect_ids_kwargs = dict(id_col=id_col_name)
+        tok_kwargs = {
+            "tokenize_fn": self.tokenize_fn,
+            "min_token_length": self.min_token_length,
+        }
+        collect_ids_kwargs = {"id_col": id_col_name}
         if isinstance(tab, dd.Series):
             tok_kwargs["meta"] = (tab.name, "O")
             collect_ids_kwargs["meta"] = pd.Series(
@@ -99,12 +103,14 @@ class TokenBlocker(SchemaAgnosticBlocker):
         """Assign entity ids to blocks.
 
         Args:
+        ----
           left: KlinkerFrame: Contains entity attribute information of left dataset.
           right: KlinkerFrame: Contains entity attribute information of right dataset.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         left_tok = self._tok_block(left)

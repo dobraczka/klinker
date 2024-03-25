@@ -14,15 +14,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 import click
 import numpy as np
 import torch
-from nephelai import upload
-from sylloge import OAEI, MovieGraphBenchmark, OpenEA
-from sylloge.base import EADataset
-from sylloge.moviegraph_benchmark_loader import GraphPair as movie_graph_pairs
-from sylloge.oaei_loader import OAEI_TASK_NAME
-from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
-from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
-from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
-
 from klinker import KlinkerBlockManager, KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
@@ -36,6 +27,7 @@ from klinker.blockers import (
 from klinker.blockers.base import Blocker
 from klinker.blockers.embedding.blockbuilder import (
     EmbeddingBlockBuilder,
+    KiezEmbeddingBlockBuilder,
     block_builder_resolver,
 )
 from klinker.encoders import (
@@ -58,6 +50,14 @@ from klinker.encoders.pretrained import (
 )
 from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
+from nephelai import upload
+from sylloge import OAEI, MovieGraphBenchmark, OpenEA
+from sylloge.base import MultiSourceEADataset
+from sylloge.moviegraph_benchmark_loader import GraphPair as movie_graph_pairs
+from sylloge.oaei_loader import OAEI_TASK_NAME
+from sylloge.open_ea_loader import GRAPH_PAIRS as open_ea_graph_pairs
+from sylloge.open_ea_loader import GRAPH_SIZES as open_ea_graph_sizes
+from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
 
 logger = logging.getLogger("KlinkerExperiment")
 
@@ -127,11 +127,10 @@ def _get_encoder_times(instance, known: Dict[str, float]) -> Dict[str, float]:
             ).items()
         }
         return {**known_attr, **known_rel}
-    for _, value in instance.__dict__.items():
-        if isinstance(value, FrameEncoder):
-            if hasattr(value, "_encoding_time"):
-                known[value.__class__.__name__] = value._encoding_time
-                known.update(_get_encoder_times(value, known))
+    for value in instance.__dict__.values():
+        if isinstance(value, FrameEncoder) and hasattr(value, "_encoding_time"):
+            known[value.__class__.__name__] = value._encoding_time
+            known.update(_get_encoder_times(value, known))
     return known
 
 
@@ -191,9 +190,12 @@ def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
 
 
 def prepare(
-    blocker: Blocker, dataset: EADataset, params: Dict, wandb: bool, seed: int
+    blocker: Blocker,
+    dataset: MultiSourceEADataset,
+    params: Dict,
+    wandb: bool,
+    seed: int,
 ) -> ExperimentInfo:
-
     # clean names
     blocker_name = blocker.__class__.__name__
     dataset_name = dataset.canonical_name
@@ -280,7 +282,7 @@ def process_pipeline(
     assert (
         len(blocker_and_dataset) == 2
     ), "Only 1 dataset and 1 blocker command can be used!"
-    if not isinstance(blocker_and_dataset[0][0], EADataset):
+    if not isinstance(blocker_and_dataset[0][0], MultiSourceEADataset):
         raise ValueError("First command must be dataset command!")
     if not isinstance(blocker_and_dataset[1][0], Blocker):
         raise ValueError("Second command must be blocker command!")
@@ -321,6 +323,11 @@ def process_pipeline(
         "blocker_creation_time": blocker_creation_time,
         **encoder_times,
     }
+    if isinstance(blocker, EmbeddingBlocker) and isinstance(
+        blocker.embedding_block_builder, KiezEmbeddingBlockBuilder
+    ):
+        results["nn_search_time"] = blocker.embedding_block_builder._nn_search_time
+
     if hasattr(blocker, "_loading_time"):
         results["encoded_loading_time"] = blocker._loading_time
     tracker.log_metrics(results)
@@ -344,17 +351,15 @@ def process_pipeline(
 @click.option("--size", type=click.Choice(open_ea_graph_sizes), default="15K")
 @click.option("--version", type=click.Choice(open_ea_graph_versions), default="V1")
 @click.option("--backend", type=str, default="pandas")
-@click.option("--npartitions", type=int, default=1)
 def open_ea_dataset(
-    graph_pair: str, size: str, version: str, backend: str, npartitions: int
-) -> Tuple[EADataset, Dict]:
+    graph_pair: str, size: str, version: str, backend: str
+) -> Tuple[MultiSourceEADataset, Dict]:
     return (
         OpenEA(
             graph_pair=graph_pair,
             size=size,
             version=version,
             backend=backend,
-            npartitions=npartitions,
         ),
         click.get_current_context().params,
     )
@@ -364,15 +369,11 @@ def open_ea_dataset(
 @click.option(
     "--graph-pair", type=click.Choice(get_args(movie_graph_pairs)), default="imdb-tmdb"
 )
-@click.option("--backend", type=str, default="pandas")
-@click.option("--npartitions", type=int, default=1)
 def movie_graph_benchmark_dataset(
-    graph_pair: str, backend: str, npartitions: int
-) -> Tuple[EADataset, Dict]:
+    graph_pair: str,
+) -> Tuple[MultiSourceEADataset, Dict]:
     return (
-        MovieGraphBenchmark(
-            graph_pair=graph_pair, backend=backend, npartitions=npartitions
-        ),
+        MovieGraphBenchmark(graph_pair=graph_pair),
         click.get_current_context().params,
     )
 
@@ -381,11 +382,9 @@ def movie_graph_benchmark_dataset(
 @click.option(
     "--task", type=click.Choice(get_args(OAEI_TASK_NAME)), default="starwars-swg"
 )
-@click.option("--backend", type=str, default="pandas")
-@click.option("--npartitions", type=int, default=1)
-def oaei_dataset(task: str, backend: str, npartitions: int) -> Tuple[EADataset, Dict]:
+def oaei_dataset(task: str) -> Tuple[MultiSourceEADataset, Dict]:
     return (
-        OAEI(task=task, backend=backend, npartitions=npartitions),
+        OAEI(task=task),
         click.get_current_context().params,
     )
 
@@ -477,14 +476,14 @@ def deepblocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
     encoder_kwargs = {
         "frame_encoder": inner_encoder,
         "frame_encoder_kwargs": attribute_encoder_kwargs,
@@ -493,7 +492,7 @@ def deepblocker(
         "learning_rate": learning_rate,
         "hidden_dimensions": (embedding_dimension, hidden_dimension),
     }
-    if not encoder == "autoencoder":
+    if encoder != "autoencoder":
         encoder_kwargs.update(
             {
                 "synth_tuples_per_tuple": synth_tuples_per_tuple,
@@ -559,14 +558,14 @@ def relational_deepblocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
     encoder_kwargs = {
         "frame_encoder": inner_encoder,
         "frame_encoder_kwargs": attribute_encoder_kwargs,
@@ -575,7 +574,7 @@ def relational_deepblocker(
         "learning_rate": learning_rate,
         "hidden_dimensions": (embedding_dimension, hidden_dimension),
     }
-    if not encoder == "autoencoder":
+    if encoder != "autoencoder":
         encoder_kwargs.update(
             {
                 "synth_tuples_per_tuple": synth_tuples_per_tuple,
@@ -607,7 +606,6 @@ def relational_deepblocker(
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
-@click.option("--intermediate-saving", type=bool, default=False)
 def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
     start = time.time()
     blocker = TokenBlocker(min_token_length=min_token_length)
@@ -617,6 +615,7 @@ def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
+@click.option("--intermediate-saving", type=bool, default=False)
 def relational_token_blocker(
     min_token_length: int, intermediate_saving: bool
 ) -> Tuple[Blocker, Dict, float]:
@@ -661,25 +660,25 @@ def light_ea_blocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
 
-    algorithm_kwargs: Dict[str, Any] = dict(index_key=faiss_index)
+    algorithm_kwargs: Dict[str, Any] = {"index_key": faiss_index}
     if faiss_index == "HNSW":
         algorithm_kwargs["index_param"] = f"efSearch={faiss_hnsw_ef_search}"
     algorithm_kwargs["use_gpu"] = faiss_use_gpu
-    bb_kwargs = dict(
-        algorithm="Faiss",
-        algorithm_kwargs=algorithm_kwargs,
-        n_neighbors=n_neighbors,
-        n_candidates=n_candidates,
-    )
+    bb_kwargs = {
+        "algorithm": "Faiss",
+        "algorithm_kwargs": algorithm_kwargs,
+        "n_neighbors": n_neighbors,
+        "n_candidates": n_candidates,
+    }
     print(bb_kwargs)
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -735,14 +734,14 @@ def gcn_blocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates
     )
@@ -822,21 +821,21 @@ def gcn_deepblocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=te_batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": te_batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
 
     deepblocker_encoder_kwargs = {
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
     }
-    if not deepblocker_encoder == "autoencoder":
+    if deepblocker_encoder != "autoencoder":
         deepblocker_encoder_kwargs.update(
             {
                 "synth_tuples_per_tuple": synth_tuples_per_tuple,
@@ -919,21 +918,21 @@ def light_ea_deepblocker(
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = dict(batch_size=te_batch_size)
-    elif (
-        inner_encoder == AverageEmbeddingTokenizedFrameEncoder
-        or inner_encoder == SIFEmbeddingTokenizedFrameEncoder
+        attribute_encoder_kwargs = {"batch_size": te_batch_size}
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
     ):
-        attribute_encoder_kwargs = dict(
-            tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-        )
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
 
     deepblocker_encoder_kwargs = {
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
     }
-    if not deepblocker_encoder == "autoencoder":
+    if deepblocker_encoder != "autoencoder":
         deepblocker_encoder_kwargs.update(
             {
                 "synth_tuples_per_tuple": synth_tuples_per_tuple,
@@ -985,9 +984,9 @@ def only_embeddings_blocker(
     n_candidates: Optional[int],
     force: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    frame_encoder_kwargs = dict(
-        tokenized_word_embedder_kwargs=dict(embedding_fn=embeddings)
-    )
+    frame_encoder_kwargs = {
+        "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+    }
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates
     )

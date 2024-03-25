@@ -8,10 +8,10 @@ from tqdm import trange
 
 from klinker.utils import resolve_device
 
-from .base import RelationFrameEncoder
-from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 from ..data import NamedVector
 from ..typing import GeneralVector
+from .base import RelationFrameEncoder
+from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 
 
 @torch.no_grad()
@@ -23,8 +23,7 @@ def _my_norm(x):
 @torch.no_grad()
 def _get_random_vec(*dims, device):
     random_vec = torch.randn(*dims).to(device)
-    random_vec = _my_norm(random_vec)
-    return random_vec
+    return _my_norm(random_vec)
 
 
 @torch.no_grad()
@@ -57,6 +56,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
     """Use LightEA algorithm to encode frame.
 
     Args:
+    ----
         ent_dim: int: Entity dimensions
         depth: int: Number of hops
         mini_dim:int: Mini batching size
@@ -77,6 +77,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         attribute_encoder: HintOrType[TokenizedFrameEncoder] = None,
         attribute_encoder_kwargs: OptionalKwargs = None,
     ):
+        # TODO ent dim is unused!
         self.ent_dim = ent_dim
         self.depth = depth
         self.device = resolve_device()
@@ -275,5 +276,4 @@ class LightEAFrameEncoder(RelationFrameEncoder):
                 features_list.append(np.concatenate(temp_list, axis=-1))
         features = np.concatenate(features_list, axis=-1)
         features = normalize(features)
-        features = np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
-        return features
+        return np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)

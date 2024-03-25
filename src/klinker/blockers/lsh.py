@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 import dask.dataframe as dd
 import pandas as pd
@@ -7,13 +7,11 @@ from nltk.tokenize import word_tokenize
 
 from klinker.typing import SeriesType
 
-from .base import SchemaAgnosticBlocker
 from ..data import (
     KlinkerBlockManager,
-    KlinkerDaskFrame,
     KlinkerFrame,
-    generic_upgrade_from_series,
 )
+from .base import SchemaAgnosticBlocker
 
 
 def _insert(
@@ -22,11 +20,13 @@ def _insert(
     """Insert encoded entity info into MinHashLSH instance.
 
     Args:
+    ----
       ser_part: pd.Series: Series containing concatenated entity attribute values.
       lsh: MinHashLSH: lsh instance where encoded attribues will be inserted.
       encode_fn: Callable[[str],Iterable[bytes]]: encoding function
 
     Returns:
+    -------
         index of given series
     """
     with lsh.insertion_session() as session:
@@ -48,6 +48,7 @@ def _query(
     """Query the given lsh with the provided entity information.
 
     Args:
+    ----
       ser_part: pd.Series: series holding concatenated entity attribute values.
       lsh: MinHashLSH: filled lsh instance.
       encode_fn: Callable[[str],Iterable[bytes]]: encoding function
@@ -55,6 +56,7 @@ def _query(
       right_name: str: Name of right dataset.
 
     Returns:
+    -------
         dataframe of blocks
     """
     cur_block: Dict[str, List] = {left_name: [], right_name: []}
@@ -73,19 +75,21 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
     """Blocker relying on MinHashLSH procedure.
 
     Args:
+    ----
         tokenize_fn Callable: Function that tokenizes entity attribute values.
         threshold: float: Jaccard threshold to use in underlying lsh procedure.
         num_perm: int: number of permutations used in minhash algorithm.
         weights: Tuple[float,float]: false positive/false negative weighting (must add up to one)
 
     Attributes:
+    ----------
         tokenize_fn Callable: Function that tokenizes entity attribute values.
         threshold: float: Jaccard threshold to use in underlying lsh procedure.
         num_perm: int: number of permutations used in minhash algorithm.
         weights: Tuple[float,float]: false positive/false negative weighting (must add up to one)
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
@@ -109,12 +113,14 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         self.weights = weights
 
     def _inner_encode(self, val: str):
-        """Encodes string to list of bytes
+        """Encodes string to list of bytes.
 
         Args:
+        ----
           val: str: input string.
 
         Returns:
+        -------
             list of bytes.
         """
         return [tok.encode("utf-8") for tok in self.tokenize_fn(str(val))]
@@ -133,12 +139,14 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         Queries using the right hashes.
 
         Args:
+        ----
           left: SeriesType: concatenated entity attribute values of left dataset as series.
           right: SeriesType: concatenated entity attribute values of left dataset as series.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         lsh = MinHashLSH(

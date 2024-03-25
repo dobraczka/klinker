@@ -226,16 +226,14 @@ class OldKlinkerBlockManager:
         return value in self.blocks
 
     def __eq__(self, other) -> bool:
-        if type(self) == type(other):
-            if (
-                self.blocks == other.blocks
-                and self.dataset_names == other.dataset_names
-            ):
-                if self.id_mappings and other.id_mappings:
-                    if self.id_mappings == other.id_mappings:
-                        return True
-                else:
+        if type(self) == type(other) and (
+            self.blocks == other.blocks and self.dataset_names == other.dataset_names
+        ):
+            if self.id_mappings and other.id_mappings:
+                if self.id_mappings == other.id_mappings:
                     return True
+            else:
+                return True
         return False
 
     def find_blocks(
@@ -266,17 +264,17 @@ class OldKlinkerBlockManager:
         id_mappings: Optional[Tuple[Dict[int, str], ...]] = None,
     ) -> "OldKlinkerBlockManager":
         def _ensure_set(value) -> Set:
-            """
-
-            Args:
+            """Args:
+            ----
               value:
 
-            Returns:
+            Returns
+            -------
 
             """
             if isinstance(value, set):
                 return value
-            elif isinstance(value, str) or isinstance(value, int):
+            elif isinstance(value, (int, str)):
                 return {value}
             else:
                 return set(value)
@@ -308,10 +306,7 @@ class OldKlinkerBlockManager:
         if npartitions and not partition_size:
             partition_size = int(math.ceil(len(self) / npartitions))
         if npartitions is None and partition_size is None:
-            if len(self) < 100:
-                partition_size = 1
-            else:
-                partition_size = int(len(self) / 100)
+            partition_size = 1 if len(self) < 100 else int(len(self) / 100)
 
         parts = list(partition_all(partition_size, self.blocks))
         name = "from_sequence-" + tokenize(self, partition_size)
@@ -327,10 +322,11 @@ class KlinkerBlockManager:
     """Class for handling of blocks.
 
     Args:
+    ----
         blocks: dataframe with blocks.
 
     Examples:
-
+    --------
         >>> from klinker import KlinkerBlockManager
         >>> kbm = KlinkerBlockManager.from_dict({ "block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
         >>> kbm.blocks.compute()
@@ -372,7 +368,8 @@ class KlinkerBlockManager:
     def to_dict(self) -> Dict[Union[str, int], Tuple[Union[str, int], Union[str, int]]]:
         """Return blocks as dict.
 
-        Returns:
+        Returns
+        -------
           The dict has block names as keys and a tuple of sets of entity ids.
         """
         return (
@@ -385,10 +382,12 @@ class KlinkerBlockManager:
         """Find blocks where entity id belongs to.
 
         Args:
+        ----
           entity_id: Union[str, int]: Entity id.
           column_id: int: Whether entity belongs to left (0) or right (1) dataset.
 
         Returns:
+        -------
             Blocks where entity id belongs to.
         """
         if self._grouped is None:
@@ -406,10 +405,12 @@ class KlinkerBlockManager:
         """Get all pairs where this entity shows up.
 
         Args:
+        ----
           entity_id: Union[str, int]: Entity id.
           column_id: int: Whether entity belongs to left (0) or right (1) dataset.
 
         Returns:
+        -------
             Generator for these pairs.
         """
         cur_blocks = self.find_blocks(entity_id, column_id)
@@ -423,18 +424,18 @@ class KlinkerBlockManager:
         )
 
     def all_pairs(self) -> Generator[Tuple[Union[int, str], ...], None, None]:
-        """Get all pairs
+        """Get all pairs.
 
-        Returns:
+        Returns
+        -------
             Generator that creates all pairs, from blocks (including duplicates).
         """
         for block_tuple in self.blocks.itertuples(index=False, name=None):
-            for pair in itertools.product(*block_tuple):
-                yield pair
+            yield from itertools.product(*block_tuple)
 
     @property
     def block_sizes(self) -> pd.DataFrame:
-        """Sizes of blocks"""
+        """Sizes of blocks."""
         meta = pd.Series([], dtype="int64", name="block_sizes")
         return self.blocks.apply(
             lambda x: sum(len(v) for v in x), axis=1, meta=meta
@@ -452,14 +453,16 @@ class KlinkerBlockManager:
         """Combine blocks.
 
         Args:
+        ----
           this: one block manager to combine
           other: other block manager to combine
 
         Returns:
+        -------
           Combined KlinkerBlockManager
 
         Examples:
-
+        --------
             >>> from klinker import KlinkerBlockManager
             >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
             >>> kbm2 = KlinkerBlockManager.from_dict({"block3": [[7,4],[12,8]]}, dataset_names=("A","B"))
@@ -520,6 +523,7 @@ class KlinkerBlockManager:
         """Write blocks as parquet file(s).
 
         Args:
+        ----
           path: Union[str, pathlib.Path]: Where to write.
           **kwargs: passed to the parquet function
         """
@@ -550,11 +554,13 @@ class KlinkerBlockManager:
         """Read blocks from parquet.
 
         Args:
+        ----
           path: Union[str, pathlib.Path]: Path where blocks are stored.
           calculate_divisions: bool: Calculate index divisions.
           **kwargs: Passed to `dd.read_parquet` function.
 
         Returns:
+        -------
             Blocks as KlinkerBlockManager
         """
         blocks = dd.read_parquet(
@@ -576,15 +582,17 @@ class KlinkerBlockManager:
         """Create from pandas.
 
         Args:
+        ----
           df: pd.DataFrame: DataFrame
           npartitions: int:  Partitions for dask
           **kwargs: Passed to `dd.from_pandas`
 
         Returns:
+        -------
             Blocks as KlinkerBlockManager
 
         Examples:
-
+        --------
             >>> import pandas as pd
             >>> from klinker import KlinkerBlockManager
             >>> pd_blocks = pd.DataFrame({'A': {'block1': [1, 3, 4], 'block2': [3, 4, 5]}, 'B': {'block1': [3, 4, 5], 'block2': [5, 6]}})
@@ -603,19 +611,19 @@ class KlinkerBlockManager:
         npartitions: int = 1,
         **kwargs,
     ) -> "KlinkerBlockManager":
-        """
-
-        Args:
+        """Args:
+        ----
           block_dict: Dictionary with block information.
           dataset_names: Tuple[str, str]: Tuple of dataset names.
           npartitions: int: Partitions used for dask.
           **kwargs: Passed to `dd.from_dict`.
 
-        Returns:
+        Returns
+        -------
             Blocks as KlinkerBlockManager
 
-        Examples:
-
+        Examples
+        --------
             >>> from klinker import KlinkerBlockManager
             >>> kbm = KlinkerBlockManager.from_dict({"block1": [[1,3,4],[3,4,5]], "block2": [[3,4,5],[5,6]]}, dataset_names=("A","B"))
 
@@ -678,9 +686,10 @@ class NNBasedKlinkerBlockManager(KlinkerBlockManager):
         raise NotImplementedError
 
     def all_pairs(self) -> Generator[Tuple[Union[int, str], ...], None, None]:
-        """Get all pairs
+        """Get all pairs.
 
-        Returns:
+        Returns
+        -------
             Generator that creates all pairs, from blocks (including duplicates).
         """
         for row in self.blocks.itertuples(name=None):
@@ -692,7 +701,7 @@ class NNBasedKlinkerBlockManager(KlinkerBlockManager):
 
     @property
     def block_sizes(self) -> pd.DataFrame:
-        """Sizes of blocks"""
+        """Sizes of blocks."""
         return (
             self.blocks.apply(
                 np.count_nonzero, axis=1, meta=pd.Series([], dtype="int64")

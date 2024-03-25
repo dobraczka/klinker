@@ -1,9 +1,10 @@
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 import pandas as pd
-from sylloge.base import EADataset
+from sylloge.base import MultiSourceEADataset
 
+from ..typing import Side
 from .enhanced_df import (
     KlinkerDaskFrame,
     KlinkerFrame,
@@ -11,8 +12,6 @@ from .enhanced_df import (
     KlinkerTripleDaskFrame,
     KlinkerTriplePandasFrame,
 )
-from ..typing import Side, Tuple
-from ..utils import tokenize_row
 
 
 @dataclass
@@ -26,18 +25,22 @@ class KlinkerDataset:
     right_rel: Optional[pd.DataFrame] = None
 
     @classmethod
-    def from_sylloge(cls, dataset: EADataset, clean: bool = False) -> "KlinkerDataset":
+    def from_sylloge(
+        cls, dataset: MultiSourceEADataset, clean: bool = False
+    ) -> "KlinkerDataset":
         """Create a klinker dataset from sylloge dataset.
 
         Args:
+        ----
           dataset: EADataset: Sylloge dataset.
           clean: bool: Clean attribute information.
 
         Returns:
+        -------
             klinker dataset
 
         Examples:
-
+        --------
             >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
@@ -45,19 +48,20 @@ class KlinkerDataset:
         """
         left: Union[KlinkerDaskFrame, KlinkerPandasFrame]
         right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
+        ds_names = dataset.dataset_names
         if dataset.backend == "pandas":
             left = KlinkerTriplePandasFrame.from_df(
-                dataset.attr_triples_left, table_name="left", id_col="head"
+                dataset.attr_triples[0], table_name=ds_names[0], id_col="head"
             )
             right = KlinkerTriplePandasFrame.from_df(
-                dataset.attr_triples_right, table_name="right", id_col="head"
+                dataset.attr_triples[1], table_name=ds_names[1], id_col="head"
             )
         elif dataset.backend == "dask":
             left = KlinkerTripleDaskFrame.from_dask_dataframe(
-                dataset.attr_triples_left, table_name="left", id_col="head"
+                dataset.attr_triples[0], table_name=ds_names[0], id_col="head"
             )
             right = KlinkerTripleDaskFrame.from_dask_dataframe(
-                dataset.attr_triples_right, table_name="right", id_col="head"
+                dataset.attr_triples[1], table_name=ds_names[1], id_col="head"
             )
         else:
             raise ValueError(f"Unknown dataset backend {dataset.backend}")
@@ -70,8 +74,8 @@ class KlinkerDataset:
         return cls(
             left=left,
             right=right,
-            left_rel=dataset.rel_triples_left,
-            right_rel=dataset.rel_triples_right,
+            left_rel=dataset.rel_triples[0],
+            right_rel=dataset.rel_triples[1],
             gold=dataset.ent_links,
         )
 
@@ -101,16 +105,19 @@ class KlinkerDataset:
         """Get a sample of the dataset.
 
         Note:
+        ----
             Currently this only takes the first n entities of the gold standard.
 
         Args:
+        ----
           size: int: size of the sample
 
         Returns:
+        -------
             sampled klinker dataset
 
         Examples:
-
+        --------
             >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())

@@ -1,9 +1,7 @@
 import logging
 import math
 import os
-from abc import abstractmethod
-from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import dask.dataframe as dd
 import numpy as np
@@ -12,11 +10,8 @@ import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from gensim.models import KeyedVectors
-from more_itertools import chunked
 from nltk.tokenize import word_tokenize
 from sklearn.decomposition import TruncatedSVD
-from torch import nn
-from tqdm.auto import tqdm
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -24,14 +19,14 @@ except ImportError:
     SentenceTransformer = None
 
 try:
-    from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
+    from transformers import AutoModel, AutoTokenizer
 except ImportError:
     AutoModel = None
 
-from .base import TokenizedFrameEncoder
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
-from ..utils import concat_frames, resolve_device
+from ..utils import concat_frames
+from .base import TokenizedFrameEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +51,13 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     See <https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoModel.from_pretrained> for more information on pretrained models.
 
     Args:
+    ----
         pretrained_model_name_or_path: str: Transformer name or path
         max_length: int: max number of tokens per row
         batch_size: int: size of batch for encoding
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> import pandas as pd
 
@@ -138,12 +134,13 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     See <https://www.sbert.net/docs/pretrained_models.html> for a list of models.
 
     Args:
+    ----
         model_name: str: pretrained model name
         max_length: int: max number of tokens per row
         batch_size: int: size of batch for encoding
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> import pandas as pd
 
@@ -209,6 +206,7 @@ class TokenizedWordEmbedder:
     """Encode using pre-trained word embeddings.
 
     Args:
+    ----
       embedding_fn: Union[str, Callable[[str], GeneralVector]]: Either one of "fasttext","glove","word2vec" or embedding function
       tokenizer_fn: Callable[[str], List[str]]: Tokenizer function.
     """
@@ -256,9 +254,11 @@ class TokenizedWordEmbedder:
         """Tokenizes string and returns average of token embeddings.
 
         Args:
+        ----
           values: str: string value to embed.
 
         Returns:
+        -------
             embedding
         """
         return self.weighted_embed(values, {})
@@ -269,10 +269,12 @@ class TokenizedWordEmbedder:
         """Tokenizes string and returns weighted average of token embeddings.
 
         Args:
+        ----
           values: str: string value to embed.
           weight_mapping: Dict[str, float]: weights for tokens.
 
         Returns:
+        -------
             embedding
         """
         # TODO fix code duplication across embed methods can be solved better
@@ -301,11 +303,13 @@ def encode_frame(
     """Encode Frame with tokenized word embedder.
 
     Args:
+    ----
       df: Frame:
       twe: TokenizedWordEmbedder:
       weight_dict: Dict:  (Default value = None)
 
     Returns:
+    -------
         embeddings
     """
     embeddings: np.ndarray = torch.nn.init.xavier_normal_(
@@ -313,10 +317,7 @@ def encode_frame(
     ).numpy()
     # TODO vectorize this?
     for idx, val in enumerate(df[df.columns[0]].values):
-        if weight_dict:
-            emb = twe.weighted_embed(val, weight_dict)
-        else:
-            emb = twe.embed(val)
+        emb = twe.weighted_embed(val, weight_dict) if weight_dict else twe.embed(val)
         if not any(np.isnan(emb)):
             embeddings[idx] = emb
     return embeddings
@@ -328,6 +329,7 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     """Averages embeddings of tokenized entity attribute values.
 
     Args:
+    ----
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder]: Word Embedding class,
         tokenized_word_embedder_kwargs: OptionalKwargs: Keyword arguments for initalizing word embedder
     """
@@ -365,7 +367,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     """Use Smooth Inverse Frequency weighting scheme to aggregate token embeddings.
 
     Args:
-
+    ----
         sif_weighting_param: float: weighting parameter
         remove_pc:bool: remove first principal component
         min_freq: int: minimum frequency of occurence
@@ -402,10 +404,12 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         """Prepare value counts.
 
         Args:
+        ----
           left: Frame: left attribute frame.
           right: Frame: right attribute frame.
 
         Returns:
+        -------
             left, right
         """
         left, right = super().prepare(left, right)

@@ -5,21 +5,19 @@ import time
 import warnings
 from typing import Literal, Optional, Tuple, Union, get_args
 
-import pandas as pd
 from class_resolver import HintOrType, OptionalKwargs
 
 from klinker.data import (
     KlinkerBlockManager,
     KlinkerFrame,
-    KlinkerPandasFrame,
     NamedVector,
 )
 from klinker.encoders import FrameEncoder, frame_encoder_resolver
 from klinker.typing import SeriesType
 
-from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
-from ..base import SchemaAgnosticBlocker
 from ...data import generic_upgrade_from_series
+from ..base import SchemaAgnosticBlocker
+from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
 
 ENC_PREFIX = Literal["left_", "right_"]
 ENC_SUFFIX = "_enc.pkl"
@@ -31,6 +29,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
     """Base class for embedding-based blocking approaches.
 
     Args:
+    ----
         frame_encoder: Encoder class to use for embedding the datasets.
         frame_encoder_kwargs: keyword arguments for initialising encoder class.
         embedding_block_builder: Block building class to create blocks from embeddings.
@@ -40,6 +39,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
 
     Attributes:
+    ----------
         frame_encoder: Encoder class to use for embedding the datasets.
         embedding_block_builder: Block building class to create blocks from embeddings.
         save: If true saves the embeddings before using blockbuilding.
@@ -74,15 +74,15 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         left_rel: Optional[KlinkerFrame] = None,
         right_rel: Optional[KlinkerFrame] = None,
     ) -> KlinkerBlockManager:
-        """
-
-        Args:
+        """Args:
+        ----
           left: SeriesType:
           right: SeriesType:
           left_rel: Optional[KlinkerFrame]:  (Default value = None)
           right_rel: Optional[KlinkerFrame]:  (Default value = None)
 
-        Returns:
+        Returns
+        -------
 
         """
         left = generic_upgrade_from_series(left, reset_index=False)
@@ -154,6 +154,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         """Save embeddings.
 
         Args:
+        ----
           save_dir: Union[str, pathlib.Path]: Directory to save into.
           encodings: Tuple[NamedVector, NamedVector]: Tuple of named embeddings.
           table_names: Tuple[str, str]: Name of left/right dataset.
@@ -211,12 +212,14 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         """Apply blockbuilding strategy from precalculated embeddings.
 
         Args:
+        ----
           left_path: path of left encoding.
           right_path: path of right encoding.
           left_name: Name of left dataset.
           right_name: Name of right dataset.
 
         Returns:
+        -------
           Calculated blocks.
         """
         start = time.time()

@@ -20,18 +20,20 @@ class Blocker(abc.ABC):
         """Assign entity ids to blocks.
 
         Args:
+        ----
           left: KlinkerFrame: Contains entity attribute information of left dataset.
           right: KlinkerFrame: Contains entity attribute information of right dataset.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
 
 
 class SchemaAgnosticBlocker(Blocker):
-    """Base class for schema-agnostic Blockers"""
+    """Base class for schema-agnostic Blockers."""
 
     @abc.abstractmethod
     def _assign(
@@ -44,12 +46,14 @@ class SchemaAgnosticBlocker(Blocker):
         """Assign entity ids to blocks.
 
         Args:
+        ----
           left: SeriesType: concatenated entity attribute values of left dataset as series.
           right: SeriesType: concatenated entity attribute values of left dataset as series.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
 
@@ -65,12 +69,14 @@ class SchemaAgnosticBlocker(Blocker):
         Will concat all entity attribute information before proceeding.
 
         Args:
+        ----
           left: KlinkerFrame: Contains entity attribute information of left dataset.
           right: KlinkerFrame: Contains entity attribute information of right dataset.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         left_reduced, right_reduced = left.concat_values(), right.concat_values()

@@ -23,27 +23,21 @@ locations = ["src", "tests", "noxfile.py"]
 
 @session()
 def lint(session: Session) -> None:
-    args = session.posargs or locations
-    session.install("black", "isort")
-    session.run("black", *args)
-    session.run("isort", *args)
+    session.install("pre-commit")
+    session.run(
+        "pre-commit",
+        "run",
+        "--all-files",
+        "--hook-stage=manual",
+        *session.posargs,
+    )
 
 
 @session()
 def style_checking(session: Session) -> None:
     args = session.posargs or locations
-    session.install(
-        "pyproject-flake8",
-        "flake8-eradicate",
-        "flake8-isort",
-        "flake8-debugger",
-        "flake8-comprehensions",
-        "flake8-print",
-        "flake8-black",
-        "flake8-bugbear",
-        "pydocstyle",
-    )
-    session.run("pflake8", *args)
+    session.install("ruff")
+    session.run("ruff", "check", *args)
 
 
 @session()
@@ -63,7 +57,7 @@ def type_checking(session: Session) -> None:
         "--install-types",
         "--non-interactive",
         "--ignore-missing-imports",
-        *args
+        *args,
     )
 
 

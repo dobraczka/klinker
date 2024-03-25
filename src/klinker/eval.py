@@ -1,5 +1,6 @@
 from collections import OrderedDict
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union, Optional
+from eche import PrefixedClusterHelper
 
 import numpy as np
 import pandas as pd
@@ -26,6 +27,7 @@ class Evaluation:
         comp_with_blocking: int,
         comp_without_blocking: int,
         mean_block_size: float,
+        false_positive_set: Optional[Set[Tuple[Any, Any]]] = None,
     ):
         self.gold_pair_set = gold_pair_set
         self.comp_without_blocking = comp_without_blocking
@@ -36,48 +38,53 @@ class Evaluation:
         self.true_positive = len(self.tp_set)
         self.false_positive = false_positive
         self.comp_with_blocking = comp_with_blocking
+        self.false_positive_set = false_positive_set
 
     @staticmethod
-    def _check_consistency(blocks: KlinkerBlockManager, gold: pd.DataFrame):
+    def _check_consistency(blocks: KlinkerBlockManager, gold: PrefixedClusterHelper):
         if isinstance(blocks, NNBasedKlinkerBlockManager):
             return
-        if not len(gold.columns) == 2:
+        if not len(gold.ds_names) == 2:
             raise ValueError("Only binary matching supported!")
-        if not set(blocks.blocks.columns) == set(gold.columns):
+        if not set(blocks.blocks.columns) == set(gold.ds_names):
             raise ValueError(
-                "Blocks and gold standard frame need to have the same columns!"
+                "Block columns and gold standard dataset names need to be the same!"
             )
 
     @classmethod
     def from_blocks_and_gold(
         cls,
         blocks: KlinkerBlockManager,
-        gold: pd.DataFrame,
+        gold: PrefixedClusterHelper,
         left_data_len: int,
         right_data_len: int,
+        keep_false_positive_set: bool = False,
     ):
         Evaluation._check_consistency(blocks, gold)
 
-        left_col = gold.columns[0]
-        right_col = gold.columns[1]
-
-        gold_pair_set = set(zip(gold[left_col], gold[right_col]))
         tp_pairs: Set[Tuple[Any, Any]] = set()
         fp = 0
+        fp_set: Optional[Set[Tuple[Any, Any]]] = (
+            set() if keep_false_positive_set else None
+        )
         for _pair_number, pair in enumerate(blocks.all_pairs(), start=1):
-            if pair in gold_pair_set:
-                left, right = pair  # for mypy
+            left, right = pair  # for mypy
+            if (left, right) in gold:
                 tp_pairs.add((left, right))
             else:
                 fp += 1
+                if keep_false_positive_set:
+                    assert fp_set
+                    fp_set.add((left, right))
         comp_without_blocking = left_data_len * right_data_len
         return cls(
             true_positive_set=tp_pairs,
-            gold_pair_set=gold_pair_set,
+            gold_pair_set=set(gold.all_pairs_no_intra()),
             false_positive=fp,
             comp_with_blocking=_pair_number,
             comp_without_blocking=comp_without_blocking,
             mean_block_size=blocks.mean_block_size,
+            false_positive_set=fp_set,
         )
 
     @classmethod
@@ -85,18 +92,22 @@ class Evaluation:
         cls,
         blocks: KlinkerBlockManager,
         dataset: KlinkerDataset,
+        keep_false_positive_set: bool = False,
     ) -> "Evaluation":
         """Helper function to initialise evaluation with dataset.
 
         Args:
+        ----
           blocks: KlinkerBlockManager: Calculated blocks
           dataset: KlinkerDataset: Dataset that was used for blocking
+          keep_false_positive_set: Whether to keep false positive
 
         Returns:
+        -------
             eval instance
 
         Examples:
-
+        --------
             >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> from klinker.data import KlinkerDataset
@@ -114,6 +125,7 @@ class Evaluation:
             gold=dataset.gold,
             left_data_len=len(dataset.left),
             right_data_len=len(dataset.right),
+            keep_false_positive_set=keep_false_positive_set,
         )
 
     @classmethod
@@ -196,6 +208,7 @@ def compare_blocks_from_eval(
     """Compare similarity between blocks using calculated eval.
 
     Args:
+    ----
       blocks_a: KlinkerBlockManager: one blocking result
       blocks_b: KlinkerBlockManager: other blocking result
       eval_a: Evaluation: eval of a
@@ -204,6 +217,7 @@ def compare_blocks_from_eval(
       improvement_metric: Union[str, List[str]]: Metric(s) used for calculating improvement
 
     Returns:
+    -------
         Dictionary with improvement metrics.
     """
     if isinstance(improvement_metrics, str):
@@ -241,12 +255,14 @@ def compare_blocks(
     """Compare similarity between blocks using calculated eval.
 
     Args:
+    ----
       blocks_a: KlinkerBlockManager: one blocking result
       blocks_b: KlinkerBlockManager: other blocking result
       dataset: KlinkerDataset: dataset from which blocks where calculated
       improvement_metric: Union[str, List[str]]: Metric(s) used for calculating improvement
 
     Returns:
+    -------
         Dictionary with improvement metrics.
     """
     eval_a = Evaluation.from_dataset(blocks=blocks_a, dataset=dataset)
@@ -269,17 +285,19 @@ def multiple_block_comparison_from_eval(
     """Compare multiple blocking strategies.
 
     Args:
+    ----
       blocks_with_eval: Dict[str, Tuple[KlinkerBlockManager, Evaluation]]: Blocking results and Evaluations
       dataset: KlinkerDataset: Dataset that was used for blocking
       improvement_metric: Union[str, List[str]]: Metric(s) used for calculating improvement
 
     Returns:
+    -------
         DataFrame with improvement values.
     """
     result = []
     seen_pairs = set()
-    for (b_a_name, (blocks_a, eval_a)) in blocks_with_eval.items():
-        for (b_b_name, (blocks_b, eval_b)) in blocks_with_eval.items():
+    for b_a_name, (blocks_a, eval_a) in blocks_with_eval.items():
+        for b_b_name, (blocks_b, eval_b) in blocks_with_eval.items():
             if (
                 b_a_name != b_b_name
                 and (b_a_name, b_b_name) not in seen_pairs
@@ -321,8 +339,7 @@ def multiple_block_comparison_from_eval(
                 )
                 seen_pairs.add((b_a_name, b_b_name))
     im_cols = [f"improvement_{im}" for im in improvement_metrics]
-    result_df = pd.DataFrame(result, columns=["base", "other", *im_cols, "dice_tp"])
-    return result_df
+    return pd.DataFrame(result, columns=["base", "other", *im_cols, "dice_tp"])
 
 
 def multiple_block_comparison(
@@ -333,11 +350,13 @@ def multiple_block_comparison(
     """Compare multiple blocking strategies.
 
     Args:
+    ----
       blocks: Dict[str, KlinkerBlockManager]: Blocking results
       dataset: KlinkerDataset: Dataset that was used for blocking
       improvement_metric: Union[str, List[str]]: Metric(s) used for calculating improvement
 
     Returns:
+    -------
         DataFrame with improvement values.
     """
     blocks_with_eval = OrderedDict(

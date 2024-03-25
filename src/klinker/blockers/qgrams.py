@@ -3,23 +3,25 @@ from typing import List, Optional
 import dask.dataframe as dd
 from nltk.util import ngrams
 
-from .standard import StandardBlocker
 from ..data import KlinkerBlockManager, KlinkerFrame
+from .standard import StandardBlocker
 
 
 class QgramsBlocker(StandardBlocker):
-    """Blocker relying on qgram procedure
+    """Blocker relying on qgram procedure.
 
     Args:
+    ----
         blocking_key: str: On which attribute the blocking should be done
         q: int: how big the qgrams should be.
 
     Attributes:
+    ----------
         blocking_key: str: On which attribute the blocking should be done
         q: int: how big the qgrams should be.
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
@@ -34,12 +36,14 @@ class QgramsBlocker(StandardBlocker):
         self.q = q
 
     def qgram_tokenize(self, x: str) -> Optional[List[str]]:
-        """Tokenize into qgrams
+        """Tokenize into qgrams.
 
         Args:
+        ----
           x: str: input string
 
         Returns:
+        -------
             list of qgrams
         """
         if x is None:
@@ -57,18 +61,19 @@ class QgramsBlocker(StandardBlocker):
         """Assign entity ids to blocks.
 
         Args:
+        ----
           left: KlinkerFrame: Contains entity attribute information of left dataset.
           right: KlinkerFrame: Contains entity attribute information of right dataset.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         assert isinstance(self.blocking_key, str)
         qgramed = []
         for tab in [left, right]:
-
             reduced = tab.set_index(tab.id_col)[self.blocking_key]
             if isinstance(left, dd.DataFrame):
                 series = reduced.apply(

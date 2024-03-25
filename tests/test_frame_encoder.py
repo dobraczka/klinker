@@ -1,24 +1,23 @@
 import pandas as pd
 import pytest
 import torch
-
 from klinker.data import NamedVector
 from klinker.encoders import FrameEncoder
 from klinker.encoders.base import initialize_and_fill
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_wrong_column_length() -> pd.DataFrame:
     return pd.DataFrame([["nnn", "nnn"]], columns=[1, 2])
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_correct_column_length() -> pd.DataFrame:
     return pd.DataFrame([["nnn"]], columns=[1])
 
 
 @pytest.mark.parametrize(
-    "example_left, example_right, should_fail",
+    ("example_left", "example_right", "should_fail"),
     [
         ("example_wrong_column_length", "example_wrong_column_length", True),
         ("example_wrong_column_length", "example_correct_column_length", True),
