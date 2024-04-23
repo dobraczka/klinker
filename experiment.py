@@ -642,6 +642,7 @@ def relational_token_blocker(
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
+@click.option("--save_emb", type=bool, default=False)
 def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
@@ -657,6 +658,7 @@ def light_ea_blocker(
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -692,6 +694,7 @@ def light_ea_blocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -715,6 +718,7 @@ def light_ea_blocker(
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
+@click.option("--save-emb", type=bool, default=False)
 def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     batch_size: Optional[int],
@@ -731,6 +735,7 @@ def gcn_blocker(
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -761,6 +766,7 @@ def gcn_blocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -794,6 +800,7 @@ def gcn_blocker(
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
+@click.option("--save-emb", type=bool, default=False)
 def gcn_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     te_batch_size: Optional[int],
@@ -818,6 +825,7 @@ def gcn_deepblocker(
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -866,6 +874,7 @@ def gcn_deepblocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -895,6 +904,7 @@ def gcn_deepblocker(
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
+@click.option("--save-emb", type=bool, default=False)
 def light_ea_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     te_batch_size: Optional[int],
@@ -915,6 +925,7 @@ def light_ea_deepblocker(
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder == TransformerTokenizedFrameEncoder:
@@ -959,6 +970,7 @@ def light_ea_deepblocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -975,6 +987,7 @@ def light_ea_deepblocker(
 @click.option("--n-neighbors", type=int, default=100)
 @click.option("--n-candidates", type=int, default=None)
 @click.option("--force", type=bool, default=True)
+@click.option("--save-emb", type=bool, default=False)
 def only_embeddings_blocker(
     encoder: str,
     embeddings: str,
@@ -983,6 +996,7 @@ def only_embeddings_blocker(
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     frame_encoder_kwargs = {
         "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
@@ -997,6 +1011,7 @@ def only_embeddings_blocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
