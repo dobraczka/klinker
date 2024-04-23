@@ -1,6 +1,5 @@
 from collections import OrderedDict
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
-from eche import PrefixedClusterHelper
 
 import numpy as np
 import pandas as pd
@@ -41,35 +40,40 @@ class Evaluation:
         self.false_positive_set = false_positive_set
 
     @staticmethod
-    def _check_consistency(blocks: KlinkerBlockManager, gold: PrefixedClusterHelper):
+    def _check_consistency(blocks: KlinkerBlockManager, gold: pd.DataFrame):
         if isinstance(blocks, NNBasedKlinkerBlockManager):
             return
-        if not len(gold.ds_names) == 2:
+        if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
-        if not set(blocks.blocks.columns) == set(gold.ds_names):
+        if not set(blocks.blocks.columns) == set(gold.columns):
             raise ValueError(
-                "Block columns and gold standard dataset names need to be the same!"
+                "Blocks and gold standard frame need to have the same columns!"
             )
 
     @classmethod
     def from_blocks_and_gold(
         cls,
         blocks: KlinkerBlockManager,
-        gold: PrefixedClusterHelper,
+        gold: pd.DataFrame,
         left_data_len: int,
         right_data_len: int,
         keep_false_positive_set: bool = False,
     ):
         Evaluation._check_consistency(blocks, gold)
 
+        left_col = gold.columns[0]
+        right_col = gold.columns[1]
+
+        gold_pair_set = set(zip(gold[left_col], gold[right_col]))
         tp_pairs: Set[Tuple[Any, Any]] = set()
         fp = 0
         fp_set: Optional[Set[Tuple[Any, Any]]] = (
             set() if keep_false_positive_set else None
         )
+        _pair_number = 0  # in case no pairs exist
         for _pair_number, pair in enumerate(blocks.all_pairs(), start=1):
-            left, right = pair  # for mypy
-            if (left, right) in gold:
+            if pair in gold_pair_set:
+                left, right = pair  # for mypy
                 tp_pairs.add((left, right))
             else:
                 fp += 1
@@ -79,7 +83,7 @@ class Evaluation:
         comp_without_blocking = left_data_len * right_data_len
         return cls(
             true_positive_set=tp_pairs,
-            gold_pair_set=set(gold.all_pairs_no_intra()),
+            gold_pair_set=gold_pair_set,
             false_positive=fp,
             comp_with_blocking=_pair_number,
             comp_without_blocking=comp_without_blocking,
@@ -155,11 +159,17 @@ class Evaluation:
 
     @property
     def recall(self) -> float:
-        return self.true_positive / (self.true_positive + self.false_negative)
+        denom = self.true_positive + self.false_negative
+        if denom == 0:
+            return 0
+        return self.true_positive / denom
 
     @property
     def precision(self) -> float:
-        return self.true_positive / (self.true_positive + self.false_positive)
+        denom = self.true_positive + self.false_positive
+        if denom == 0:
+            return 0
+        return self.true_positive / denom
 
     @property
     def f_measure(self) -> float:

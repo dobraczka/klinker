@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from eche import PrefixedClusterHelper
 from typing import Optional, Union, Tuple
 
 import pandas as pd
@@ -71,12 +72,24 @@ class KlinkerDataset:
             left["tail"] = left["tail"].map(lambda x: str(x).split("^^")[0])
             right["tail"] = right["tail"].map(lambda x: str(x).split("^^")[0])
 
+        if isinstance(dataset.ent_links, PrefixedClusterHelper):
+            ent_links = pd.DataFrame(
+                dataset.ent_links.all_pairs_no_intra(), columns=dataset.dataset_names
+            )
+        else:
+            ent_links = dataset.ent_links.rename(
+                columns={
+                    "left": dataset.dataset_names[0],
+                    "right": dataset.dataset_names[1],
+                }
+            )
+
         return cls(
             left=left,
             right=right,
             left_rel=dataset.rel_triples[0],
             right_rel=dataset.rel_triples[1],
-            gold=dataset.ent_links,
+            gold=ent_links,
         )
 
     def _sample_side(

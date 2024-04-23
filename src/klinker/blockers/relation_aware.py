@@ -28,12 +28,13 @@ from .token_blocking import TokenBlocker
 FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
 
-def reverse_rel(rel_frame: Frame) -> Frame:
+def reverse_rel(rel_frame: Frame, inverse_prefix: str = "_inv_") -> Frame:
     """Reverse the relations by switching first and last column.
 
     Args:
     ----
       rel_frame: Frame: Frame with relation triples.
+      inverse_prefix: Prefix for new inverse relations
 
     Returns:
     -------
@@ -42,7 +43,7 @@ def reverse_rel(rel_frame: Frame) -> Frame:
     orig_columns = rel_frame.columns
     rev_rel_frame = rel_frame[rel_frame.columns[::-1]]
     rev_rel_frame[rev_rel_frame.columns[1]] = (
-        "_inv_" + rev_rel_frame[rev_rel_frame.columns[1]]
+        inverse_prefix + rev_rel_frame[rev_rel_frame.columns[1]]
     )
     rev_rel_frame.columns = orig_columns
     return rev_rel_frame

@@ -137,23 +137,22 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     def __init__(
         self,
         n_neighbors: int = 5,
-        n_candidates: Optional[int] = None,
+        n_candidates: int = 10,
         algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
         algorithm_kwargs: Optional[Dict[str, Any]] = None,
         hubness: Optional[Union[str, HubnessReduction, Type[HubnessReduction]]] = None,
         hubness_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
-        if n_candidates:
-            if algorithm_kwargs is None:
-                algorithm_kwargs = {}
-            if "n_candidates" in algorithm_kwargs:
-                logger.warn(
-                    f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
-                )
-            algorithm_kwargs["n_candidates"] = n_candidates
+        if algorithm_kwargs is None:
+            algorithm_kwargs = {}
+        if "n_candidates" in algorithm_kwargs:
+            logger.warn(
+                f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
+            )
+        algorithm_kwargs["n_candidates"] = n_candidates
         self.n_neighbors = n_neighbors
         self.kiez = Kiez(
-            n_neighbors=n_neighbors,
+            n_candidates=n_candidates,
             algorithm=algorithm,
             algorithm_kwargs=algorithm_kwargs,
             hubness=hubness,
@@ -177,7 +176,7 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
             distances, nearest neighbors
         """
         self.kiez.fit(left, right)
-        dist, neighs = self.kiez.kneighbors(return_distance=True)
+        dist, neighs = self.kiez.kneighbors(k=self.n_neighbors, return_distance=True)
         return dist, neighs
 
     def _get_neighbors(
@@ -204,16 +203,13 @@ class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
     def __init__(
         self,
         n_neighbors: int = 5,
-        n_candidates: Optional[int] = None,
+        n_candidates: int = 10,
         algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
         algorithm_kwargs: Optional[Dict[str, Any]] = None,
         iteration=10,
         reg=0.05,
         device=None,
     ):
-        if n_candidates is None:
-            logger.warn("n_candidates not set! Setting n_candidates = n_neighbors")
-            n_candidates = n_neighbors
         if n_candidates < n_neighbors:
             logger.warn(
                 "n_candidates cannot be smaller than n_neighbors! Setting n_candidates = n_neighbors"
@@ -222,6 +218,7 @@ class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
         self.n_neighbors = n_neighbors
         super().__init__(
             n_neighbors=n_candidates,
+            n_candidates=n_candidates,
             algorithm=algorithm,
             algorithm_kwargs=algorithm_kwargs,
         )
