@@ -52,7 +52,7 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     Args:
     ----
-        pretrained_model_name_or_path: str: Transformer name or path
+        model_name: str: Transformer name or path
         max_length: int: max number of tokens per row
         batch_size: int: size of batch for encoding
 
@@ -79,7 +79,7 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
                 id_col="id",
             ).set_index("id")
         >>> ttfe = TransformerTokenizedFrameEncoder(
-                pretrained_model_name_or_path="bert-base-cased",
+                model_name="bert-base-cased",
                 max_length=10,
                 batch_size=2
             )
@@ -89,14 +89,14 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def __init__(
         self,
-        pretrained_model_name_or_path: str = "bert-base-cased",
+        model_name: str = "bert-base-cased",
         max_length: int = 128,
         batch_size: int = 512,
     ):
         if AutoModel is None:
             raise ImportError("Please install the transformers library!")
-        self.model = AutoModel.from_pretrained(pretrained_model_name_or_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        self.model = AutoModel.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.max_length = max_length
         self.batch_size = batch_size
 

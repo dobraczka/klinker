@@ -1,4 +1,5 @@
 import ast
+import functools
 import hashlib
 import json
 import logging
@@ -38,7 +39,9 @@ from klinker.encoders import (
     LightEADeepBlockerFrameEncoder,
     LightEAFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
+    SentenceTransformerTokenizedFrameEncoder,
     TransformerTokenizedFrameEncoder,
+    frame_encoder_resolver,
 )
 from klinker.encoders.deepblocker import (
     DeepBlockerFrameEncoder,
@@ -46,7 +49,6 @@ from klinker.encoders.deepblocker import (
 )
 from klinker.encoders.pretrained import (
     TokenizedFrameEncoder,
-    tokenized_frame_encoder_resolver,
 )
 from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
@@ -89,6 +91,58 @@ def parse_bb_kwargs(
     if n_candidates:
         bb_kwargs["n_candidates"] = n_candidates
     return bb_kwargs
+
+
+def embedding_options(f):
+    @click.option(
+        "--inner-encoder",
+        type=click.Choice(
+            [
+                "sifembeddingtokenized",
+                "averageembeddingtokenized",
+                "transformertokenized",
+                "sentencetransformertokenized",
+            ]
+        ),
+    )
+    @click.option("--embeddings", type=str, default="fasttext")
+    @click.option("--inner-encoder-batch-size", type=int, default=256)
+    @block_builder_resolver.get_option(
+        "--block-builder", default="kiez", as_string=True
+    )
+    @click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
+    @click.option("--n-neighbors", type=int, default=100)
+    @click.option("--n-candidates", type=int, default=None)
+    @click.option("--force", type=bool, default=True)
+    @click.option("--save-emb", type=bool, default=False)
+    @functools.wraps(f)
+    def wrapper_common_options(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper_common_options
+
+
+def create_inner_encoder(
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
+) -> TokenizedFrameEncoder:
+    attribute_encoder_kwargs: Dict = {}
+    if inner_encoder in (
+        TransformerTokenizedFrameEncoder,
+        SentenceTransformerTokenizedFrameEncoder,
+    ):
+        attribute_encoder_kwargs = {"batch_size": inner_encoder_batch_size}
+        if embeddings != "fasttext":
+            attribute_encoder_kwargs["model_name"] = embeddings
+    elif inner_encoder in (
+        AverageEmbeddingTokenizedFrameEncoder,
+        SIFEmbeddingTokenizedFrameEncoder,
+    ):
+        attribute_encoder_kwargs = {
+            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
+        }
+    return frame_encoder_resolver.make(inner_encoder, attribute_encoder_kwargs)
 
 
 def set_random_seed(seed: Optional[int] = None):
@@ -439,12 +493,8 @@ def relational_lsh_blocker(
 @deep_blocker_encoder_resolver.get_option(
     "--encoder", default="autoencoder", as_string=True
 )
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
-@click.option("--embeddings", type=str, default="fasttext")
-@click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
+@click.option("--num-epochs", type=int, default=50)
 @click.option("--learning-rate", type=float, default=1e-3)
 @click.option("--synth-tuples-per-tuple", type=int, default=5)
 @click.option("--pos-to-neg-ratio", type=float, default=1.0)
@@ -452,41 +502,32 @@ def relational_lsh_blocker(
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
+@embedding_options
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
-    inner_encoder: Type[TokenizedFrameEncoder],
-    embeddings: str,
-    num_epochs: int,
     batch_size: int,
+    num_epochs: int,
     learning_rate: float,
     synth_tuples_per_tuple: int,
     pos_to_neg_ratio: float,
     max_perturbation: float,
     embedding_dimension: int,
     hidden_dimension: int,
+    inner_encoder: Type[TokenizedFrameEncoder],
+    inner_encoder_batch_size: int,
+    embeddings: str,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
     encoder_kwargs = {
-        "frame_encoder": inner_encoder,
-        "frame_encoder_kwargs": attribute_encoder_kwargs,
+        "frame_encoder": inner_encoder_inst,
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
@@ -510,6 +551,7 @@ def deepblocker(
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -519,10 +561,6 @@ def deepblocker(
 @deep_blocker_encoder_resolver.get_option(
     "--encoder", default="autoencoder", as_string=True
 )
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
-@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--num-epochs", type=int, default=50)
 @click.option("--batch-size", type=int, default=256)
 @click.option("--learning-rate", type=float, default=1e-3)
@@ -531,16 +569,10 @@ def deepblocker(
 @click.option("--max-perturbation", type=float, default=0.4)
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--attr-n-neighbors", type=int, default=100)
 @click.option("--rel-n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
+@embedding_options
 def relational_deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
-    inner_encoder: Type[TokenizedFrameEncoder],
-    embeddings: str,
     num_epochs: int,
     batch_size: int,
     learning_rate: float,
@@ -549,26 +581,22 @@ def relational_deepblocker(
     max_perturbation: float,
     embedding_dimension: int,
     hidden_dimension: int,
+    rel_n_neighbors: int,
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
-    attr_n_neighbors: int,
-    rel_n_neighbors: int,
+    n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
+    save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
     encoder_kwargs = {
-        "frame_encoder": inner_encoder,
-        "frame_encoder_kwargs": attribute_encoder_kwargs,
+        "frame_encoder": inner_encoder_inst,
         "num_epochs": num_epochs,
         "batch_size": batch_size,
         "learning_rate": learning_rate,
@@ -586,7 +614,7 @@ def relational_deepblocker(
     # deep-copy
     attr_bb_kwargs = {**bb_kwargs}
     rel_bb_kwargs = {**bb_kwargs}
-    attr_bb_kwargs["n_neighbors"] = attr_n_neighbors
+    attr_bb_kwargs["n_neighbors"] = n_neighbors
     rel_bb_kwargs["n_neighbors"] = rel_n_neighbors
     start = time.time()
     blocker = RelationalDeepBlocker(
@@ -599,6 +627,7 @@ def relational_deepblocker(
         rel_embedding_block_builder=block_builder,
         rel_embedding_block_builder_kwargs=rel_bb_kwargs,
         force=force,
+        save=save_emb,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -626,61 +655,33 @@ def relational_token_blocker(
 
 
 @cli.command()
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
-@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--ent-dim", type=int, default=256)
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
 @click.option("--rel-dim", type=int)
 @click.option("--batch-size", type=int)
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--faiss-index", type=str, default="HNSW")
-@click.option("--faiss-hnsw-ef-search", type=int, default=918)
-@click.option("--faiss-use-gpu", type=bool, default=True)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
-@click.option("--save_emb", type=bool, default=False)
+@embedding_options
 def light_ea_blocker(
-    inner_encoder: Type[TokenizedFrameEncoder],
-    embeddings: str,
     ent_dim: int,
     depth: int,
     mini_dim: int,
     rel_dim: Optional[int],
     batch_size: Optional[int],
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
-    faiss_index: str,
-    faiss_hnsw_ef_search: int,
-    faiss_use_gpu: bool,
+    block_builder_kwargs: str,
     n_neighbors: int,
     n_candidates: Optional[int],
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
-
-    algorithm_kwargs: Dict[str, Any] = {"index_key": faiss_index}
-    if faiss_index == "HNSW":
-        algorithm_kwargs["index_param"] = f"efSearch={faiss_hnsw_ef_search}"
-    algorithm_kwargs["use_gpu"] = faiss_use_gpu
-    bb_kwargs = {
-        "algorithm": "Faiss",
-        "algorithm_kwargs": algorithm_kwargs,
-        "n_neighbors": n_neighbors,
-        "n_candidates": n_candidates,
-    }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
+    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder, n_candidates)
     print(bb_kwargs)
     start = time.time()
     blocker = EmbeddingBlocker(
@@ -688,8 +689,7 @@ def light_ea_blocker(
             ent_dim=ent_dim,
             depth=depth,
             mini_dim=mini_dim,
-            attribute_encoder=inner_encoder,
-            attribute_encoder_kwargs=attribute_encoder_kwargs,
+            attribute_encoder=inner_encoder_inst,
         ),
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
@@ -701,11 +701,7 @@ def light_ea_blocker(
 
 
 @cli.command()
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
 @click.option("--batch-size", type=int)
-@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--depth", type=int, default=2)
 @click.option("--edge-weight", type=float, default=1.0)
 @click.option("--self-loop-weight", type=float, default=2.0)
@@ -713,16 +709,9 @@ def light_ea_blocker(
 @click.option("--bias", type=bool, default=True)
 @click.option("--use-weight-layers", type=bool, default=True)
 @click.option("--aggr", type=str, default="sum")
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
-@click.option("--save-emb", type=bool, default=False)
+@embedding_options
 def gcn_blocker(
-    inner_encoder: Type[TokenizedFrameEncoder],
     batch_size: Optional[int],
-    embeddings: str,
     depth: int,
     edge_weight: float,
     self_loop_weight: float,
@@ -730,6 +719,9 @@ def gcn_blocker(
     bias: bool,
     use_weight_layers: bool,
     aggr: str,
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -737,16 +729,9 @@ def gcn_blocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates
     )
@@ -760,8 +745,7 @@ def gcn_blocker(
             bias=bias,
             use_weight_layers=use_weight_layers,
             aggr=aggr,
-            attribute_encoder=inner_encoder,
-            attribute_encoder_kwargs=attribute_encoder_kwargs,
+            attribute_encoder=inner_encoder_inst,
         ),
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
@@ -773,11 +757,7 @@ def gcn_blocker(
 
 
 @cli.command()
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
 @click.option("--te-batch-size", type=int)
-@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--depth", type=int, default=2)
 @click.option("--edge-weight", type=float, default=1.0)
 @click.option("--self-loop-weight", type=float, default=2.0)
@@ -795,16 +775,9 @@ def gcn_blocker(
 @click.option("--max-perturbation", type=float, default=0.4)
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=75)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
-@click.option("--save-emb", type=bool, default=False)
+@embedding_options
 def gcn_deepblocker(
-    inner_encoder: Type[TokenizedFrameEncoder],
     te_batch_size: Optional[int],
-    embeddings: str,
     depth: int,
     edge_weight: float,
     self_loop_weight: float,
@@ -820,6 +793,9 @@ def gcn_deepblocker(
     max_perturbation: float,
     embedding_dimension: int,
     hidden_dimension: int,
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -827,16 +803,9 @@ def gcn_deepblocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": te_batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
 
     deepblocker_encoder_kwargs = {
         "num_epochs": num_epochs,
@@ -866,8 +835,7 @@ def gcn_deepblocker(
             bias=bias,
             use_weight_layers=use_weight_layers,
             aggr=aggr,
-            inner_encoder=inner_encoder,
-            inner_encoder_kwargs=attribute_encoder_kwargs,
+            inner_encoder=inner_encoder_inst,
             deepblocker_encoder=deepblocker_encoder,
             deepblocker_encoder_kwargs=deepblocker_encoder_kwargs,
         ),
@@ -881,11 +849,6 @@ def gcn_deepblocker(
 
 
 @cli.command()
-@tokenized_frame_encoder_resolver.get_option(
-    "--inner-encoder", default="SIFEmbeddingTokenizedFrameEncoder", as_string=True
-)
-@click.option("--te-batch-size", type=int)
-@click.option("--embeddings", type=str, default="fasttext")
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
 @deep_blocker_encoder_resolver.get_option(
@@ -899,16 +862,8 @@ def gcn_deepblocker(
 @click.option("--max-perturbation", type=float, default=0.4)
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=75)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
-@click.option("--save-emb", type=bool, default=False)
+@embedding_options
 def light_ea_deepblocker(
-    inner_encoder: Type[TokenizedFrameEncoder],
-    te_batch_size: Optional[int],
-    embeddings: str,
     depth: int,
     mini_dim: int,
     deepblocker_encoder: str,
@@ -920,6 +875,9 @@ def light_ea_deepblocker(
     max_perturbation: float,
     embedding_dimension: int,
     hidden_dimension: int,
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -927,16 +885,9 @@ def light_ea_deepblocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    attribute_encoder_kwargs: Dict = {}
-    if inner_encoder == TransformerTokenizedFrameEncoder:
-        attribute_encoder_kwargs = {"batch_size": te_batch_size}
-    elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
-    ):
-        attribute_encoder_kwargs = {
-            "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-        }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
 
     deepblocker_encoder_kwargs = {
         "num_epochs": num_epochs,
@@ -962,8 +913,7 @@ def light_ea_deepblocker(
             mini_dim=mini_dim,
             embedding_dimension=embedding_dimension,
             hidden_dimension=hidden_dimension,
-            inner_encoder=inner_encoder,
-            inner_encoder_kwargs=attribute_encoder_kwargs,
+            inner_encoder=inner_encoder_inst,
             deepblocker_encoder=deepblocker_encoder,
             deepblocker_encoder_kwargs=deepblocker_encoder_kwargs,
         ),
@@ -977,20 +927,11 @@ def light_ea_deepblocker(
 
 
 @cli.command()
-@click.option(
-    "--encoder",
-    type=click.Choice(["sifembeddingtokenized", "averageembeddingtokenized"]),
-)
-@click.option("--embeddings", type=str, default="fasttext")
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
-@click.option("--block-builder-kwargs", type=str, default=KIEZ_FAISS_DEFAULT_KEY)
-@click.option("--n-neighbors", type=int, default=100)
-@click.option("--n-candidates", type=int, default=None)
-@click.option("--force", type=bool, default=True)
-@click.option("--save-emb", type=bool, default=False)
+@embedding_options
 def only_embeddings_blocker(
-    encoder: str,
+    inner_encoder: str,
     embeddings: str,
+    inner_encoder_batch_size: int,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -998,16 +939,15 @@ def only_embeddings_blocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    frame_encoder_kwargs = {
-        "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
-    }
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder, embeddings, inner_encoder_batch_size
+    )
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates
     )
     start = time.time()
     blocker = EmbeddingBlocker(
-        frame_encoder=encoder,
-        frame_encoder_kwargs=frame_encoder_kwargs,
+        frame_encoder=inner_encoder_inst,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
