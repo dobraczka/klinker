@@ -92,6 +92,8 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         print("Started nn search")
         start = time.time()
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
+        if isinstance(neighbors, torch.Tensor):
+            neighbors = neighbors.detach().cpu().numpy()
         print(f"Neighbors shape: {neighbors.shape}")
         self._nn_search_time = time.time() - start
         print(f"Got neighbors in {self._nn_search_time}")
@@ -175,9 +177,6 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         -------
             distances, nearest neighbors
         """
-        print("left.device=%s" % (left.device))
-        print("right.device=%s" % (right.device))
-        print("self.kiez=%s" % (self.kiez))
         self.kiez.fit(left, right)
         dist, neighs = self.kiez.kneighbors(k=self.n_neighbors, return_distance=True)
         return dist, neighs
