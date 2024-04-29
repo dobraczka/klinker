@@ -45,7 +45,7 @@ def _batch_generator(df, batch_size):
         start = batch_size * nb
         end = start + batch_size
         if end > len(arr):
-            res = arr[start:].values
+            res = arr[start:]
             if isinstance(df, dd.DataFrame):
                 yield res.compute()
             else:
