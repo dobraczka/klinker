@@ -88,6 +88,7 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         left = generic_upgrade_from_series(left, reset_index=False)
         right = generic_upgrade_from_series(right, reset_index=False)
 
+        print("self.save=%s" % (self.save))
         # handle save dir
         if self.save:
             if self.save_dir is None:

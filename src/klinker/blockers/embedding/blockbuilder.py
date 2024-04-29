@@ -175,6 +175,9 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         -------
             distances, nearest neighbors
         """
+        print("left.device=%s" % (left.device))
+        print("right.device=%s" % (right.device))
+        print("self.kiez=%s" % (self.kiez))
         self.kiez.fit(left, right)
         dist, neighs = self.kiez.kneighbors(k=self.n_neighbors, return_distance=True)
         return dist, neighs
