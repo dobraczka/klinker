@@ -12,6 +12,7 @@ from gensim import downloader as gensim_downloader
 from gensim.models import KeyedVectors
 from nltk.tokenize import word_tokenize
 from sklearn.decomposition import TruncatedSVD
+from tqdm import tqdm
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -36,13 +37,24 @@ word_embedding_dir = pystow.module("klinker").join("word_embeddings")
 def _batch_generator(df, batch_size):
     number_of_batches = math.ceil(len(df) / batch_size)
     start = 0
-    arr = df[df.columns[0]].values
-    for nb in range(number_of_batches):
+    if isinstance(df, dd.DataFrame):
+        arr = df[df.columns[0]].to_dask_array(lengths=True)
+    else:
+        arr = df[df.columns[0]].values
+    for nb in tqdm(range(number_of_batches), desc="Batches: "):
         start = batch_size * nb
         end = start + batch_size
         if end > len(arr):
-            yield arr[start:]
-        yield arr[start:end]
+            res = arr[start:].values
+            if isinstance(df, dd.DataFrame):
+                yield res.compute()
+            else:
+                yield res
+        res = arr[start:end]
+        if isinstance(df, dd.DataFrame):
+            yield res.compute()
+        else:
+            yield res
 
 
 class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
@@ -188,9 +200,17 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     @torch.no_grad()
     def _encode_side(self, df: Frame) -> GeneralVector:
-        return self.model.encode(
-            list(df[df.columns[0]].values), batch_size=self.batch_size
-        )
+        encoded = []
+        for batch in _batch_generator(df, self.batch_size):
+            encoded.append(
+                self.model.encode(
+                    batch,
+                    batch_size=self.batch_size,
+                    convert_to_tensor=True,
+                    show_progress_bar=False,
+                )
+            )
+        return torch.vstack(encoded)
 
     def _encode(
         self,

@@ -122,7 +122,7 @@ def create_inner_encoder(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-) -> TokenizedFrameEncoder:
+) -> FrameEncoder:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder in (
         "transformertokenized",
