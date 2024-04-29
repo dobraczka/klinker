@@ -32,15 +32,11 @@ from klinker.blockers.embedding.blockbuilder import (
     block_builder_resolver,
 )
 from klinker.encoders import (
-    AverageEmbeddingTokenizedFrameEncoder,
     FrameEncoder,
     GCNDeepBlockerFrameEncoder,
     GCNFrameEncoder,
     LightEADeepBlockerFrameEncoder,
     LightEAFrameEncoder,
-    SIFEmbeddingTokenizedFrameEncoder,
-    SentenceTransformerTokenizedFrameEncoder,
-    TransformerTokenizedFrameEncoder,
     frame_encoder_resolver,
 )
 from klinker.encoders.deepblocker import (
@@ -129,15 +125,15 @@ def create_inner_encoder(
 ) -> TokenizedFrameEncoder:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder in (
-        TransformerTokenizedFrameEncoder,
-        SentenceTransformerTokenizedFrameEncoder,
+        "transformertokenized",
+        "sentencetransformertokenized",
     ):
         attribute_encoder_kwargs = {"batch_size": inner_encoder_batch_size}
         if embeddings != "fasttext":
             attribute_encoder_kwargs["model_name"] = embeddings
     elif inner_encoder in (
-        AverageEmbeddingTokenizedFrameEncoder,
-        SIFEmbeddingTokenizedFrameEncoder,
+        "averageembeddingtokenized",
+        "sifembeddingtokenized",
     ):
         attribute_encoder_kwargs = {
             "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
