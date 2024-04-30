@@ -249,6 +249,8 @@ class NamedVector(Generic[T]):
         ----
           path: Path where to save.
         """
+        if isinstance(self.vectors, torch.Tensor):
+            self.vectors = self.vectors.detach().cpu()
         with open(path, "wb") as file_handle:
             pickle.dump((self.names, self.vectors), file_handle)
 
