@@ -102,6 +102,8 @@ def embedding_options(f):
     )
     @click.option("--embeddings", type=str, default="fasttext")
     @click.option("--inner-encoder-batch-size", type=int, default=256)
+    @click.option("--reduce-transformer-dim-to", type=int, default=-1)
+    @click.option("--reduce-sample-perc", type=float, default=0.3)
     @block_builder_resolver.get_option(
         "--block-builder", default="kiez", as_string=True
     )
@@ -121,6 +123,8 @@ def create_inner_encoder(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_dim_to: int,
+    reduce_sample_perc: float,
 ) -> FrameEncoder:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder in (
@@ -130,6 +134,10 @@ def create_inner_encoder(
         attribute_encoder_kwargs = {"batch_size": inner_encoder_batch_size}
         if embeddings != "fasttext":
             attribute_encoder_kwargs["model_name"] = embeddings
+        if inner_encoder == "sentencetransformertokenized":
+            if reduce_dim_to > 0:
+                attribute_encoder_kwargs["reduce_dim_to"] = reduce_dim_to
+                attribute_encoder_kwargs["reduce_sample_perc"] = reduce_sample_perc
     elif inner_encoder in (
         "averageembeddingtokenized",
         "sifembeddingtokenized",
@@ -510,6 +518,8 @@ def deepblocker(
     hidden_dimension: int,
     inner_encoder: Type[TokenizedFrameEncoder],
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     embeddings: str,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -519,7 +529,11 @@ def deepblocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
     encoder_kwargs = {
         "frame_encoder": inner_encoder_inst,
@@ -580,6 +594,8 @@ def relational_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -588,7 +604,11 @@ def relational_deepblocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
     encoder_kwargs = {
         "frame_encoder": inner_encoder_inst,
@@ -664,6 +684,8 @@ def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -672,7 +694,11 @@ def light_ea_blocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder, n_candidates)
     print(bb_kwargs)
@@ -714,6 +740,8 @@ def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -722,7 +750,11 @@ def gcn_blocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates
@@ -788,6 +820,8 @@ def gcn_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -796,7 +830,11 @@ def gcn_deepblocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
 
     deepblocker_encoder_kwargs = {
@@ -870,6 +908,8 @@ def light_ea_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -878,7 +918,11 @@ def light_ea_deepblocker(
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
 
     deepblocker_encoder_kwargs = {
@@ -924,6 +968,8 @@ def only_embeddings_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
     n_neighbors: int,
@@ -933,7 +979,11 @@ def only_embeddings_blocker(
 ) -> Tuple[Blocker, Dict, float]:
     print("save_emb=%s" % (save_emb))
     inner_encoder_inst = create_inner_encoder(
-        inner_encoder, embeddings, inner_encoder_batch_size
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
         block_builder_kwargs, n_neighbors, block_builder, n_candidates

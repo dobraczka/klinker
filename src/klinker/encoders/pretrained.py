@@ -14,7 +14,7 @@ from nltk.tokenize import word_tokenize
 from sklearn.decomposition import TruncatedSVD
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer, models
 except ImportError:
     SentenceTransformer = None
 
@@ -22,6 +22,11 @@ try:
     from transformers import AutoModel, AutoTokenizer
 except ImportError:
     AutoModel = None
+
+try:
+    from cuml.decomposition import PCA
+except ImportError:
+    from sklearn.decomposition import PCA
 
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
@@ -175,24 +180,62 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         model_name: str = "all-MiniLM-L6-v2",
         max_length: int = 128,
         batch_size: int = 512,
+        reduce_dim_to: Optional[int] = None,
+        reduce_sample_perc: float = 0.3,
     ):
         if SentenceTransformer is None:
             raise ImportError("Please install the sentence-transformers library!")
         self.model = SentenceTransformer(model_name)
         self.model.max_seq_length = max_length
         self.batch_size = batch_size
+        self.reduce_dim_to = reduce_dim_to
+        self.reduce_sample_perc = reduce_sample_perc
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.model.tokenizer.tokenize
 
     @torch.no_grad()
-    def _encode_side(self, df: Frame) -> GeneralVector:
+    def _encode_side(self, df: Frame, convert_to_tensor: bool = True) -> GeneralVector:
         vals = df[df.columns[0]].values
         if isinstance(df, KlinkerDaskFrame):
             vals = vals.compute()
+        if convert_to_tensor:
+            return self.model.encode(
+                vals, batch_size=self.batch_size, convert_to_tensor=True
+            )
         return self.model.encode(
-            vals, batch_size=self.batch_size, convert_to_tensor=True
+            vals, batch_size=self.batch_size, convert_to_numpy=True
+        )
+
+    def _add_dimensionality_reduction_layer(self, left: Frame, right: Frame):
+        # see https://github.com/UKPLab/sentence-transformers/blob/master/examples/training/distillation/dimensionality_reduction.py
+        logger.info(
+            f"Using PCA to output embeddings with dimensionality of {self.reduce_dim_to}. Training on {self.reduce_sample_perc * 100} % of the data."
+        )
+        lt_embeddings = self._encode_side(
+            left.sample(frac=self.reduce_sample_perc), convert_to_tensor=False
+        )
+        rt_embeddings = self._encode_side(
+            right.sample(frac=self.reduce_sample_perc), convert_to_tensor=False
+        )
+        train_embeddings = np.concatenate([lt_embeddings, rt_embeddings])
+        # Compute PCA on the train embeddings matrix
+        pca = PCA(n_components=self.reduce_dim_to)
+        pca.fit(train_embeddings)
+        pca_comp = np.asarray(pca.components_)
+
+        # We add a dense layer to the model, so that it will produce directly embeddings with the new size
+        dense = models.Dense(
+            in_features=self.model.get_sentence_embedding_dimension(),
+            out_features=self.reduce_dim_to,
+            bias=False,
+            activation_function=torch.nn.Identity(),
+        )
+        dense.linear.weight = torch.nn.Parameter(torch.tensor(pca_comp))
+        self.model.add_module("dense", dense)
+        logger.info(
+            f"Done! Added a dense layer with shape ({dense.in_features}, {dense.out_features}) to the model"
         )
 
     def _encode(
@@ -202,6 +245,8 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        if self.reduce_dim_to:
+            self._add_dimensionality_reduction_layer(left, right)
         return self._encode_side(left), self._encode_side(right)
 
 
