@@ -2,8 +2,8 @@ from typing import Optional
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from class_resolver import HintOrType, OptionalKwargs
-from sklearn.preprocessing import normalize
 from tqdm import trange
 
 from klinker.utils import resolve_device
@@ -240,7 +240,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
 
         ent_feature = torch.cat(ent_list, dim=1)
         print(f"ent_feature.shape={ent_feature.shape}")
-        return normalize(ent_feature)
+        return F.normalize(ent_feature)
         # rel_feature = torch.cat(rel_list, dim=1)
         # print(f"ent_feature.shape={ent_feature.shape}")
         # print(f"rel_feature.shape={rel_feature.shape}")
