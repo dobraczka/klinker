@@ -329,6 +329,9 @@ class RelationFrameEncoder(FrameEncoder):
 
         # map string based triples to int
         entity_mapping = all_attr_enc.entity_id_mapping
+        if isinstance(left_rel, dd.DataFrame):
+            left_rel = left_rel.compute()
+            right_rel = right_rel.compute()
         rel_triples_left, entity_mapping, rel_mapping = id_map_rel_triples(
             left_rel, entity_mapping=entity_mapping
         )
