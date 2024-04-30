@@ -650,7 +650,6 @@ def relational_token_blocker(
 
 
 @cli.command()
-@click.option("--ent-dim", type=int, default=256)
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
 @click.option("--rel-dim", type=int)
@@ -658,7 +657,6 @@ def relational_token_blocker(
 @block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @embedding_options
 def light_ea_blocker(
-    ent_dim: int,
     depth: int,
     mini_dim: int,
     rel_dim: Optional[int],
@@ -681,7 +679,6 @@ def light_ea_blocker(
     start = time.time()
     blocker = EmbeddingBlocker(
         frame_encoder=LightEAFrameEncoder(
-            ent_dim=ent_dim,
             depth=depth,
             mini_dim=mini_dim,
             attribute_encoder=inner_encoder_inst,
