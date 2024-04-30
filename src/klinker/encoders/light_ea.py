@@ -57,7 +57,6 @@ class LightEAFrameEncoder(RelationFrameEncoder):
 
     Args:
     ----
-        ent_dim: int: Entity dimensions
         depth: int: Number of hops
         mini_dim:int: Mini batching size
         rel_dim:int: relation embedding dimensions (same as ent_dim if None)
@@ -70,7 +69,6 @@ class LightEAFrameEncoder(RelationFrameEncoder):
 
     def __init__(
         self,
-        ent_dim: int = 256,
         depth: int = 2,
         mini_dim: int = 16,
         rel_dim: Optional[int] = None,
@@ -78,11 +76,10 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         attribute_encoder_kwargs: OptionalKwargs = None,
     ):
         # TODO ent dim is unused!
-        self.ent_dim = ent_dim
         self.depth = depth
         self.device = resolve_device()
         self.mini_dim = mini_dim
-        self.rel_dim = ent_dim if rel_dim is None else rel_dim
+        self.rel_dim = rel_dim
         self.attribute_encoder = tokenized_frame_encoder_resolver.make(
             attribute_encoder, attribute_encoder_kwargs
         )
@@ -188,7 +185,11 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ent_feature,
     ):
         ent_feature = ent_feature.to(self.device)
+        if self.rel_dim is None:
+            self.rel_dim = ent_feature.shape[1]
+        print(f"ent_feature.shape={ent_feature.shape}")
         rel_feature = torch.zeros((rel_size, ent_feature.shape[-1])).to(self.device)
+        print(f"rel_feature.shape={rel_feature.shape}")
 
         ent_ent, ent_rel, rel_ent, ent_ent_val, triples_idx, ent_tuple = map(
             torch.tensor,
@@ -216,7 +217,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         ).to(self.device)
 
         ent_list, rel_list = [ent_feature], [rel_feature]
-        for _ in trange(self.depth):
+        for dep in trange(self.depth):
             new_rel_feature = torch.from_numpy(
                 _batch_sparse_matmul(rel_ent_graph, ent_feature, self.device)
             ).to(self.device)
@@ -234,46 +235,55 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             rel_feature = new_rel_feature
             ent_list.append(ent_feature)
             rel_list.append(rel_feature)
+            print(f"dep={dep}, ent_feature.shape={ent_feature.shape}")
+            print(f"dep={dep}, rel_feature.shape={rel_feature.shape}")
 
         ent_feature = torch.cat(ent_list, dim=1)
-        rel_feature = torch.cat(rel_list, dim=1)
+        print(f"ent_feature.shape={ent_feature.shape}")
+        return normalize(ent_feature)
+        # rel_feature = torch.cat(rel_list, dim=1)
+        # print(f"ent_feature.shape={ent_feature.shape}")
+        # print(f"rel_feature.shape={rel_feature.shape}")
 
-        ent_feature = _my_norm(ent_feature)
-        rel_feature = _my_norm(rel_feature)
-        rel_feature = _random_projection(rel_feature, self.rel_dim, self.device)
-        batch_size = ent_feature.shape[-1] // self.mini_dim
-        sparse_graph = torch.sparse_coo_tensor(
-            indices=triples_idx,
-            values=torch.ones(triples_idx.shape[1]),
-            size=(torch.max(triples_idx).item() + 1, rel_size),
-        ).to(self.device)
-        adj_value = _batch_sparse_matmul(sparse_graph, rel_feature, self.device)
-        del rel_feature
+        # ent_feature = _my_norm(ent_feature)
+        # rel_feature = _my_norm(rel_feature)
+        # rel_feature = _random_projection(rel_feature, self.rel_dim, self.device)
+        # batch_size = ent_feature.shape[-1] // self.mini_dim
+        # sparse_graph = torch.sparse_coo_tensor(
+        #     indices=triples_idx,
+        #     values=torch.ones(triples_idx.shape[1]),
+        #     size=(torch.max(triples_idx).item() + 1, rel_size),
+        # ).to(self.device)
+        # adj_value = _batch_sparse_matmul(sparse_graph, rel_feature, self.device)
+        # del rel_feature
 
-        features_list = []
+        # features_list = []
+        # for batch in trange(self.rel_dim // batch_size + 1):
+        #     temp_list = []
+        #     for head in trange(batch_size):
+        #         if batch * batch_size + head >= self.rel_dim:
+        #             break
+        #         sparse_graph = torch.sparse_coo_tensor(
+        #             indices=ent_tuple,
+        #             values=adj_value[:, batch * batch_size + head],
+        #             size=(node_size, node_size),
+        #         ).to(self.device)
+        #         feature = _batch_sparse_matmul(
+        #             sparse_graph,
+        #             _random_projection(ent_feature, self.mini_dim, self.device).to(
+        #                 self.device
+        #             ),
+        #             self.device,
+        #             batch_size=128,
+        #             save_mem=True,
+        #         )
+        #         temp_list.append(feature)
+        #     if len(temp_list):
+        #         features_list.append(np.concatenate(temp_list, axis=-1))
 
-        for batch in trange(self.rel_dim // batch_size + 1):
-            temp_list = []
-            for head in trange(batch_size):
-                if batch * batch_size + head >= self.rel_dim:
-                    break
-                sparse_graph = torch.sparse_coo_tensor(
-                    indices=ent_tuple,
-                    values=adj_value[:, batch * batch_size + head],
-                    size=(node_size, node_size),
-                ).to(self.device)
-                feature = _batch_sparse_matmul(
-                    sparse_graph,
-                    _random_projection(ent_feature, self.mini_dim, self.device).to(
-                        self.device
-                    ),
-                    self.device,
-                    batch_size=128,
-                    save_mem=True,
-                )
-                temp_list.append(feature)
-            if len(temp_list):
-                features_list.append(np.concatenate(temp_list, axis=-1))
-        features = np.concatenate(features_list, axis=-1)
-        features = normalize(features)
-        return np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
+        # features = np.concatenate(features_list, axis=-1)
+        # features = normalize(features)
+        # print(f"features.shape={features.shape}")
+        # res = np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
+        # print(f"res.shape={res.shape}")
+        # return np.concatenate([ent_feature.cpu().numpy(), features], axis=-1)
