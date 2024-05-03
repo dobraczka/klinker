@@ -503,6 +503,10 @@ def relational_lsh_blocker(
 ) -> Tuple[Blocker, Dict, float]:
     attr_fp_weight = 1.0 - attr_fn_weight
     rel_fp_weight = 1.0 - rel_fn_weight
+    if top_n_a < 0:
+        top_n_a = None
+    if top_n_r < 0:
+        top_n_r = None
     start = time.time()
     blocker = RelationalMinHashLSHBlocker(
         attr_threshold=attr_threshold,
@@ -633,6 +637,10 @@ def relational_deepblocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
+    if top_n_a < 0:
+        top_n_a = None
+    if top_n_r < 0:
+        top_n_r = None
     inner_encoder_inst = create_inner_encoder(
         inner_encoder,
         embeddings,
@@ -698,6 +706,10 @@ def relational_token_blocker(
     top_n_a: Optional[int],
     top_n_r: Optional[int],
 ) -> Tuple[Blocker, Dict, float]:
+    if top_n_a < 0:
+        top_n_a = None
+    if top_n_r < 0:
+        top_n_r = None
     start = time.time()
     blocker = SimpleRelationalTokenBlocker(
         min_token_length=min_token_length, top_n_a=top_n_a, top_n_r=top_n_r
