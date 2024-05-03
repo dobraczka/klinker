@@ -15,10 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 import click
 import numpy as np
 
-try:
-    import torch
-except ImportError:
-    torch = None
+import torch
 from klinker import KlinkerBlockManager, KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
@@ -73,7 +70,7 @@ KIEZ_FAISS_DEFAULT = {
 }
 
 KIEZ_FAISS_HNSW_KEY = "faisshnsw"
-KIEZ_FAISS_DEFAULT = {
+KIEZ_FAISS_HNSW = {
     "algorithm": "Faiss",
     "algorithm_kwargs": {
         "index_key": "HNSW",
@@ -94,6 +91,8 @@ def parse_bb_kwargs(
         if block_builder == "kiez":
             if block_builder_kwargs == KIEZ_FAISS_DEFAULT_KEY:
                 bb_kwargs = KIEZ_FAISS_DEFAULT
+            elif block_builder_kwargs == KIEZ_FAISS_HNSW_KEY:
+                bb_kwargs = KIEZ_FAISS_HNSW
         elif block_builder_kwargs != KIEZ_FAISS_DEFAULT_KEY:
             bb_kwargs = ast.literal_eval(block_builder_kwargs)
     bb_kwargs["n_neighbors"] = n_neighbors
@@ -167,8 +166,7 @@ def set_random_seed(seed: Optional[int] = None):
         seed = np.random.randint(0, 2**16)
         logger.info(f"No random seed provided. Using {seed}")
     np.random.seed(seed=seed)
-    if torch:
-        torch.manual_seed(seed=seed)
+    torch.manual_seed(seed=seed)
     random.seed(seed)
     return seed
 
@@ -711,9 +709,9 @@ def relational_token_blocker(
     top_n_a: Optional[int],
     top_n_r: Optional[int],
 ) -> Tuple[Blocker, Dict, float]:
-    if top_n_a < 0:
+    if top_n_a and top_n_a < 0:
         top_n_a = None
-    if top_n_r < 0:
+    if top_n_r and top_n_r < 0:
         top_n_r = None
     start = time.time()
     blocker = SimpleRelationalTokenBlocker(
