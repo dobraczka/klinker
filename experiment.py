@@ -14,7 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type, get_args
 
 import click
 import numpy as np
-import torch
+
+try:
+    import torch
+except ImportError:
+    torch = None
 from klinker import KlinkerBlockManager, KlinkerDataset
 from klinker.blockers import (
     DeepBlocker,
@@ -163,7 +167,8 @@ def set_random_seed(seed: Optional[int] = None):
         seed = np.random.randint(0, 2**16)
         logger.info(f"No random seed provided. Using {seed}")
     np.random.seed(seed=seed)
-    torch.manual_seed(seed=seed)
+    if torch:
+        torch.manual_seed(seed=seed)
     random.seed(seed)
     return seed
 
