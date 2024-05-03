@@ -27,7 +27,10 @@ class KlinkerDataset:
 
     @classmethod
     def from_sylloge(
-        cls, dataset: MultiSourceEADataset, clean: bool = False
+        cls,
+        dataset: MultiSourceEADataset,
+        clean: bool = False,
+        repartition: Optional[int] = None,
     ) -> "KlinkerDataset":
         """Create a klinker dataset from sylloge dataset.
 
@@ -84,11 +87,19 @@ class KlinkerDataset:
                 }
             )
 
+        left_rel = dataset.rel_triples[0]
+        right_rel = dataset.rel_triples[1]
+
+        if repartition:
+            left, right, left_rel, right_rel = [
+                frame.repartition(npartitions=repartition)
+                for frame in [left, right, left_rel, right_rel]
+            ]
         return cls(
             left=left,
             right=right,
-            left_rel=dataset.rel_triples[0],
-            right_rel=dataset.rel_triples[1],
+            left_rel=left_rel,
+            right_rel=right_rel,
             gold=ent_links,
         )
 
@@ -114,7 +125,7 @@ class KlinkerDataset:
             ],
         )
 
-    def sample(self, size: int) -> "KlinkerDataset":
+    def sample(self, frac: float) -> "KlinkerDataset":
         """Get a sample of the dataset.
 
         Note:
@@ -123,8 +134,7 @@ class KlinkerDataset:
 
         Args:
         ----
-          size: int: size of the sample
-
+          frac: percentage of whole
         Returns:
         -------
             sampled klinker dataset
@@ -134,11 +144,11 @@ class KlinkerDataset:
             >>> # doctest: +SKIP
             >>> from sylloge import MovieGraphBenchmark
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
-            >>> sampled = ds.sample(10)
+            >>> sampled = ds.sample(0.2)
 
         """
         # TODO actually sample
-        sample_ent_links = self.gold.iloc[:size]
+        sample_ent_links = self.gold.sample(frac=frac)
         sample_left, sample_left_rel = self._sample_side(sample_ent_links, "left")
         sample_right, sample_right_rel = self._sample_side(sample_ent_links, "right")
         return KlinkerDataset(

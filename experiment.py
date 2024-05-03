@@ -59,12 +59,22 @@ from sylloge.open_ea_loader import GRAPH_VERSIONS as open_ea_graph_versions
 
 logger = logging.getLogger("KlinkerExperiment")
 
-KIEZ_FAISS_DEFAULT_KEY = "faissdefault"
+KIEZ_FAISS_DEFAULT_KEY = "faissflat"
 KIEZ_FAISS_DEFAULT = {
     "algorithm": "Faiss",
     "algorithm_kwargs": {
         "index_key": "Flat",
         "use_gpu": True,
+    },
+}
+
+KIEZ_FAISS_HNSW_KEY = "faisshnsw"
+KIEZ_FAISS_DEFAULT = {
+    "algorithm": "Faiss",
+    "algorithm_kwargs": {
+        "index_key": "HNSW",
+        "efSearch": 916,
+        "use_gpu": False,
     },
 }
 
@@ -323,7 +333,14 @@ def prepare(
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 @click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
 @click.option("--random-seed", type=int, default=None)
-def cli(clean: bool, wandb: bool, nextcloud: bool, random_seed: Optional[int]):
+@click.option("--repartition", type=int, default=None)
+def cli(
+    clean: bool,
+    wandb: bool,
+    nextcloud: bool,
+    random_seed: Optional[int],
+    repartition: Optional[int],
+):
     pass
 
 
@@ -334,6 +351,7 @@ def process_pipeline(
     wandb: bool,
     nextcloud: bool,
     random_seed: Optional[int],
+    repartition: Optional[int],
 ):
     seed = set_random_seed(random_seed)
     assert (
@@ -346,7 +364,9 @@ def process_pipeline(
     dataset_with_params, blocker_with_params = blocker_and_dataset
     dataset, ds_params = dataset_with_params
     blocker, bl_params, blocker_creation_time = blocker_with_params
-    klinker_dataset = KlinkerDataset.from_sylloge(dataset, clean=clean)
+    klinker_dataset = KlinkerDataset.from_sylloge(
+        dataset, clean=clean, repartition=repartition
+    )
     params = {**ds_params, **bl_params}
 
     experiment_info = prepare(
@@ -469,6 +489,8 @@ def lsh_blocker(
 @click.option("--rel-threshold", type=float, default=0.7)
 @click.option("--rel-num-perm", type=int, default=128)
 @click.option("--rel-fn-weight", type=float, default=0.5)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
 def relational_lsh_blocker(
     attr_threshold: float,
     attr_num_perm: int,
@@ -476,6 +498,8 @@ def relational_lsh_blocker(
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
 ) -> Tuple[Blocker, Dict, float]:
     attr_fp_weight = 1.0 - attr_fn_weight
     rel_fp_weight = 1.0 - rel_fn_weight
@@ -487,6 +511,8 @@ def relational_lsh_blocker(
         rel_threshold=rel_threshold,
         rel_num_perm=rel_num_perm,
         rel_weights=(rel_fp_weight, rel_fn_weight),
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -579,6 +605,8 @@ def deepblocker(
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
 @click.option("--rel-n-neighbors", type=int, default=100)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
 @embedding_options
 def relational_deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
@@ -591,6 +619,8 @@ def relational_deepblocker(
     embedding_dimension: int,
     hidden_dimension: int,
     rel_n_neighbors: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
@@ -643,6 +673,8 @@ def relational_deepblocker(
         rel_embedding_block_builder_kwargs=rel_bb_kwargs,
         force=force,
         save=save_emb,
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -659,12 +691,17 @@ def token_blocker(min_token_length: int) -> Tuple[Blocker, Dict, float]:
 
 @cli.command()
 @click.option("--min-token-length", type=int, default=3)
-@click.option("--intermediate-saving", type=bool, default=False)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
 def relational_token_blocker(
-    min_token_length: int, intermediate_saving: bool
+    min_token_length: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
 ) -> Tuple[Blocker, Dict, float]:
     start = time.time()
-    blocker = SimpleRelationalTokenBlocker(min_token_length=min_token_length)
+    blocker = SimpleRelationalTokenBlocker(
+        min_token_length=min_token_length, top_n_a=top_n_a, top_n_r=top_n_r
+    )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
 

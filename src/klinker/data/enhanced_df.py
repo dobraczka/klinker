@@ -293,7 +293,9 @@ class KlinkerTriplePandasFrame(KlinkerPandasFrame):
         res = (
             self[[self.id_col, self.columns[2]]]
             .groupby(self.id_col)
-            .agg(lambda row: " ".join(row.astype(str).values).strip())[self.columns[2]]
+            .agg(lambda row: " ".join(row.astype(str).str.strip().unique()))[
+                self.columns[2]
+            ]
         )
         res.name = self.table_name
         return res
@@ -508,7 +510,7 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
         self = self.fillna("")
         assert self.table_name
         result = self.groupby(self.id_col)[self.columns[2]].apply(
-            lambda grp: " ".join(grp.astype(str)).strip(),
+            lambda grp: " ".join(grp.astype(str).str.strip().unique()).strip(),
             meta=pd.Series([], name=self.columns[2], dtype="str"),
         )
         result.name = self.table_name

@@ -61,8 +61,107 @@ def _upgrade_to_triple(concat_attr: FrameType, conc_frame: FrameType) -> FrameTy
     return concat_attr
 
 
+def count_entities(attr_frame: Frame, rel_frame: Frame) -> int:
+    conc = (
+        concat_frames(
+            [
+                attr_frame[attr_frame.columns[0]].unique(),
+                rel_frame[rel_frame.columns[0]].unique(),
+                rel_frame[rel_frame.columns[2]].unique(),
+            ]
+        )
+        .unique()
+        .count()
+    )
+    return conc.compute() if isinstance(attr_frame, dd.DataFrame) else conc
+
+
+def _importance(counted: Frame) -> Frame:
+    res = (
+        2
+        * (counted["support"] * counted["discriminability"])
+        / (counted["support"] + counted["discriminability"])
+    )
+    return res.to_frame("importance")
+
+
+def relation_importance(rel_frame: Frame, num_entities: int) -> Frame:
+    counted = rel_frame.groupby(rel_frame.columns[1]).agg(
+        rel_count=(rel_frame.columns[1], "count"),
+        tail_count=(rel_frame.columns[2], "count"),
+    )
+    counted["support"] = counted["rel_count"] / num_entities**2
+    counted["discriminability"] = counted["tail_count"] / counted["rel_count"]
+    return _importance(counted)
+
+
+def name_importance(attr_frame: Frame, num_entities: int) -> Frame:
+    counted = attr_frame.groupby(attr_frame.columns[1]).agg(
+        head_count=(attr_frame.columns[0], "count"),
+        rel_count=(attr_frame.columns[1], "count"),
+        tail_count=(attr_frame.columns[2], "count"),
+    )
+    counted["support"] = counted["head_count"] / num_entities
+    counted["discriminability"] = counted["tail_count"] / counted["rel_count"]
+    return _importance(counted)
+
+
+def filter_importance(
+    triple_frame: Frame,
+    importance: Frame,
+    top_n: int,
+    table_name: Optional[str] = None,
+    id_col: Optional[str] = None,
+) -> Frame:
+    def _filter_by_n_importance(group, top_n) -> Frame:
+        head_col = group.columns[0]
+        rel_col = group.columns[1]
+        tail_col = group.columns[2]
+        importance_col = group.columns[3]
+        top_relations = (
+            group[[rel_col, importance_col]]
+            .drop_duplicates()
+            .nlargest(top_n, columns=importance_col)[rel_col]
+            .values
+        )
+        return group[group[rel_col].isin(top_relations)][[head_col, rel_col, tail_col]]
+
+    meta_df = pd.DataFrame([], columns=triple_frame.columns, dtype=str)
+    joined = triple_frame.merge(
+        importance, left_on=triple_frame.columns[1], right_index=True, how="left"
+    )
+    if isinstance(triple_frame, dd.DataFrame):
+        res = joined.groupby(triple_frame.columns[0]).apply(
+            _filter_by_n_importance, top_n=top_n, meta=meta_df
+        )
+        if table_name is None:
+            return res
+        assert id_col
+        return KlinkerTripleDaskFrame.from_dask_dataframe(
+            res,
+            table_name=table_name,
+            id_col=id_col,
+            construction_class=KlinkerTriplePandasFrame,
+        )
+    res = joined.groupby(triple_frame.columns[0]).apply(
+        _filter_by_n_importance, top_n=top_n
+    )
+    if table_name is None:
+        return res
+    assert id_col
+    return KlinkerTriplePandasFrame.from_df(
+        res,
+        table_name=triple_frame.table_name,
+        id_col=triple_frame.id_col,
+    )
+
+
 def concat_neighbor_attributes(
-    attribute_frame: KlinkerFrame, rel_frame: Frame, include_own_attributes: bool = True
+    attribute_frame: KlinkerFrame,
+    rel_frame: Frame,
+    include_own_attributes: bool = True,
+    top_n_a: Optional[int] = None,
+    top_n_r: Optional[int] = None,
 ) -> SeriesType:
     """Return concatenated attributes of neighboring entities.
 
@@ -74,6 +173,8 @@ def concat_neighbor_attributes(
       attribute_frame: KlinkerFrame:
       rel_frame: Frame:
       include_own_attributes: bool:  (Default value = True)
+      top_n_a: Optional[int]: If set determines the number of most important properties to keep
+      top_n_r: Optional[int]: If set determines the number of most important relations to keep
 
     Returns:
     -------
@@ -81,36 +182,58 @@ def concat_neighbor_attributes(
 
     """
     assert attribute_frame.table_name
+    table_name = attribute_frame.table_name
+    num_entities = None
     rev_rel_frame = reverse_rel(rel_frame)
     with_inv = concat_frames([rel_frame, rev_rel_frame])
-    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
-    if isinstance(concat_attr, dd.DataFrame):
-        concat_attr._meta = pd.DataFrame(
-            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
+
+    # concat all attribute values (and filter if needed)
+    if top_n_a:
+        num_entities = count_entities(attribute_frame, rel_frame)
+        prop_importance = name_importance(attribute_frame, num_entities)
+        attribute_frame = filter_importance(
+            attribute_frame,
+            prop_importance,
+            top_n_a,
+            table_name=table_name,
+            id_col=attribute_frame.id_col,
         )
 
+    # filter relations
+    if top_n_r:
+        if num_entities is None:
+            num_entities = count_entities(attribute_frame, rel_frame)
+        rel_importance = relation_importance(rel_frame, num_entities)
+        with_inv = filter_importance(
+            with_inv,
+            rel_importance,
+            top_n=top_n_r,
+        )
     conc_frame = (
-        with_inv.set_index(with_inv.columns[2])
-        .join(concat_attr.set_index(attribute_frame.id_col), how="left")
-        .dropna()
+        with_inv.merge(
+            attribute_frame,
+            left_on=with_inv.columns[2],
+            right_on=attribute_frame.id_col,
+            how="left",
+        )
+        # TODO replace magic strings
+        .dropna()[["head_x", "relation_y", "tail_y"]]
+        .rename(columns={"head_x": "head", "relation_y": "relation", "tail_y": "tail"})
     )
 
+    if include_own_attributes:
+        conc_frame = concat_frames([conc_frame, attribute_frame])
+
     if isinstance(attribute_frame, KlinkerPandasFrame):
-        if include_own_attributes:
-            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
-            conc_frame = pd.concat([conc_frame, concat_attr])
         return KlinkerTriplePandasFrame(
             conc_frame,
-            table_name=attribute_frame.table_name,
+            table_name=table_name,
             id_col=rel_frame.columns[0],
         ).concat_values()
     else:
-        if include_own_attributes:
-            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
-            conc_frame = dd.concat([conc_frame, concat_attr])
         return KlinkerTripleDaskFrame.from_dask_dataframe(
             conc_frame,
-            table_name=attribute_frame.table_name,
+            table_name=table_name,
             id_col=rel_frame.columns[0],
             construction_class=KlinkerTriplePandasFrame,
         ).concat_values()
@@ -120,6 +243,10 @@ class BaseSimpleRelationalBlocker(Blocker):
     """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
 
     _blocker: SchemaAgnosticBlocker
+
+    def __init__(self, top_n_a: Optional[int] = None, top_n_r: Optional[int] = None):
+        self.top_n_a = top_n_a
+        self.top_n_r = top_n_r
 
     def concat_relational_info(
         self,
@@ -142,10 +269,18 @@ class BaseSimpleRelationalBlocker(Blocker):
             (left_conc, right_conc) Concatenated entity attribute values for left and right
         """
         left_conc = concat_neighbor_attributes(
-            left, left_rel, include_own_attributes=True
+            left,
+            left_rel,
+            include_own_attributes=True,
+            top_n_a=self.top_n_a,
+            top_n_r=self.top_n_r,
         )
         right_conc = concat_neighbor_attributes(
-            right, right_rel, include_own_attributes=True
+            right,
+            right_rel,
+            include_own_attributes=True,
+            top_n_a=self.top_n_a,
+            top_n_r=self.top_n_r,
         )
         return left_conc, right_conc
 
@@ -197,7 +332,10 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
         self,
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         min_token_length: int = 3,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
     ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         self._blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,
             min_token_length=min_token_length,
@@ -224,7 +362,10 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
     ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         self._blocker = MinHashLSHBlocker(
             tokenize_fn=tokenize_fn,
             threshold=threshold,
@@ -235,6 +376,10 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
 
 class RelationalBlocker(Blocker):
     """Uses seperate blocker for entity attribute values and concatenation of neighboring entity attribute values."""
+
+    def __init__(self, top_n_a: Optional[int] = None, top_n_r: Optional[int] = None):
+        self.top_n_a = top_n_a
+        self.top_n_r = top_n_r
 
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
@@ -265,10 +410,18 @@ class RelationalBlocker(Blocker):
         """
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
         left_rel_conc = concat_neighbor_attributes(
-            left, left_rel, include_own_attributes=False
+            left,
+            left_rel,
+            include_own_attributes=False,
+            top_n_a=self.top_n_a,
+            top_n_r=self.top_n_r,
         )
         right_rel_conc = concat_neighbor_attributes(
-            right, right_rel, include_own_attributes=False
+            right,
+            right_rel,
+            include_own_attributes=False,
+            top_n_a=self.top_n_a,
+            top_n_r=self.top_n_r,
         )
         rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
         return combine_blocks(attr_blocked, rel_blocked)
@@ -297,7 +450,10 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
         rel_threshold: float = 0.7,
         rel_num_perm: int = 128,
         rel_weights: Tuple[float, float] = (0.5, 0.5),
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
     ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         self._attribute_blocker = MinHashLSHBlocker(
             tokenize_fn=tokenize_fn,
             threshold=attr_threshold,
@@ -332,7 +488,10 @@ class RelationalTokenBlocker(RelationalBlocker):
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         attr_min_token_length: int = 3,
         rel_min_token_length: int = 3,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
     ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         self._attribute_blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,
             min_token_length=attr_min_token_length,
@@ -373,7 +532,10 @@ class RelationalDeepBlocker(RelationalBlocker):
         save: bool = True,
         save_dir: Optional[Union[str, pathlib.Path]] = None,
         force: bool = False,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
     ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         self._attribute_blocker = DeepBlocker(
             frame_encoder=attr_frame_encoder,
             frame_encoder_kwargs=attr_frame_encoder_kwargs,

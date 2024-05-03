@@ -43,16 +43,6 @@ def resolve_device(device: DeviceHint = None) -> torch.device:
     return device
 
 
-@overload
-def concat_frames(frames: List[pd.DataFrame]) -> pd.DataFrame:
-    ...
-
-
-@overload
-def concat_frames(frames: List[dd.DataFrame]) -> dd.DataFrame:
-    ...
-
-
 def concat_frames(frames: List[Frame]) -> Frame:
     """Concatenate dask or pandas frames.
 
