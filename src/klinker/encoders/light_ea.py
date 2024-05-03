@@ -90,6 +90,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         rel_triples_right: np.ndarray,
         ent_features: NamedVector,
     ) -> GeneralVector:
+        print("Started LightEA")
         (
             node_size,
             rel_size,

@@ -186,6 +186,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         if SentenceTransformer is None:
             raise ImportError("Please install the sentence-transformers library!")
         self.model = SentenceTransformer(model_name)
+        print("Loaded model")
         self.model.max_seq_length = max_length
         self.batch_size = batch_size
         self.reduce_dim_to = reduce_dim_to
