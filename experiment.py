@@ -74,7 +74,6 @@ KIEZ_FAISS_HNSW = {
     "algorithm": "Faiss",
     "algorithm_kwargs": {
         "index_key": "HNSW",
-        "efSearch": 916,
         "use_gpu": False,
     },
 }

@@ -246,6 +246,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        print("Started encode")
         if self.reduce_dim_to:
             self._add_dimensionality_reduction_layer(left, right)
         return self._encode_side(left), self._encode_side(right)
