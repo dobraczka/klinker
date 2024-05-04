@@ -53,6 +53,9 @@ class KlinkerDataset:
         left: Union[KlinkerDaskFrame, KlinkerPandasFrame]
         right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
         ds_names = dataset.dataset_names
+
+        left_rel = dataset.rel_triples[0]
+        right_rel = dataset.rel_triples[1]
         if dataset.backend == "pandas":
             left = KlinkerTriplePandasFrame.from_df(
                 dataset.attr_triples[0], table_name=ds_names[0], id_col="head"
@@ -61,11 +64,21 @@ class KlinkerDataset:
                 dataset.attr_triples[1], table_name=ds_names[1], id_col="head"
             )
         elif dataset.backend == "dask":
+            if repartition:
+                left, right, left_rel, right_rel = [
+                    frame.repartition(npartitions=repartition)
+                    for frame in [
+                        dataset.attr_triples[0],
+                        dataset.attr_triples[1],
+                        left_rel,
+                        right_rel,
+                    ]
+                ]
             left = KlinkerTripleDaskFrame.from_dask_dataframe(
-                dataset.attr_triples[0], table_name=ds_names[0], id_col="head"
+                left, table_name=ds_names[0], id_col="head"
             )
             right = KlinkerTripleDaskFrame.from_dask_dataframe(
-                dataset.attr_triples[1], table_name=ds_names[1], id_col="head"
+                right, table_name=ds_names[1], id_col="head"
             )
         else:
             raise ValueError(f"Unknown dataset backend {dataset.backend}")
@@ -86,15 +99,6 @@ class KlinkerDataset:
                     "right": dataset.dataset_names[1],
                 }
             )
-
-        left_rel = dataset.rel_triples[0]
-        right_rel = dataset.rel_triples[1]
-
-        if repartition:
-            left, right, left_rel, right_rel = [
-                frame.repartition(npartitions=repartition)
-                for frame in [left, right, left_rel, right_rel]
-            ]
         return cls(
             left=left,
             right=right,
