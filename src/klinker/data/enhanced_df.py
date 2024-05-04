@@ -506,13 +506,18 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
     def concat_values(
         self,
     ) -> dd.Series:
-        """Returns"""
         self = self.fillna("")
         assert self.table_name
-        result = self.groupby(self.id_col)[self.columns[2]].apply(
-            lambda grp: " ".join(grp.astype(str).str.strip().unique()).strip(),
-            meta=pd.Series([], name=self.columns[2], dtype="str"),
+        result = (
+            self[[self.id_col, self.columns[2]]]
+            .groupby(self.id_col)[self.columns[2]]
+            .apply(
+                lambda grp: " ".join(grp.astype(str).str.strip().unique()).strip(),
+                meta=pd.Series([], name=self.columns[2], dtype="str"),
+            )
         )
+        print(result)
+        print(result.compute())
         result.name = self.table_name
         result._meta.index.name = self.id_col
         return result
