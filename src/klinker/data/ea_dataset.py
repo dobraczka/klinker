@@ -54,18 +54,20 @@ class KlinkerDataset:
         right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
         ds_names = dataset.dataset_names
 
+        attr_left = dataset.attr_triples[0]
+        attr_right = dataset.attr_triples[1]
         left_rel = dataset.rel_triples[0]
         right_rel = dataset.rel_triples[1]
         if dataset.backend == "pandas":
             left = KlinkerTriplePandasFrame.from_df(
-                dataset.attr_triples[0], table_name=ds_names[0], id_col="head"
+                attr_left, table_name=ds_names[0], id_col="head"
             )
             right = KlinkerTriplePandasFrame.from_df(
-                dataset.attr_triples[1], table_name=ds_names[1], id_col="head"
+                attr_right, table_name=ds_names[1], id_col="head"
             )
         elif dataset.backend == "dask":
             if repartition:
-                left, right, left_rel, right_rel = [
+                attr_left, attr_right, left_rel, right_rel = [
                     frame.repartition(npartitions=repartition)
                     for frame in [
                         dataset.attr_triples[0],
@@ -75,10 +77,10 @@ class KlinkerDataset:
                     ]
                 ]
             left = KlinkerTripleDaskFrame.from_dask_dataframe(
-                left, table_name=ds_names[0], id_col="head"
+                attr_left, table_name=ds_names[0], id_col="head"
             )
             right = KlinkerTripleDaskFrame.from_dask_dataframe(
-                right, table_name=ds_names[1], id_col="head"
+                attr_right, table_name=ds_names[1], id_col="head"
             )
         else:
             raise ValueError(f"Unknown dataset backend {dataset.backend}")
