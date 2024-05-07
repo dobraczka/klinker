@@ -23,7 +23,7 @@ from .base import Blocker, SchemaAgnosticBlocker
 from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
-from .token_blocking import TokenBlocker
+from .token_blocking import TokenBlocker, UniqueNameBlocker
 
 FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
@@ -62,18 +62,14 @@ def _upgrade_to_triple(concat_attr: FrameType, conc_frame: FrameType) -> FrameTy
 
 
 def count_entities(attr_frame: Frame, rel_frame: Frame) -> int:
-    conc = (
-        concat_frames(
-            [
-                attr_frame[attr_frame.columns[0]].unique(),
-                rel_frame[rel_frame.columns[0]].unique(),
-                rel_frame[rel_frame.columns[2]].unique(),
-            ]
-        )
-        .unique()
-        .count()
-    )
-    return conc.compute() if isinstance(attr_frame, dd.DataFrame) else conc
+    conc = concat_frames(
+        [
+            attr_frame[attr_frame.columns[0]],
+            rel_frame[rel_frame.columns[0]],
+            rel_frame[rel_frame.columns[2]],
+        ]
+    ).unique()
+    return conc.count().compute() if isinstance(attr_frame, dd.DataFrame) else len(conc)
 
 
 def _importance(counted: Frame) -> Frame:
@@ -340,6 +336,36 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
             tokenize_fn=tokenize_fn,
             min_token_length=min_token_length,
         )
+
+
+class CompositeRelationalTokenBlocker(SimpleRelationalTokenBlocker):
+    def __init__(
+        self,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+        min_token_length: int = 3,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
+    ):
+        super().__init__(
+            tokenize_fn=tokenize_fn,
+            min_token_length=min_token_length,
+            top_n_a=top_n_a,
+            top_n_r=top_n_r,
+        )
+        self._unique_blocker = UniqueNameBlocker()
+
+    def assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
+    ) -> KlinkerBlockManager:
+        pass
+        # unique_blocks = UniqueNameBlocker()
+        # blocks = super().assign(
+        #     left=left, right=right, left_rel=left_rel, right_rel=right_rel
+        # )
 
 
 class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):

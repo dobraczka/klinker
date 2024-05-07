@@ -54,7 +54,7 @@ def concat_frames(frames: List[Frame]) -> Frame:
     -------
         concatenated dataframes
     """
-    if isinstance(frames[0], pd.DataFrame):
+    if isinstance(frames[0], (pd.DataFrame, pd.Series)):
         return pd.concat(frames)
     return dd.concat(frames)
 
