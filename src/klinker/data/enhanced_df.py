@@ -516,8 +516,6 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
                 meta=pd.Series([], name=self.columns[2], dtype="str"),
             )
         )
-        print(result)
-        print(result.compute())
         result.name = self.table_name
         result._meta.index.name = self.id_col
         return result
