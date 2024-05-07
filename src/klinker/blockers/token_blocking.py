@@ -8,7 +8,7 @@ from nltk.tokenize import word_tokenize
 from ..data import KlinkerFrame
 from ..data.blocks import KlinkerBlockManager
 from ..typing import Frame, SeriesType
-from .base import SchemaAgnosticBlocker
+from .base import SchemaAgnosticBlocker, Blocker
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +119,49 @@ class TokenBlocker(SchemaAgnosticBlocker):
         if isinstance(pd_blocks, dd.DataFrame):
             return KlinkerBlockManager(pd_blocks)
         return KlinkerBlockManager.from_pandas(pd_blocks)
+
+
+class UniqueNameBlocker(Blocker):
+    def assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
+    ) -> KlinkerBlockManager:
+        def filter_nonunique(attr_frame: KlinkerFrame, head_col, tail_col):
+            if isinstance(attr_frame, pd.DataFrame):
+                return attr_frame.groupby(tail_col).filter(
+                    lambda x: x[head_col].nunique() == 1
+                )
+            return attr_frame.groupby(tail_col).apply(
+                lambda x: x if x[head_col].nunique() == 1 else None,
+                meta=attr_frame._meta,
+            )
+
+        if not list(left.columns) == list(right.columns):
+            raise ValueError(
+                f"Need identical column names but got {left.columns} and {right.columns}"
+            )
+        head_col = left.columns[0]
+        tail_col = left.columns[2]
+        left_unique = filter_nonunique(left, head_col, tail_col)
+        right_unique = filter_nonunique(right, head_col, tail_col)
+        lhead = f"{head_col}_x"
+        rhead = f"{head_col}_y"
+        res = left_unique.merge(right_unique, on=tail_col, how="inner")[
+            [lhead, rhead]
+        ].rename(columns={lhead: left.table_name, rhead: right.table_name})
+        if isinstance(res, pd.DataFrame):
+            return KlinkerBlockManager.from_pandas(res)
+        return KlinkerBlockManager(res)
+
+
+if __name__ == "__main__":
+    from klinker.data import KlinkerDataset
+    from sylloge import OpenEA
+    from klinker.eval import Evaluation
+
+    ds = KlinkerDataset.from_sylloge(OpenEA())
+    blocks = UniqueNameBlocker().assign(ds.left, ds.right)
+    print(Evaluation.from_dataset(blocks, ds).to_dict())
