@@ -571,7 +571,9 @@ class KlinkerBlockManager:
         if len(blocks.columns) > 2:
             return NNBasedKlinkerBlockManager(blocks)
         # for the rare case, that NN was <=2
-        if isinstance(blocks[blocks.columns[0]].head(1).values[0], (str, int)):
+        if isinstance(
+            blocks[blocks.columns[0]].head(1, npartitions=-1).values[0], (str, int)
+        ):
             return NNBasedKlinkerBlockManager(blocks)
         return KlinkerBlockManager(blocks)
 
