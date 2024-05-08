@@ -335,6 +335,7 @@ def prepare_dask_slurm_cluster(
     memory: str,
     walltime: str,
     num_clusters: int,
+    local_directory: str = "$TMPDIR",
     project: str = "p_scads_knowledgegraphs",
 ):
     from dask.distributed import Client
@@ -352,6 +353,7 @@ def prepare_dask_slurm_cluster(
         project=project,
         memory=memory,
         walltime=walltime,
+        local_directory=local_directory,
         scheduler_options={"dashboard_address": f":{portdash}"},
     )
 
@@ -377,6 +379,7 @@ def prepare_dask_slurm_cluster(
 @click.option("--memory", type=str, default="8GB")
 @click.option("--walltime", type=str, default="01:00:00")
 @click.option("--num-clusters", type=int, default=2)
+@click.option("--local-directory", type=str, default="$TMPDIR")
 def cli(
     clean: bool,
     wandb: bool,
@@ -388,6 +391,7 @@ def cli(
     memory: str,
     walltime: str,
     num_clusters: int,
+    local_directory: str,
 ):
     if use_cluster:
         prepare_dask_slurm_cluster(
