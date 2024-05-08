@@ -30,7 +30,7 @@ class KlinkerDataset:
         cls,
         dataset: MultiSourceEADataset,
         clean: bool = False,
-        repartition: Optional[int] = None,
+        partition_size: Optional[str] = None,
     ) -> "KlinkerDataset":
         """Create a klinker dataset from sylloge dataset.
 
@@ -66,9 +66,9 @@ class KlinkerDataset:
                 attr_right, table_name=ds_names[1], id_col="head"
             )
         elif dataset.backend == "dask":
-            if repartition:
+            if partition_size:
                 attr_left, attr_right, left_rel, right_rel = [
-                    frame.repartition(npartitions=repartition)
+                    frame.repartition(partition_size=partition_size)
                     for frame in [
                         dataset.attr_triples[0],
                         dataset.attr_triples[1],

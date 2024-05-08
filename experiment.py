@@ -330,19 +330,72 @@ def prepare(
     )
 
 
+def prepare_dask_slurm_cluster(
+    num_cores: int,
+    memory: str,
+    walltime: str,
+    num_clusters: int,
+    project: str = "p_scads_knowledgegraphs",
+):
+    from dask.distributed import Client
+    from dask_jobqueue import SLURMCluster
+    import subprocess as sp
+    from time import sleep
+
+    # setting up the dashboard
+    uid = int(sp.check_output("id -u", shell=True).decode("utf-8").replace("\n", ""))
+    portdash = 10001 + uid
+
+    # create a Slurm cluster, please specify your project
+    cluster = SLURMCluster(
+        cores=num_cores,
+        project=project,
+        memory=memory,
+        walltime=walltime,
+        scheduler_options={"dashboard_address": f":{portdash}"},
+    )
+
+    # submit the job to the scheduler with the number of nodes (here 2) requested:
+    cluster.scale(num_clusters)
+
+    # wait for Slurm to allocate a resources
+    sleep(120)
+
+    # check resources
+    client = Client(cluster)
+    client
+
+
 @click.group(chain=True)
 @click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 @click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
 @click.option("--random-seed", type=int, default=None)
-@click.option("--repartition", type=int, default=None)
+@click.option("--partition_size", type=str, default="100MB")
+@click.option("--use-cluster", type=bool, default=False)
+@click.option("--num-cores", type=int, default=1)
+@click.option("--memory", type=str, default="8GB")
+@click.option("--walltime", type=str, default="01:00:00")
+@click.option("--num-clusters", type=int, default=2)
 def cli(
     clean: bool,
     wandb: bool,
     nextcloud: bool,
     random_seed: Optional[int],
-    repartition: Optional[int],
+    partition_size: Optional[str],
+    use_cluster: bool,
+    num_cores: int,
+    memory: str,
+    walltime: str,
+    num_clusters: int,
 ):
+    if use_cluster:
+        prepare_dask_slurm_cluster(
+            num_cores=num_cores,
+            memory=memory,
+            walltime=walltime,
+            num_clusters=num_clusters,
+        )
     pass
 
 
@@ -353,7 +406,12 @@ def process_pipeline(
     wandb: bool,
     nextcloud: bool,
     random_seed: Optional[int],
-    repartition: Optional[int],
+    partition_size: Optional[str],
+    use_cluster: bool,
+    num_cores: int,
+    memory: str,
+    walltime: str,
+    num_clusters: int,
 ):
     seed = set_random_seed(random_seed)
     assert (
@@ -367,7 +425,7 @@ def process_pipeline(
     dataset, ds_params = dataset_with_params
     blocker, bl_params, blocker_creation_time = blocker_with_params
     klinker_dataset = KlinkerDataset.from_sylloge(
-        dataset, clean=clean, repartition=repartition
+        dataset, clean=clean, partition_size=partition_size
     )
     params = {**ds_params, **bl_params}
 
