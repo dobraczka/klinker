@@ -353,8 +353,8 @@ def prepare_dask_slurm_cluster(
         project=project,
         memory=memory,
         walltime=walltime,
-        local_directory=local_directory,
         scheduler_options={"dashboard_address": f":{portdash}"},
+        local_directory=local_directory,
     )
 
     # submit the job to the scheduler with the number of nodes (here 2) requested:
