@@ -454,7 +454,9 @@ def process_pipeline(
     run_time += blocker_creation_time
     logger.info(f"Execution took: {run_time} seconds")
     logger.info(f"Wrote blocks to {experiment_info.blocks_path}")
-    blocks = KlinkerBlockManager.read_parquet(experiment_info.blocks_path)
+    blocks = KlinkerBlockManager.read_parquet(
+        experiment_info.blocks_path, partition_size=partition_size
+    )
     ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     encoder_times: Dict[str, float] = {
         f"encoder_times_{key.lower()}": value
