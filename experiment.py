@@ -371,7 +371,7 @@ def prepare_dask_slurm_cluster(
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 @click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
 @click.option("--random-seed", type=int, default=None)
-@click.option("--partition_size", type=str, default="100MB")
+@click.option("--partition-size", type=str, default="100MB")
 @click.option("--use-cluster", type=bool, default=False)
 @click.option("--num-cores", type=int, default=1)
 @click.option("--memory", type=str, default="8GB")
