@@ -416,6 +416,7 @@ def process_pipeline(
     memory: str,
     walltime: str,
     num_clusters: int,
+    local_directory: str,
 ):
     seed = set_random_seed(random_seed)
     assert (
