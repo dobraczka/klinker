@@ -1,4 +1,6 @@
 import ast
+from dask.distributed import Client
+from time import sleep
 import functools
 import hashlib
 import json
@@ -77,6 +79,8 @@ KIEZ_FAISS_HNSW = {
         "use_gpu": False,
     },
 }
+
+cluster = None
 
 
 def parse_bb_kwargs(
@@ -330,6 +334,23 @@ def prepare(
     )
 
 
+def scale_down(num_clusters: int):
+    import math
+
+    global cluster
+    new_num_clusters = math.ceil(num_clusters / 2)
+    # submit the job to the scheduler with the number of nodes requested:
+    cluster.scale(new_num_clusters)
+
+    # wait for Slurm to allocate a resources
+    sleep(120)
+
+    # check resources
+    client = Client(cluster)
+    # TODO is this line needed?
+    client
+
+
 def prepare_dask_slurm_cluster(
     num_cores: int,
     memory: str,
@@ -338,15 +359,14 @@ def prepare_dask_slurm_cluster(
     local_directory: str,
     project: str = "p_scads_knowledgegraphs",
 ):
-    from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
     import subprocess as sp
-    from time import sleep
 
     # setting up the dashboard
     uid = int(sp.check_output("id -u", shell=True).decode("utf-8").replace("\n", ""))
     portdash = 10001 + uid
 
+    global cluster
     # create a Slurm cluster, please specify your project
     cluster = SLURMCluster(
         cores=num_cores,
@@ -357,7 +377,7 @@ def prepare_dask_slurm_cluster(
         local_directory=local_directory,
     )
 
-    # submit the job to the scheduler with the number of nodes (here 2) requested:
+    # submit the job to the scheduler with the number of nodes requested:
     cluster.scale(num_clusters)
 
     # wait for Slurm to allocate a resources
@@ -365,7 +385,9 @@ def prepare_dask_slurm_cluster(
 
     # check resources
     client = Client(cluster)
+    # TODO is this line needed?
     client
+    return cluster
 
 
 @click.group(chain=True)
@@ -454,6 +476,10 @@ def process_pipeline(
     run_time += blocker_creation_time
     logger.info(f"Execution took: {run_time} seconds")
     logger.info(f"Wrote blocks to {experiment_info.blocks_path}")
+
+    if use_cluster:
+        scale_down(num_clusters)
+
     blocks = KlinkerBlockManager.read_parquet(
         experiment_info.blocks_path, partition_size=partition_size
     )
