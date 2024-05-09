@@ -731,9 +731,9 @@ def relational_deepblocker(
     force: bool,
     save_emb: bool,
 ) -> Tuple[Blocker, Dict, float]:
-    if top_n_a < 0:
+    if top_n_a and top_n_a < 0:
         top_n_a = None
-    if top_n_r < 0:
+    if top_n_r and top_n_r < 0:
         top_n_r = None
     inner_encoder_inst = create_inner_encoder(
         inner_encoder,
