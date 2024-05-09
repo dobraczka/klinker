@@ -287,17 +287,24 @@ class KlinkerTriplePandasFrame(KlinkerPandasFrame):
             Name: A, dtype: object
         """
 
-        def _inner_concat(grp, remove_duplicates):
-            if remove_duplicates:
-                return " ".join(grp.astype(str).str.strip().unique()).strip()
+        def _inner_concat_no_duplicates(grp):
+            return " ".join(grp.astype(str).str.strip().unique()).strip()
+
+        def _inner_concat_with_duplicates(grp):
             return " ".join(grp.astype(str).values).strip()
+
+        agg_fun = (
+            _inner_concat_no_duplicates
+            if remove_duplicates
+            else _inner_concat_with_duplicates
+        )
 
         assert self.table_name
         self = self.fillna("")
         res = (
             self[[self.id_col, self.columns[2]]]
             .groupby(self.id_col)
-            .agg(_inner_concat, remove_duplicates=remove_duplicates)[self.columns[2]]
+            .agg(agg_fun)[self.columns[2]]
         )
         res.name = self.table_name
         return res
@@ -506,10 +513,17 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
     _partition_type = KlinkerTriplePandasFrame
 
     def concat_values(self, remove_duplicates=True) -> dd.Series:
-        def _inner_concat(grp, remove_duplicates):
-            if remove_duplicates:
-                return " ".join(grp.astype(str).str.strip().unique()).strip()
+        def _inner_concat_no_duplicates(grp):
+            return " ".join(grp.astype(str).str.strip().unique()).strip()
+
+        def _inner_concat_with_duplicates(grp):
             return " ".join(grp.astype(str).values).strip()
+
+        agg_fun = (
+            _inner_concat_no_duplicates
+            if remove_duplicates
+            else _inner_concat_with_duplicates
+        )
 
         self = self.fillna("")
         assert self.table_name
@@ -517,8 +531,7 @@ class KlinkerTripleDaskFrame(KlinkerDaskFrame):
             self[[self.id_col, self.columns[2]]]
             .groupby(self.id_col)[self.columns[2]]
             .apply(
-                _inner_concat,
-                remove_duplicates=remove_duplicates,
+                agg_fun,
                 meta=pd.Series([], name=self.columns[2], dtype="str"),
             )
         )
