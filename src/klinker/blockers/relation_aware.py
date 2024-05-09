@@ -152,94 +152,6 @@ def filter_importance(
     )
 
 
-def old_concat_neighbor_attributes(
-    attribute_frame: KlinkerFrame, rel_frame: Frame, include_own_attributes: bool = True
-) -> SeriesType:
-    """Return concatenated attributes of neighboring entities.
-
-    Args:
-    ----
-      attribute_frame: KlinkerFrame with entity attributes
-      rel_frame: Frame with relation triples
-      include_own_attributes: if True also concatenates attributes of entity itself
-      attribute_frame: KlinkerFrame:
-      rel_frame: Frame:
-      include_own_attributes: bool:  (Default value = True)
-
-    Returns:
-    -------
-      Series with concatenated attribute values of neighboring entities
-
-    """
-
-    def old_reverse_rel(rel_frame: Frame) -> Frame:
-        """Reverse the relations by switching first and last column.
-
-        Args:
-        ----
-          rel_frame: Frame: Frame with relation triples.
-
-        Returns:
-        -------
-          rel_frame with reversed relations
-        """
-        orig_columns = rel_frame.columns
-        rev_rel_frame = rel_frame[rel_frame.columns[::-1]]
-        rev_rel_frame[rev_rel_frame.columns[1]] = (
-            "_inv_" + rev_rel_frame[rev_rel_frame.columns[1]]
-        )
-        rev_rel_frame.columns = orig_columns
-        return rev_rel_frame
-
-    def _old_upgrade_to_triple(
-        concat_attr: FrameType, conc_frame: FrameType
-    ) -> FrameType:
-        # make into triple frame
-        concat_attr[conc_frame.columns[1]] = "dummy_relation"
-        # reorder for common triple format (because relation was added as last col)
-        concat_attr = concat_attr[
-            [concat_attr.columns[0], concat_attr.columns[2], concat_attr.columns[1]]
-        ]
-        # common column names for concat
-        concat_attr.columns = conc_frame.columns
-        return concat_attr
-
-    assert attribute_frame.table_name
-    rev_rel_frame = old_reverse_rel(rel_frame)
-    with_inv = concat_frames([rel_frame, rev_rel_frame])
-    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
-    if isinstance(concat_attr, dd.DataFrame):
-        concat_attr._meta = pd.DataFrame(
-            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
-        )
-
-    conc_frame = (
-        with_inv.set_index(with_inv.columns[2])
-        .join(concat_attr.set_index(attribute_frame.id_col), how="left")
-        .dropna()
-    )
-
-    if isinstance(attribute_frame, KlinkerPandasFrame):
-        if include_own_attributes:
-            concat_attr = _old_upgrade_to_triple(concat_attr, conc_frame)
-            conc_frame = pd.concat([conc_frame, concat_attr])
-        return KlinkerTriplePandasFrame(
-            conc_frame,
-            table_name=attribute_frame.table_name,
-            id_col=rel_frame.columns[0],
-        ).concat_values()
-    else:
-        if include_own_attributes:
-            concat_attr = _old_upgrade_to_triple(concat_attr, conc_frame)
-            conc_frame = dd.concat([conc_frame, concat_attr])
-        return KlinkerTripleDaskFrame.from_dask_dataframe(
-            conc_frame,
-            table_name=attribute_frame.table_name,
-            id_col=rel_frame.columns[0],
-            construction_class=KlinkerTriplePandasFrame,
-        ).concat_values()
-
-
 def concat_neighbor_attributes(
     attribute_frame: KlinkerFrame,
     rel_frame: Frame,
@@ -265,14 +177,6 @@ def concat_neighbor_attributes(
       Series with concatenated attribute values of neighboring entities
 
     """
-    if True:
-        import logging
-
-        logger = logging.getLogger("DELETEME")
-        logger.info("=======TEST old concat======")
-        return old_concat_neighbor_attributes(
-            attribute_frame, rel_frame, include_own_attributes
-        )
     assert attribute_frame.table_name
     table_name = attribute_frame.table_name
     num_entities = None
