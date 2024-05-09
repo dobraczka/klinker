@@ -205,7 +205,7 @@ def old_concat_neighbor_attributes(
         return concat_attr
 
     assert attribute_frame.table_name
-    rev_rel_frame = reverse_rel(rel_frame)
+    rev_rel_frame = old_reverse_rel(rel_frame)
     with_inv = concat_frames([rel_frame, rev_rel_frame])
     concat_attr = attribute_frame.concat_values().to_frame().reset_index()
     if isinstance(concat_attr, dd.DataFrame):
@@ -221,7 +221,7 @@ def old_concat_neighbor_attributes(
 
     if isinstance(attribute_frame, KlinkerPandasFrame):
         if include_own_attributes:
-            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
+            concat_attr = _old_upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = pd.concat([conc_frame, concat_attr])
         return KlinkerTriplePandasFrame(
             conc_frame,
@@ -230,7 +230,7 @@ def old_concat_neighbor_attributes(
         ).concat_values()
     else:
         if include_own_attributes:
-            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
+            concat_attr = _old_upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = dd.concat([conc_frame, concat_attr])
         return KlinkerTripleDaskFrame.from_dask_dataframe(
             conc_frame,
