@@ -145,6 +145,11 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         hubness: Optional[Union[str, HubnessReduction, Type[HubnessReduction]]] = None,
         hubness_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if n_neighbors > n_candidates:
+            logger.warn(
+                f"Found n_candidates < n_neighbors! Using n_candidates=n_neighbors={n_neighbors}"
+            )
+            n_candidates = n_neighbors
         if algorithm_kwargs is None:
             algorithm_kwargs = {}
         if "n_candidates" in algorithm_kwargs:

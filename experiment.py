@@ -423,7 +423,6 @@ def cli(
             num_clusters=num_clusters,
             local_directory=local_directory,
         )
-    pass
 
 
 @cli.result_callback()
