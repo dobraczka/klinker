@@ -756,7 +756,9 @@ def relational_deepblocker(
                 "max_perturbation": max_perturbation,
             }
         )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder, n_candidates)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
     # deep-copy
     attr_bb_kwargs = {**bb_kwargs}
     rel_bb_kwargs = {**bb_kwargs}
@@ -842,7 +844,9 @@ def light_ea_blocker(
         reduce_transformer_dim_to,
         reduce_sample_perc,
     )
-    bb_kwargs = parse_bb_kwargs(block_builder_kwargs, 100, block_builder, n_candidates)
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
     print(bb_kwargs)
     start = time.time()
     blocker = EmbeddingBlocker(
