@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
+import dask.dataframe as dd
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,53 @@ def harmonic_mean(a: float, b: float) -> float:
     if a + b == 0:
         return 0
     return 2 * ((a * b) / (a + b))
+
+
+class MinimalEvaluation:
+    @staticmethod
+    def _check_consistency(blocks: KlinkerBlockManager, gold: pd.DataFrame):
+        if isinstance(blocks, NNBasedKlinkerBlockManager):
+            return
+        if not len(gold.columns) == 2:
+            raise ValueError("Only binary matching supported!")
+        if not set(blocks.blocks.columns) == set(gold.columns):
+            raise ValueError(
+                "Blocks and gold standard frame need to have the same columns!"
+            )
+
+    def __init__(self, blocks: KlinkerBlockManager, dataset: KlinkerDataset):
+        gold = dataset.gold
+        MinimalEvaluation._check_consistency(blocks, gold)
+        block_df = blocks.blocks
+        left = block_df[block_df.columns[0]].explode().to_frame()
+        right = block_df[block_df.columns[1]].explode().to_frame()
+        block_pairs = left.join(right, how="inner").drop_duplicates()
+
+        # mean pairs per block, other calc in KlinkerBlockManager is wrong!
+        # mean_block_size = block_pairs.groupby(block_pairs.index.name).size().mean().compute()
+        pairs_count = block_pairs.index.size.compute()
+        gold_count = len(gold)
+
+        tp = block_pairs.merge(
+            dd.from_pandas(gold, npartitions=1),
+            left_on=list(block_df.columns),
+            right_on=list(gold.columns),
+            how="inner",
+        ).index.size.compute()
+        fp = pairs_count - tp
+        fn = gold_count - tp
+        self.recall = tp / (tp + fn)
+        self.precision = tp / (tp + fp)
+        self.f_measure = harmonic_mean(self.recall, self.precision)
+
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            "pairs_quality": self.precision,
+            "precision": self.precision,
+            "recall": self.recall,
+            "pairs_completeness": self.recall,
+            "f_measure": self.f_measure,
+        }
 
 
 class Evaluation:

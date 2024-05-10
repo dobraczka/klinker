@@ -437,6 +437,7 @@ class KlinkerBlockManager:
     def block_sizes(self) -> pd.DataFrame:
         """Sizes of blocks."""
         meta = pd.Series([], dtype="int64", name="block_sizes")
+        # TODO this is wrong
         return self.blocks.apply(
             lambda x: sum(len(v) for v in x), axis=1, meta=meta
         ).compute()
