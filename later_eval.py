@@ -33,6 +33,7 @@ def canonical_name_to_ds(canonical_name: str):
 @click.option("--walltime", type=str, default="01:00:00")
 @click.option("--num-clusters", type=int, default=2)
 @click.option("--local-directory", type=str, default=None)
+@click.option("--partition-size", type=str, default="100MB")
 def run_later_eval(
     run_id: str,
     base_path: str,
@@ -42,6 +43,7 @@ def run_later_eval(
     walltime: str,
     num_clusters: int,
     local_directory: str,
+    partition_size: str,
 ):
     possible_files = list(glob(f"{base_path}/*/*/{run_id}_blocks.parquet"))
     if len(possible_files) > 1:
@@ -59,7 +61,7 @@ def run_later_eval(
             local_directory=local_directory,
         )
     ds = KlinkerDataset.from_sylloge(canonical_name_to_ds(ds_name))
-    blocks = KlinkerBlockManager.read_parquet(block_file, partition_size="100MB")
+    blocks = KlinkerBlockManager.read_parquet(block_file, partition_size=partition_size)
     ev_res = MinimalEvaluation(blocks=blocks, dataset=ds).to_dict()
     for m_name, m_val in ev_res.items():
         logger.info(f"{m_name}:{m_val}")
