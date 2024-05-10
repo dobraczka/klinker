@@ -20,7 +20,7 @@ def canonical_name_to_ds(canonical_name: str):
         )
     if "oaei" in canonical_name:
         task1, task2 = canonical_name.replace("oaei_", "").split("_")
-        return OAEI(task=f"{task1.upper()}-{task2.upper()}")
+        return OAEI(task=f"{task1}-{task2}")
     raise ValueError(f"Unknown canonical_name: {canonical_name}")
 
 
