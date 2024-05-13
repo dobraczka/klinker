@@ -358,6 +358,7 @@ def prepare_dask_slurm_cluster(
     num_clusters: int,
     local_directory: str,
     project: str = "p_scads_knowledgegraphs",
+    sleep_time: int = 120,
 ):
     from dask_jobqueue import SLURMCluster
     import subprocess as sp
@@ -380,8 +381,10 @@ def prepare_dask_slurm_cluster(
     # submit the job to the scheduler with the number of nodes requested:
     cluster.scale(num_clusters)
 
+    logger.info("Waiting 2 minutes for resources")
     # wait for Slurm to allocate a resources
-    sleep(120)
+    sleep(sleep_time)
+    logger.info("Done waiting for resources")
 
     # check resources
     client = Client(cluster)

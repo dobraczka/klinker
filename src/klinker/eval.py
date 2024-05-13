@@ -31,21 +31,53 @@ class MinimalEvaluation:
         gold = dataset.gold
         MinimalEvaluation._check_consistency(blocks, gold)
         block_df = blocks.blocks
-        left = block_df[block_df.columns[0]].explode().to_frame()
-        right = block_df[block_df.columns[1]].explode().to_frame()
-        block_pairs = left.join(right, how="inner").drop_duplicates()
+        left_col, right_col = block_df.columns
 
         # mean pairs per block, other calc in KlinkerBlockManager is wrong!
         # mean_block_size = block_pairs.groupby(block_pairs.index.name).size().mean().compute()
-        pairs_count = block_pairs.index.size.compute()
+        # pairs_count = block_df.apply(
+        #     lambda x, col1, col2: sum(1 for _ in itertools.product(x[col1], x[col2])),
+        #     axis=1,
+        #     col1=left_col,
+        #     col2=right_col,
+        #     meta=(None, "int64"),
+        # ).sum().compute()
         gold_count = len(gold)
 
-        tp = block_pairs.merge(
-            dd.from_pandas(gold, npartitions=1),
-            left_on=list(block_df.columns),
-            right_on=list(gold.columns),
-            how="inner",
-        ).index.size.compute()
+        left = block_df[left_col].explode().to_frame()
+        right = block_df[right_col].explode().to_frame()
+        pairs_count = len(left.join(right).drop_duplicates())
+
+        gold_dd = dd.from_pandas(gold, npartitions=1)
+        actual_suffix = "_actual"
+        gold_suffix = "_gold"
+        bla = (
+            left.join(right)
+            .drop_duplicates()
+            .merge(
+                gold_dd,
+                left_on=left_col,
+                right_on=left_col,
+                suffixes=[actual_suffix, gold_suffix],
+            )
+        )
+        tp = (
+            (bla[right_col + actual_suffix] == bla[right_col + gold_suffix])
+            .sum()
+            .compute()
+        )
+        print("tp=%s" % (tp))
+        print("pairs_count=%s" % (pairs_count))
+        print("gold_count=%s" % (gold_count))
+
+        # block_pairs = left.join(right, how="inner").drop_duplicates()
+        # tp = block_pairs.merge(
+        #     dd.from_pandas(gold, npartitions=1),
+        #     left_on=list(block_df.columns),
+        #     right_on=list(gold.columns),
+        #     how="inner",
+        # ).index.size.compute()
+
         fp = pairs_count - tp
         fn = gold_count - tp
         self.recall = tp / (tp + fn)
@@ -60,6 +92,9 @@ class MinimalEvaluation:
             "pairs_completeness": self.recall,
             "f_measure": self.f_measure,
         }
+
+    def __repr__(self) -> str:
+        return f"MinimalEvaluation: {self.to_dict()}"
 
 
 class Evaluation:
@@ -429,3 +464,16 @@ def multiple_block_comparison(
     return multiple_block_comparison_from_eval(
         blocks_with_eval, dataset, improvement_metrics=improvement_metrics
     )
+
+
+if __name__ == "__main__":
+    from klinker.data import KlinkerDataset
+    from sylloge import OpenEA
+
+    ds = KlinkerDataset.from_sylloge(OpenEA())
+    blocks = KlinkerBlockManager.read_parquet(
+        "experiment_artifacts/openea_d_w_15k_v1/TokenBlocker/b9869e9da6c61d3a99db6fb217db7256837380e6_blocks.parquet",
+        partition_size="100MB",
+    )
+    print(Evaluation.from_dataset(blocks, ds).to_dict())
+    print(MinimalEvaluation(blocks, ds).to_dict())

@@ -49,6 +49,7 @@ def run_later_eval(
     if len(possible_files) > 1:
         raise ValueError(f"Found multiple candidates {possible_files}")
     block_file = possible_files[0]
+    print(block_file)
     _, ds_name, blocker_name, _ = block_file.split("/")
     logger.info(ds_name)
     logger.info(blocker_name)
