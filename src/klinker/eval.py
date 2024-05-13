@@ -44,22 +44,35 @@ class MinimalEvaluation:
         # ).sum().compute()
         gold_count = len(gold)
 
-        left = block_df[left_col].explode().to_frame()
-        right = block_df[right_col].explode().to_frame()
-        pairs_count = len(left.join(right).drop_duplicates())
+        block_df[left_col].explode().to_frame().to_parquet("left")
+        block_df[right_col].explode().to_frame().to_parquet("right")
+        left = dd.read_parquet("left")
+        right = dd.read_parquet("right")
+        left.join(right).to_parquet("joined")
+        dd.read_parquet("joined").drop_duplicates().to_parquet("joined_dedup")
+        # left = block_df[left_col].explode().to_frame()
+        # right = block_df[right_col].explode().to_frame()
+        # pairs_count = len(left.join(right).drop_duplicates())
+        pairs_count = len(dd.read_parquet("joined_dedup"))
 
         gold_dd = dd.from_pandas(gold, npartitions=1)
         actual_suffix = "_actual"
         gold_suffix = "_gold"
-        bla = (
-            left.join(right)
-            .drop_duplicates()
-            .merge(
-                gold_dd,
-                left_on=left_col,
-                right_on=left_col,
-                suffixes=[actual_suffix, gold_suffix],
-            )
+        # bla = (
+        #     left.join(right)
+        #     .drop_duplicates()
+        #     .merge(
+        #         gold_dd,
+        #         left_on=left_col,
+        #         right_on=left_col,
+        #         suffixes=[actual_suffix, gold_suffix],
+        #     )
+        # )
+        bla = dd.read_parquet("joined_dedup").merge(
+            gold_dd,
+            left_on=left_col,
+            right_on=left_col,
+            suffixes=[actual_suffix, gold_suffix],
         )
         tp = (
             (bla[right_col + actual_suffix] == bla[right_col + gold_suffix])
@@ -475,5 +488,5 @@ if __name__ == "__main__":
         "experiment_artifacts/openea_d_w_15k_v1/TokenBlocker/b9869e9da6c61d3a99db6fb217db7256837380e6_blocks.parquet",
         partition_size="100MB",
     )
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
     print(MinimalEvaluation(blocks, ds).to_dict())
