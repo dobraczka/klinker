@@ -195,6 +195,12 @@ def concat_neighbor_attributes(
             id_col=attribute_frame.id_col,
         )
 
+    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
+    if isinstance(concat_attr, dd.DataFrame):
+        concat_attr._meta = pd.DataFrame(
+            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
+        )
+
     # filter relations
     if top_n_r:
         if num_entities is None:
@@ -205,31 +211,37 @@ def concat_neighbor_attributes(
             rel_importance,
             top_n=top_n_r,
         )
-    conc_frame = (
-        with_inv.merge(
-            attribute_frame,
-            left_on=with_inv.columns[2],
-            right_on=attribute_frame.id_col,
-            how="left",
+
+    rev_rel_frame = reverse_rel(rel_frame)
+    with_inv = concat_frames([rel_frame, rev_rel_frame])
+    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
+    if isinstance(concat_attr, dd.DataFrame):
+        concat_attr._meta = pd.DataFrame(
+            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
         )
-        # TODO replace magic strings
-        .dropna()[["head_x", "relation_y", "tail_y"]]
-        .rename(columns={"head_x": "head", "relation_y": "relation", "tail_y": "tail"})
+
+    conc_frame = (
+        with_inv.set_index(with_inv.columns[2])
+        .join(concat_attr.set_index(attribute_frame.id_col), how="left")
+        .dropna()
     )
 
-    if include_own_attributes:
-        conc_frame = concat_frames([conc_frame, attribute_frame])
-
     if isinstance(attribute_frame, KlinkerPandasFrame):
+        if include_own_attributes:
+            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
+            conc_frame = pd.concat([conc_frame, concat_attr])
         return KlinkerTriplePandasFrame(
             conc_frame,
-            table_name=table_name,
+            table_name=attribute_frame.table_name,
             id_col=rel_frame.columns[0],
         ).concat_values()
     else:
+        if include_own_attributes:
+            concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
+            conc_frame = dd.concat([conc_frame, concat_attr])
         return KlinkerTripleDaskFrame.from_dask_dataframe(
             conc_frame,
-            table_name=table_name,
+            table_name=attribute_frame.table_name,
             id_col=rel_frame.columns[0],
             construction_class=KlinkerTriplePandasFrame,
         ).concat_values()

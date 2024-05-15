@@ -49,7 +49,7 @@ from klinker.encoders.deepblocker import (
 from klinker.encoders.pretrained import (
     TokenizedFrameEncoder,
 )
-from klinker.eval import MinimalEvaluation
+from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from nephelai import upload
 from sylloge import OAEI, MovieGraphBenchmark, OpenEA
@@ -485,7 +485,7 @@ def process_pipeline(
     blocks = KlinkerBlockManager.read_parquet(
         experiment_info.blocks_path, partition_size=partition_size
     )
-    ev = MinimalEvaluation(blocks=blocks, dataset=klinker_dataset)
+    ev = Evaluation.from_dataset(blocks=blocks, dataset=klinker_dataset)
     encoder_times: Dict[str, float] = {
         f"encoder_times_{key.lower()}": value
         for key, value in _get_encoder_times(blocker, {}).items()
