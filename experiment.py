@@ -28,6 +28,12 @@ from klinker.blockers import (
     SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
+from klinker.blockers.relation_aware import CompositeRelationalTokenBlocker
+from klinker.blockers.hybrid import (
+    CompositeRelationalDeepBlocker,
+    CompositeLightEABlocker,
+    CompositeEmbeddingBlocker,
+)
 from klinker.blockers.base import Blocker
 from klinker.blockers.embedding.blockbuilder import (
     EmbeddingBlockBuilder,
@@ -630,7 +636,6 @@ def relational_lsh_blocker(
 @click.option("--max-perturbation", type=float, default=0.4)
 @click.option("--embedding-dimension", type=int, default=300)
 @click.option("--hidden-dimension", type=int, default=150)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @embedding_options
 def deepblocker(
     encoder: Type[DeepBlockerFrameEncoder],
@@ -820,14 +825,11 @@ def relational_token_blocker(
 @click.option("--depth", type=int, default=2)
 @click.option("--mini-dim", type=int, default=16)
 @click.option("--rel-dim", type=int)
-@click.option("--batch-size", type=int)
-@block_builder_resolver.get_option("--block-builder", default="kiez", as_string=True)
 @embedding_options
 def light_ea_blocker(
     depth: int,
     mini_dim: int,
     rel_dim: Optional[int],
-    batch_size: Optional[int],
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
@@ -1139,6 +1141,224 @@ def only_embeddings_blocker(
     )
     start = time.time()
     blocker = EmbeddingBlocker(
+        frame_encoder=inner_encoder_inst,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
+        save=save_emb,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command
+@click.option("--min-token-length", type=int, default=3)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
+def composite_relational_token_blocker(
+    min_token_length: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
+) -> Tuple[Blocker, Dict, float]:
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    start = time.time()
+    blocker = CompositeRelationalTokenBlocker(
+        min_token_length=min_token_length, top_n_a=top_n_a, top_n_r=top_n_r
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command
+@click.option("--min-token-length", type=int, default=3)
+@deep_blocker_encoder_resolver.get_option(
+    "--encoder", default="autoencoder", as_string=True
+)
+@click.option("--num-epochs", type=int, default=50)
+@click.option("--batch-size", type=int, default=256)
+@click.option("--learning-rate", type=float, default=1e-3)
+@click.option("--synth-tuples-per-tuple", type=int, default=5)
+@click.option("--pos-to-neg-ratio", type=float, default=1.0)
+@click.option("--max-perturbation", type=float, default=0.4)
+@click.option("--embedding-dimension", type=int, default=300)
+@click.option("--hidden-dimension", type=int, default=150)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
+@embedding_options
+def composite_relational_deepblocker(
+    min_token_length: int,
+    encoder: Type[DeepBlockerFrameEncoder],
+    num_epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    synth_tuples_per_tuple: int,
+    pos_to_neg_ratio: float,
+    max_perturbation: float,
+    embedding_dimension: int,
+    hidden_dimension: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    n_neighbors: int,
+    n_candidates: Optional[int],
+    force: bool,
+    save_emb: bool,
+) -> Tuple[Blocker, Dict, float]:
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    encoder_kwargs = {
+        "frame_encoder": inner_encoder_inst,
+        "num_epochs": num_epochs,
+        "batch_size": batch_size,
+        "learning_rate": learning_rate,
+        "hidden_dimensions": (embedding_dimension, hidden_dimension),
+    }
+    if encoder != "autoencoder":
+        encoder_kwargs.update(
+            {
+                "synth_tuples_per_tuple": synth_tuples_per_tuple,
+                "pos_to_neg_ratio": pos_to_neg_ratio,
+                "max_perturbation": max_perturbation,
+            }
+        )
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
+    # deep-copy
+    start = time.time()
+    blocker = CompositeRelationalDeepBlocker(
+        min_token_length=min_token_length,
+        frame_encoder=encoder,
+        frame_encoder_kwargs=encoder_kwargs,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
+        save=save_emb,
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command
+@click.option("--min-token-length", type=int, default=3)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
+@click.option("--depth", type=int, default=2)
+@click.option("--mini-dim", type=int, default=16)
+@click.option("--rel-dim", type=int)
+@embedding_options
+def composite_light_ea_blocker(
+    min_token_length: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
+    depth: int,
+    mini_dim: int,
+    rel_dim: Optional[int],
+    inner_encoder: Type[TokenizedFrameEncoder],
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    n_neighbors: int,
+    n_candidates: Optional[int],
+    force: bool,
+    save_emb: bool,
+):
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
+    print(bb_kwargs)
+    start = time.time()
+    blocker = CompositeLightEABlocker(
+        min_token_length=min_token_length,
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+        depth=depth,
+        mini_dim=mini_dim,
+        inner_encoder=inner_encoder_inst,
+        embedding_block_builder=block_builder,
+        embedding_block_builder_kwargs=bb_kwargs,
+        force=force,
+        save=save_emb,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command()
+@click.option("--min-token-length", type=int, default=3)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
+@embedding_options
+def composite_only_embeddings_blocker(
+    min_token_length: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
+    inner_encoder: str,
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    block_builder: Type[EmbeddingBlockBuilder],
+    block_builder_kwargs: str,
+    n_neighbors: int,
+    n_candidates: Optional[int],
+    force: bool,
+    save_emb: bool,
+) -> Tuple[Blocker, Dict, float]:
+    print("save_emb=%s" % (save_emb))
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    bb_kwargs = parse_bb_kwargs(
+        block_builder_kwargs, n_neighbors, block_builder, n_candidates
+    )
+    start = time.time()
+    blocker = CompositeEmbeddingBlocker(
+        min_token_length=min_token_length,
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
         frame_encoder=inner_encoder_inst,
         embedding_block_builder=block_builder,
         embedding_block_builder_kwargs=bb_kwargs,

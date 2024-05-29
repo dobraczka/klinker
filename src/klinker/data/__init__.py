@@ -1,4 +1,9 @@
-from .blocks import KlinkerBlockManager, NNBasedKlinkerBlockManager, combine_blocks
+from .blocks import (
+    KlinkerBlockManager,
+    NNBasedKlinkerBlockManager,
+    combine_blocks,
+    CompositeWithNNBasedKlinkerBlockManager,
+)
 from .ea_dataset import KlinkerDataset
 from .enhanced_df import (
     KlinkerDaskFrame,
@@ -20,6 +25,7 @@ __all__ = [
     "NamedVector",
     "KlinkerBlockManager",
     "NNBasedKlinkerBlockManager",
+    "CompositeWithNNBasedKlinkerBlockManager",
     "combine_blocks",
     "from_klinker_frame",
     "KlinkerTripleDaskFrame",

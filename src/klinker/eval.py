@@ -2,10 +2,14 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Set, Tuple, Union, Optional
 import dask.dataframe as dd
 
-import numpy as np
 import pandas as pd
 
-from . import KlinkerBlockManager, KlinkerDataset, NNBasedKlinkerBlockManager
+from . import (
+    KlinkerBlockManager,
+    KlinkerDataset,
+    NNBasedKlinkerBlockManager,
+    CompositeWithNNBasedKlinkerBlockManager,
+)
 
 
 def harmonic_mean(a: float, b: float) -> float:
@@ -18,7 +22,10 @@ def harmonic_mean(a: float, b: float) -> float:
 class MinimalEvaluation:
     @staticmethod
     def _check_consistency(blocks: KlinkerBlockManager, gold: pd.DataFrame):
-        if isinstance(blocks, NNBasedKlinkerBlockManager):
+        if isinstance(
+            blocks,
+            (CompositeWithNNBasedKlinkerBlockManager, NNBasedKlinkerBlockManager),
+        ):
             return
         if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
@@ -27,47 +34,19 @@ class MinimalEvaluation:
                 "Blocks and gold standard frame need to have the same columns!"
             )
 
-    def __init__(self, blocks: KlinkerBlockManager, dataset: KlinkerDataset):
-        gold = dataset.gold
-        MinimalEvaluation._check_consistency(blocks, gold)
-        block_df = blocks.blocks
-        left_col, right_col = block_df.columns
-
-        # mean pairs per block, other calc in KlinkerBlockManager is wrong!
-        # mean_block_size = block_pairs.groupby(block_pairs.index.name).size().mean().compute()
-        # pairs_count = block_df.apply(
-        #     lambda x, col1, col2: sum(1 for _ in itertools.product(x[col1], x[col2])),
-        #     axis=1,
-        #     col1=left_col,
-        #     col2=right_col,
-        #     meta=(None, "int64"),
-        # ).sum().compute()
-        gold_count = len(gold)
-
+    @staticmethod
+    def lots_of_writing_method(block_df, gold, left_col, right_col):
         block_df[left_col].explode().to_frame().to_parquet("left")
         block_df[right_col].explode().to_frame().to_parquet("right")
         left = dd.read_parquet("left")
         right = dd.read_parquet("right")
         left.join(right).to_parquet("joined")
         dd.read_parquet("joined").drop_duplicates().to_parquet("joined_dedup")
-        # left = block_df[left_col].explode().to_frame()
-        # right = block_df[right_col].explode().to_frame()
-        # pairs_count = len(left.join(right).drop_duplicates())
         pairs_count = len(dd.read_parquet("joined_dedup"))
 
         gold_dd = dd.from_pandas(gold, npartitions=1)
         actual_suffix = "_actual"
         gold_suffix = "_gold"
-        # bla = (
-        #     left.join(right)
-        #     .drop_duplicates()
-        #     .merge(
-        #         gold_dd,
-        #         left_on=left_col,
-        #         right_on=left_col,
-        #         suffixes=[actual_suffix, gold_suffix],
-        #     )
-        # )
         bla = dd.read_parquet("joined_dedup").merge(
             gold_dd,
             left_on=left_col,
@@ -79,17 +58,69 @@ class MinimalEvaluation:
             .sum()
             .compute()
         )
+        return pairs_count, tp
+
+    @staticmethod
+    def multi_join_method(block_df, gold, left_col, right_col, client=None):
+        left = block_df[left_col].explode().to_frame()
+        right = block_df[right_col].explode().to_frame()
+
+        l_index_name = left.index.name
+        right_gold_col = f"{right_col}_gold"
+
+        lgold = (
+            left.reset_index()
+            .merge(gold, left_on=left_col, right_on=left_col, how="inner")
+            .set_index(l_index_name)
+            .rename(columns={right_col: right_gold_col})
+        )
+
+        r_index_name = right.index.name
+        left_gold_col = f"{left_col}_gold"
+        rgold = (
+            right.reset_index()
+            .merge(gold, left_on=right_col, right_on=right_col, how="inner")
+            .set_index(r_index_name)
+            .rename(columns={left_col: left_gold_col})
+        )
+
+        joined_dedup = lgold.join(rgold).drop_duplicates()
+        tp = (
+            joined_dedup.apply(
+                lambda x, left_col, left_gold_col, right_col, right_gold_col: 1
+                if x[left_col] == x[left_gold_col] and x[right_col] == x[right_gold_col]
+                else 0,
+                left_col=left_col,
+                left_gold_col=left_gold_col,
+                right_col=right_col,
+                right_gold_col=right_gold_col,
+                axis=1,
+                meta=(None, "int64"),
+            )
+            .sum()
+            .compute()
+        )
+
+        #         tp = ((joined_dedup[left_col] == joined_dedup[left_gold_col]) & (joined_dedup[right_col] == joined_dedup[right_gold_col])).sum().compute()
+
+        pairs_count = len(left.join(right))
+        return pairs_count, tp
+
+    def __init__(self, blocks: KlinkerBlockManager, dataset: KlinkerDataset):
+        gold = dataset.gold
+        MinimalEvaluation._check_consistency(blocks, gold)
+        block_df = blocks.blocks
+        left_col, right_col = block_df.columns
+
+        gold_count = len(gold)
+        # pairs_count, tp = MinimalEvaluation.lots_of_writing_method(block_df, gold, left_col, right_col)
+        pairs_count, tp = MinimalEvaluation.multi_join_method(
+            block_df, dd.from_pandas(gold, npartitions=1), left_col, right_col
+        )
+
         print("tp=%s" % (tp))
         print("pairs_count=%s" % (pairs_count))
         print("gold_count=%s" % (gold_count))
-
-        # block_pairs = left.join(right, how="inner").drop_duplicates()
-        # tp = block_pairs.merge(
-        #     dd.from_pandas(gold, npartitions=1),
-        #     left_on=list(block_df.columns),
-        #     right_on=list(gold.columns),
-        #     how="inner",
-        # ).index.size.compute()
 
         fp = pairs_count - tp
         fn = gold_count - tp
@@ -121,12 +152,10 @@ class Evaluation:
         false_positive: int,
         comp_with_blocking: int,
         comp_without_blocking: int,
-        mean_block_size: float,
         false_positive_set: Optional[Set[Tuple[Any, Any]]] = None,
     ):
         self.gold_pair_set = gold_pair_set
         self.comp_without_blocking = comp_without_blocking
-        self.mean_block_size = mean_block_size
         self.tp_set = true_positive_set
         self.fn_set = self.gold_pair_set - self.tp_set  # type: ignore
         self.false_negative = len(self.fn_set)
@@ -137,7 +166,10 @@ class Evaluation:
 
     @staticmethod
     def _check_consistency(blocks: KlinkerBlockManager, gold: pd.DataFrame):
-        if isinstance(blocks, NNBasedKlinkerBlockManager):
+        if isinstance(
+            blocks,
+            (CompositeWithNNBasedKlinkerBlockManager, NNBasedKlinkerBlockManager),
+        ):
             return
         if not len(gold.columns) == 2:
             raise ValueError("Only binary matching supported!")
@@ -166,7 +198,6 @@ class Evaluation:
         fp_set: Optional[Set[Tuple[Any, Any]]] = (
             set() if keep_false_positive_set else None
         )
-        _pair_number = 0  # in case no pairs exist
         for _pair_number, pair in enumerate(blocks.all_pairs(), start=1):
             if pair in gold_pair_set:
                 left, right = pair  # for mypy
@@ -183,7 +214,6 @@ class Evaluation:
             false_positive=fp,
             comp_with_blocking=_pair_number,
             comp_without_blocking=comp_without_blocking,
-            mean_block_size=blocks.mean_block_size,
             false_positive_set=fp_set,
         )
 
@@ -217,7 +247,7 @@ class Evaluation:
             >>> from klinker.eval import Evaluation
             >>> ev = Evaluation.from_dataset(blocks, ds)
             >>> ev.to_dict()
-            {'recall': 0.993933265925177, 'precision': 0.002804877004859314, 'f_measure': 0.005593967847488974, 'reduction_ratio': 0.9985747694185365, 'h3r': 0.9962486115318822, 'mean_block_size': 10.160596863935256}
+            {'recall': 0.993933265925177, 'precision': 0.002804877004859314, 'f_measure': 0.005593967847488974, 'reduction_ratio': 0.9985747694185365, 'h3r': 0.9962486115318822}
 
         """
         return cls.from_blocks_and_gold(
@@ -246,7 +276,6 @@ class Evaluation:
             false_positive=joined_fp,
             comp_with_blocking=joined_comp_with_blocking,
             comp_without_blocking=eval_a.comp_without_blocking,
-            mean_block_size=np.nan,
         )
 
     @property
@@ -293,7 +322,6 @@ class Evaluation:
             "f_measure": self.f_measure,
             "reduction_ratio": self.reduction_ratio,
             "h3r": self.h3r,
-            "mean_block_size": self.mean_block_size,
             "pairs_completeness": self.pairs_completeness,
         }
 
@@ -485,7 +513,7 @@ if __name__ == "__main__":
 
     ds = KlinkerDataset.from_sylloge(OpenEA())
     blocks = KlinkerBlockManager.read_parquet(
-        "experiment_artifacts/openea_d_w_15k_v1/TokenBlocker/b9869e9da6c61d3a99db6fb217db7256837380e6_blocks.parquet",
+        "experiment_artifacts/openea_d_w_15k_v1/SimpleRelationalTokenBlocker/a3e720762d7fadd5e433b0933046c8631951e47e_blocks.parquet/",
         partition_size="100MB",
     )
     # print(Evaluation.from_dataset(blocks, ds).to_dict())

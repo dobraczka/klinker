@@ -74,8 +74,8 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         rel_dim: Optional[int] = None,
         attribute_encoder: HintOrType[TokenizedFrameEncoder] = None,
         attribute_encoder_kwargs: OptionalKwargs = None,
+        only_use_neighbor_info: bool = False,
     ):
-        # TODO ent dim is unused!
         self.depth = depth
         self.device = resolve_device()
         self.mini_dim = mini_dim
@@ -83,6 +83,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
         self.attribute_encoder = tokenized_frame_encoder_resolver.make(
             attribute_encoder, attribute_encoder_kwargs
         )
+        self.only_use_neighbor_info = only_use_neighbor_info
 
     def _encode_rel(
         self,
@@ -217,7 +218,10 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             size=(node_size, rel_size),
         ).to(self.device)
 
-        ent_list, rel_list = [ent_feature], [rel_feature]
+        # ent_list, rel_list = [ent_feature], [rel_feature]
+        ent_list = [ent_feature]
+        if self.only_use_neighbor_info:
+            ent_list = []
         for dep in trange(self.depth):
             new_rel_feature = torch.from_numpy(
                 _batch_sparse_matmul(rel_ent_graph, ent_feature, self.device)
@@ -235,7 +239,7 @@ class LightEAFrameEncoder(RelationFrameEncoder):
             ent_feature = new_ent_feature
             rel_feature = new_rel_feature
             ent_list.append(ent_feature)
-            rel_list.append(rel_feature)
+            # rel_list.append(rel_feature)
             print(f"dep={dep}, ent_feature.shape={ent_feature.shape}")
             print(f"dep={dep}, rel_feature.shape={rel_feature.shape}")
 
