@@ -174,16 +174,3 @@ class CompositeLightEABlocker(CompositeEmbeddingBlocker):
             left_name=left.table_name,
             right_name=right.table_name,
         )
-
-
-if __name__ == "__main__":
-    from sylloge import MovieGraphBenchmark
-    from klinker.data import KlinkerDataset
-    from klinker.eval import Evaluation
-    from klinker.blockers.relation_aware import CompositeRelationalTokenBlocker
-
-    ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(), clean=True)
-    blocks = CompositeRelationalTokenBlocker().assign(
-        ds.left, ds.right, ds.left_rel, ds.right_rel
-    )
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
