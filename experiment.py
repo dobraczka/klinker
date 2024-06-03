@@ -1,5 +1,4 @@
 import ast
-from dask.distributed import Client
 from time import sleep
 import functools
 import hashlib
@@ -341,6 +340,7 @@ def prepare(
 
 
 def scale_down(num_clusters: int):
+    from dask.distributed import Client
     import math
 
     global cluster
@@ -366,6 +366,7 @@ def prepare_dask_slurm_cluster(
     project: str = "p_scads_knowledgegraphs",
     sleep_time: int = 120,
 ):
+    from dask.distributed import Client
     from dask_jobqueue import SLURMCluster
     import subprocess as sp
 
