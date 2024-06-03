@@ -267,20 +267,25 @@ def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
         return None
 
 
-def prepare(
-    blocker: Blocker,
-    dataset: MultiSourceEADataset,
-    params: Dict,
-    wandb: bool,
-    seed: int,
-) -> ExperimentInfo:
-    # clean names
+def cleanup_name(blocker) -> str:
     blocker_name = blocker.__class__.__name__
-    dataset_name = dataset.canonical_name
-    params["dataset_name"] = dataset.canonical_name
     if isinstance(blocker, EmbeddingBlocker):
         blocker_name = blocker.frame_encoder.__class__.__name__.replace(
             "FrameEncoder", ""
+        )
+    if isinstance(blocker, CompositeEmbeddingBlocker):
+        blocker_name = (
+            "CompositeRelational"
+            + blocker._relation_blocker.frame_encoder.__class__.__name__.replace(
+                "FrameEncoder", ""
+            )
+        )
+    if isinstance(blocker, CompositeRelationalDeepBlocker):
+        blocker_name = (
+            "CompositeRelational"
+            + blocker._relation_blocker.frame_encoder.__class__.__name__.replace(
+                "FrameEncoder", ""
+            )
         )
     if isinstance(blocker, RelationalDeepBlocker):
         blocker_name = (
@@ -289,6 +294,21 @@ def prepare(
                 "FrameEncoder", ""
             )
         )
+    return blocker_name
+
+
+def prepare(
+    blocker: Blocker,
+    dataset: MultiSourceEADataset,
+    params: Dict,
+    wandb: bool,
+    seed: int,
+) -> ExperimentInfo:
+    # clean names
+    dataset_name = dataset.canonical_name
+    params["dataset_name"] = dataset.canonical_name
+    blocker_name = cleanup_name(blocker)
+    print(blocker_name)
 
     if "kiez" in params.values():
         # TODO remove
