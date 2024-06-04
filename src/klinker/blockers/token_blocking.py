@@ -88,6 +88,20 @@ class TokenBlocker(SchemaAgnosticBlocker):
             stop_words=stop_words,
         )
 
+    def _create_exploded_token_frame(self, tab):
+        tok_kwargs: Dict[str, Any] = {
+            "return_set": True,
+        }
+        if isinstance(tab, dd.Series):
+            tok_kwargs["meta"] = (tab.name, "O")
+        return (
+            tab.apply(self.tokenizer.tokenize, **tok_kwargs)
+            .explode()
+            .dropna()
+            .to_frame()
+            .reset_index()
+        )
+
     def _tok_block(self, tab: SeriesType) -> Frame:
         """Perform token blocking on this series.
 
@@ -105,12 +119,8 @@ class TokenBlocker(SchemaAgnosticBlocker):
         # i.e. why does dask assume later for the join, that this is named 0
         # no matter what it is actually named
         tok_name = "tok"
-        tok_kwargs: Dict[str, Any] = {
-            "return_set": True,
-        }
         collect_ids_kwargs = {"id_col": id_col_name}
         if isinstance(tab, dd.Series):
-            tok_kwargs["meta"] = (tab.name, "O")
             collect_ids_kwargs["meta"] = pd.Series(
                 [],
                 name=tab.name,
@@ -118,11 +128,7 @@ class TokenBlocker(SchemaAgnosticBlocker):
                 index=pd.Series([], dtype="O", name=tok_name),
             )
         return (
-            tab.apply(self.tokenizer.tokenize, **tok_kwargs)
-            .explode()
-            .dropna()
-            .to_frame()
-            .reset_index()
+            self._create_exploded_token_frame(tab)
             .rename(columns={name: tok_name})  # avoid same name for col and index
             .groupby(tok_name)
             .apply(lambda x, id_col: list(set(x[id_col])), **collect_ids_kwargs)
@@ -240,50 +246,6 @@ class PartitioningTokenBlocker(_MyVectorizerMixin, SchemaAgnosticBlocker):
         )
         blocks[left.name] = blocks["tmp"].apply(lambda x: [x])
         return KlinkerBlockManager.from_pandas(blocks[[left.name, right.name]])
-
-
-class AttributeClusteringTokenBlocker(TokenBlocker):
-    vectorizer_cls = CountVectorizer
-
-    def __init__(self):
-        super().__init__(min_token_length=0, tokenize_fn=lambda x: x.split(" "))
-
-    def _conc_cluster_labels(self, frame, labels):
-        from klinker.data.enhanced_df import KlinkerPandasFrame
-
-        entity_cluster_labels = pd.DataFrame.from_dict(
-            dict(head=frame["head"].values, labels=labels)
-        )
-        entity_cluster_labels["labels"] = entity_cluster_labels["labels"].replace(
-            -1, np.nan
-        )
-        return KlinkerPandasFrame.from_df(
-            entity_cluster_labels, id_col="head", table_name=frame.table_name
-        ).concat_values()
-
-    def assign(
-        self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        from sentence_transformers import SentenceTransformer
-
-        try:
-            from cuml.cluster import HDBSCAN
-        except ImportError:
-            from hdbscan import HDBSCAN
-        st = SentenceTransformer("gtr-t5-base")
-        left_enc = st.encode(left["tail"].values)
-        right_enc = st.encode(right["tail"].values)
-
-        labels = HDBSCAN().fit_predict(np.concatenate([left_enc, right_enc]))
-        labels = np.random.randint(-1, 50, size=len(left) + len(right))
-
-        left_conc = self._conc_cluster_labels(left, labels[: len(left)])
-        right_conc = self._conc_cluster_labels(right, labels[len(left) :])
-        return super()._assign(left_conc, right_conc)
 
 
 class TfIdfFilteredTokenBlocker(_MyVectorizerMixin, SchemaAgnosticBlocker):
@@ -420,19 +382,3 @@ class DaskTfIdfFilteredTokenBlocker(TfIdfFilteredTokenBlocker):
         return KlinkerBlockManager.from_pandas(
             left_blocks.join(right_blocks, how="inner")
         )
-
-
-if __name__ == "__main__":
-    from klinker.data import KlinkerDataset
-    from sylloge import OpenEA
-    from klinker.eval import Evaluation
-
-    ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True)
-    blocker = AttributeClusteringTokenBlocker()
-    blocks = blocker.assign(ds.left, ds.right)
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-
-    print("TokenBlocker:")
-    blocker = TokenBlocker()
-    blocks = blocker.assign(ds.left, ds.right)
-    print(Evaluation.from_dataset(blocks, ds).to_dict())

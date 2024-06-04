@@ -27,7 +27,7 @@ from klinker.blockers import (
     SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
-from klinker.blockers.relation_aware import CompositeRelationalTokenBlocker
+from klinker.blockers.composite import CompositeRelationalTokenBlocker
 from klinker.blockers.hybrid import (
     CompositeRelationalDeepBlocker,
     CompositeLightEABlocker,
@@ -626,9 +626,9 @@ def relational_lsh_blocker(
 ) -> Tuple[Blocker, Dict, float]:
     attr_fp_weight = 1.0 - attr_fn_weight
     rel_fp_weight = 1.0 - rel_fn_weight
-    if top_n_a < 0:
+    if top_n_a and top_n_a < 0:
         top_n_a = None
-    if top_n_r < 0:
+    if top_n_r and top_n_r < 0:
         top_n_r = None
     start = time.time()
     blocker = RelationalMinHashLSHBlocker(

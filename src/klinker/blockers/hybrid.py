@@ -1,4 +1,4 @@
-from .relation_aware import BaseAttrTokenCompositeUniqueNameBlocker
+from .composite import BaseAttrTokenCompositeUniqueNameBlocker
 import pathlib
 from typing import Callable, Optional, Union, List
 from .embedding.blocker import EmbeddingBlocker

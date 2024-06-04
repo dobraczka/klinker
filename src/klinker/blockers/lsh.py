@@ -12,6 +12,29 @@ from ..data import (
     KlinkerFrame,
 )
 from .base import SchemaAgnosticBlocker
+from nltk.corpus import stopwords
+
+
+# TODO handle code duplication
+class FilteredTokenizer:
+    def __init__(self, tokenize_fn=None, min_token_length=3, stop_words=None):
+        if not tokenize_fn:
+            tokenize_fn = word_tokenize
+        if not stop_words:
+            stop_words = stopwords.words("english")
+        self.tokenize_fn = tokenize_fn
+        self.stop_words = stop_words
+        self.min_token_length = min_token_length
+
+    def tokenize(self, x, return_set: bool = False):
+        tokens = filter(
+            lambda tok: len(tok) >= self.min_token_length
+            and tok not in self.stop_words,
+            self.tokenize_fn(str(x.lower())),
+        )
+        if return_set:
+            return set(tokens)
+        return list(tokens)
 
 
 def _insert(
@@ -103,11 +126,17 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
+        stop_words: Optional[List[str]] = None,
+        min_token_length: int = 3,
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
     ):
-        self.tokenize_fn = tokenize_fn
+        self.tokenizer = FilteredTokenizer(
+            tokenize_fn=tokenize_fn,
+            min_token_length=min_token_length,
+            stop_words=stop_words,
+        )
         self.threshold = threshold
         self.num_perm = num_perm
         self.weights = weights
@@ -123,7 +152,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         -------
             list of bytes.
         """
-        return [tok.encode("utf-8") for tok in self.tokenize_fn(str(val))]
+        return [tok.encode("utf-8") for tok in self.tokenizer.tokenize(str(val))]
 
     def _assign(
         self,

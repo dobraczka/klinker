@@ -177,7 +177,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "gtr-t5-base",
         max_length: int = 128,
         batch_size: int = 512,
         reduce_dim_to: Optional[int] = None,
@@ -498,17 +498,20 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.token_weight_dict = token_weight_dict.to_dict()
         return left, right
 
-    def _postprocess(self, embeddings) -> GeneralVector:
+    def _postprocess(self, left, right) -> Tuple[GeneralVector, GeneralVector]:
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
         if self.remove_pc:
+            concat_fn = (
+                np.concatenate if isinstance(left, np.ndarray) else torch.concatenate
+            )
+            embeddings = concat_fn([left, right])
             svd = TruncatedSVD(n_components=1, n_iter=7, random_state=0)
             svd.fit(embeddings)
             pc = svd.components_
             sif_embeddings = embeddings - embeddings.dot(pc.transpose()) * pc
-        else:
-            sif_embeddings = embeddings
-        return sif_embeddings
+            return sif_embeddings[: len(left)], sif_embeddings[len(left) :]
+        return left, right
 
     def _encode(
         self,
@@ -542,8 +545,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
                 weight_dict=self.token_weight_dict,
             )
         if self.remove_pc:
-            left_enc = self._postprocess(left_enc)
-            right_enc = self._postprocess(right_enc)
+            left_enc, right_enc = self._postprocess(left_enc, right_enc)
         return left_enc, right_enc
 
 

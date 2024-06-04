@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, List, Optional, Tuple, TypeVar, Union, Type
+from typing import Callable, List, Optional, Tuple, TypeVar, Union
 
 import dask.dataframe as dd
 import pandas as pd
@@ -23,12 +23,12 @@ from .base import Blocker, SchemaAgnosticBlocker
 from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
-from .token_blocking import TokenBlocker, UniqueNameBlocker
+from .token_blocking import TokenBlocker
 
 FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
 
-def reverse_rel(rel_frame: Frame, inverse_prefix: str = "_inv_") -> Frame:
+def reverse_rel(rel_frame: Frame, inverse_prefix: str = "") -> Frame:
     """Reverse the relations by switching first and last column.
 
     Args:
@@ -158,6 +158,7 @@ def concat_neighbor_attributes(
     include_own_attributes: bool = True,
     top_n_a: Optional[int] = None,
     top_n_r: Optional[int] = None,
+    do_not_concat_values: bool = False,
 ) -> SeriesType:
     """Return concatenated attributes of neighboring entities.
 
@@ -194,8 +195,12 @@ def concat_neighbor_attributes(
             table_name=table_name,
             id_col=attribute_frame.id_col,
         )
-
-    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
+    if do_not_concat_values:
+        concat_attr = attribute_frame[
+            [attribute_frame.id_col, attribute_frame.columns[2]]
+        ]
+    else:
+        concat_attr = attribute_frame.concat_values().to_frame().reset_index()
     if isinstance(concat_attr, dd.DataFrame):
         concat_attr._meta = pd.DataFrame(
             [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
@@ -211,15 +216,6 @@ def concat_neighbor_attributes(
             rel_importance,
             top_n=top_n_r,
         )
-
-    rev_rel_frame = reverse_rel(rel_frame)
-    with_inv = concat_frames([rel_frame, rev_rel_frame])
-    concat_attr = attribute_frame.concat_values().to_frame().reset_index()
-    if isinstance(concat_attr, dd.DataFrame):
-        concat_attr._meta = pd.DataFrame(
-            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
-        )
-
     conc_frame = (
         with_inv.set_index(with_inv.columns[2])
         .join(concat_attr.set_index(attribute_frame.id_col), how="left")
@@ -230,40 +226,24 @@ def concat_neighbor_attributes(
         if include_own_attributes:
             concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = pd.concat([conc_frame, concat_attr])
-        return KlinkerTriplePandasFrame(
+        res = KlinkerTriplePandasFrame(
             conc_frame,
             table_name=attribute_frame.table_name,
             id_col=rel_frame.columns[0],
-        ).concat_values()
+        )
     else:
         if include_own_attributes:
             concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = dd.concat([conc_frame, concat_attr])
-        return KlinkerTripleDaskFrame.from_dask_dataframe(
+        res = KlinkerTripleDaskFrame.from_dask_dataframe(
             conc_frame,
             table_name=attribute_frame.table_name,
             id_col=rel_frame.columns[0],
             construction_class=KlinkerTriplePandasFrame,
-        ).concat_values()
-
-
-def filter_with_unique(conc, unique_blocks_side):
-    was_series = True
-    if isinstance(conc, (pd.Series, dd.Series)):
-        value_df = conc.to_frame("values")
-    else:
-        was_series = False
-        value_df = conc.set_index(conc.id_col)
-    filter_df = unique_blocks_side.explode().to_frame("filter")
-    if not isinstance(value_df, dd.DataFrame):
-        filter_df = filter_df.compute()
-    joined = value_df.merge(
-        filter_df, left_index=True, right_on="filter", how="left", indicator=True
-    )
-    mask = joined[joined["_merge"] == "left_only"]["filter"]
-    if was_series:
-        return conc.loc[mask]
-    return value_df.loc[mask].reset_index()
+        )
+    if do_not_concat_values:
+        return res
+    return res.concat_values()
 
 
 class BaseSimpleRelationalBlocker(Blocker):
@@ -281,6 +261,7 @@ class BaseSimpleRelationalBlocker(Blocker):
         right: KlinkerFrame,
         left_rel: KlinkerFrame,
         right_rel: KlinkerFrame,
+        include_own_attributes: bool = True,
     ) -> Tuple[SeriesType, SeriesType]:
         """Concatenate neighbor entity attribute values with own.
 
@@ -298,14 +279,14 @@ class BaseSimpleRelationalBlocker(Blocker):
         left_conc = concat_neighbor_attributes(
             left,
             left_rel,
-            include_own_attributes=True,
+            include_own_attributes=include_own_attributes,
             top_n_a=self.top_n_a,
             top_n_r=self.top_n_r,
         )
         right_conc = concat_neighbor_attributes(
             right,
             right_rel,
-            include_own_attributes=True,
+            include_own_attributes=include_own_attributes,
             top_n_a=self.top_n_a,
             top_n_r=self.top_n_r,
         )
@@ -369,46 +350,6 @@ class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
         )
 
 
-class CompositeRelationalTokenBlocker(SimpleRelationalTokenBlocker):
-    def __init__(
-        self,
-        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
-        min_token_length: int = 3,
-        top_n_a: Optional[int] = None,
-        top_n_r: Optional[int] = None,
-    ):
-        super().__init__(
-            tokenize_fn=tokenize_fn,
-            min_token_length=min_token_length,
-            top_n_a=top_n_a,
-            top_n_r=top_n_r,
-        )
-        self._unique_blocker = UniqueNameBlocker()
-
-    def assign(
-        self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        unique_blocks = self._unique_blocker.assign(left, right)
-        unique_blocks.blocks.persist()
-        left_conc, right_conc = self.concat_relational_info(
-            left=left, right=right, left_rel=left_rel, right_rel=right_rel
-        )
-        left_filtered = filter_with_unique(
-            left_conc, unique_blocks.blocks[left.table_name]
-        )
-        right_filtered = filter_with_unique(
-            right_conc, unique_blocks.blocks[right.table_name]
-        )
-        return combine_blocks(
-            unique_blocks,
-            self._blocker._assign(left=left_filtered, right=right_filtered),
-        )
-
-
 class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
     """MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
 
@@ -451,29 +392,6 @@ class RelationalBlocker(Blocker):
         self.top_n_a = top_n_a
         self.top_n_r = top_n_r
 
-    def concat_relational_info(
-        self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: KlinkerFrame,
-        right_rel: KlinkerFrame,
-    ) -> Tuple[SeriesType, SeriesType]:
-        left_rel_conc = concat_neighbor_attributes(
-            left,
-            left_rel,
-            include_own_attributes=False,
-            top_n_a=self.top_n_a,
-            top_n_r=self.top_n_r,
-        )
-        right_rel_conc = concat_neighbor_attributes(
-            right,
-            right_rel,
-            include_own_attributes=False,
-            top_n_a=self.top_n_a,
-            top_n_r=self.top_n_r,
-        )
-        return left_rel_conc, right_rel_conc
-
     def assign(
         self,
         left: KlinkerFrame,
@@ -502,97 +420,10 @@ class RelationalBlocker(Blocker):
         assert right_rel is not None
         attr_blocked = self._attribute_blocker.assign(left=left, right=right)
         left_rel_conc, right_rel_conc = self.concat_relational_info(
-            left, right, left_rel, right_rel
+            left, right, left_rel, right_rel, include_own_attributes=False
         )
         rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
         return combine_blocks(attr_blocked, rel_blocked)
-
-
-class BaseCompositeUniqueNameBlocker(RelationalBlocker):
-    _attribute_blocker: SchemaAgnosticBlocker
-    _relation_blocker: SchemaAgnosticBlocker
-    _attr_blocker_cls: Type[SchemaAgnosticBlocker]
-    _rel_blocker_cls: Type[SchemaAgnosticBlocker]
-
-    def __init__(
-        self,
-        top_n_a: Optional[int] = None,
-        top_n_r: Optional[int] = None,
-        attr_blocker_kwargs=None,
-        rel_blocker_kwargs=None,
-    ):
-        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
-        attr_blocker_kwargs = {} if not attr_blocker_kwargs else attr_blocker_kwargs
-        rel_blocker_kwargs = {} if not rel_blocker_kwargs else rel_blocker_kwargs
-        self._attribute_blocker = self.__class__._attr_blocker_cls(
-            **attr_blocker_kwargs
-        )
-        self._relation_blocker = self.__class__._rel_blocker_cls(**rel_blocker_kwargs)
-
-    def _compute_attr_blocks(self, left, right, unique_blocks) -> KlinkerBlockManager:
-        left_attr_filtered = filter_with_unique(
-            left, unique_blocks.blocks[left.table_name]
-        )
-        right_attr_filtered = filter_with_unique(
-            right, unique_blocks.blocks[right.table_name]
-        )
-        return combine_blocks(
-            unique_blocks,
-            self._attribute_blocker.assign(left_attr_filtered, right_attr_filtered),
-        )
-
-    def _compute_rel_blocks(
-        self, left, right, left_rel, right_rel, unique_blocks
-    ) -> KlinkerBlockManager:
-        left_conc, right_conc = self.concat_relational_info(
-            left=left, right=right, left_rel=left_rel, right_rel=right_rel
-        )
-        left_filtered = filter_with_unique(
-            left_conc, unique_blocks.blocks[left.table_name]
-        )
-        right_filtered = filter_with_unique(
-            right_conc, unique_blocks.blocks[right.table_name]
-        )
-        return self._relation_blocker._assign(left=left_filtered, right=right_filtered)
-
-    def assign(
-        self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        assert left_rel is not None
-        assert right_rel is not None
-        unique_blocks = UniqueNameBlocker().assign(left, right)
-        unique_blocks.blocks.persist()
-
-        attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
-        rel_blocks = self._compute_rel_blocks(
-            left, right, left_rel, right_rel, unique_blocks
-        )
-        return combine_blocks(attr_blocks, rel_blocks)
-
-
-class BaseAttrTokenCompositeUniqueNameBlocker(BaseCompositeUniqueNameBlocker):
-    _attr_blocker_cls = TokenBlocker
-
-    def __init__(
-        self,
-        top_n_a: Optional[int] = None,
-        top_n_r: Optional[int] = None,
-        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
-        min_token_length: int = 3,
-        rel_blocker_kwargs=None,
-    ):
-        super().__init__(
-            top_n_a=top_n_a,
-            top_n_r=top_n_r,
-            attr_blocker_kwargs=dict(
-                tokenize_fn=tokenize_fn, min_token_length=min_token_length
-            ),
-            rel_blocker_kwargs=rel_blocker_kwargs,
-        )
 
 
 class RelationalMinHashLSHBlocker(RelationalBlocker):
