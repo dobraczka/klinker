@@ -83,6 +83,7 @@ def _query(
         dataframe of blocks
     """
     cur_block: Dict[str, List] = {left_name: [], right_name: []}
+    index = []
     for key, val in ser_part.items():
         msh = MinHash(num_perm=lsh.h)
         msh.update_batch(encode_fn(val))
@@ -91,7 +92,8 @@ def _query(
         if len(res) > 0:
             cur_block[left_name].append(list(res))
             cur_block[right_name].append([key])
-    return pd.DataFrame(cur_block)
+            index.append(key)
+    return pd.DataFrame(cur_block, index=index)
 
 
 class MinHashLSHBlocker(SchemaAgnosticBlocker):

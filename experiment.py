@@ -27,7 +27,13 @@ from klinker.blockers import (
     SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
-from klinker.blockers.composite import CompositeRelationalTokenBlocker
+from klinker.blockers.composite import (
+    CompositeRelationalTokenBlocker,
+    CompositeRelationalAttributeClusteringBlocker,
+    CompositeRelationalTokenClusteringBlocker,
+    CompositeRelationalTokenClusteringLSHBlocker,
+    CompositeRelationalAttributeClusteringLSHBlocker,
+)
 from klinker.blockers.hybrid import (
     CompositeRelationalDeepBlocker,
     CompositeLightEABlocker,
@@ -133,6 +139,37 @@ def embedding_options(f):
     @click.option("--n-candidates", type=int, default=None)
     @click.option("--force", type=bool, default=True)
     @click.option("--save-emb", type=bool, default=False)
+    @functools.wraps(f)
+    def wrapper_common_options(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper_common_options
+
+
+def composite_clustering_options(f):
+    @click.option("--top_n_a", type=int, default=None)
+    @click.option("--top_n_r", type=int, default=None)
+    @click.option(
+        "--inner-encoder",
+        type=click.Choice(
+            [
+                "sifembeddingtokenized",
+                "averageembeddingtokenized",
+                "transformertokenized",
+                "sentencetransformertokenized",
+            ]
+        ),
+    )
+    @click.option("--embeddings", type=str, default="fasttext")
+    @click.option("--inner-encoder-batch-size", type=int, default=256)
+    @click.option("--reduce-transformer-dim-to", type=int, default=-1)
+    @click.option("--reduce-sample-perc", type=float, default=0.3)
+    @click.option("--min-cluster-size", type=int, default=2)
+    @click.option(
+        "--noise-cluster-handling",
+        type=click.Choice(["remove", "token", "keep"]),
+        default="remove",
+    )
     @functools.wraps(f)
     def wrapper_common_options(*args, **kwargs):
         return f(*args, **kwargs)
@@ -1385,6 +1422,169 @@ def composite_only_embeddings_blocker(
         embedding_block_builder_kwargs=bb_kwargs,
         force=force,
         save=save_emb,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command()
+@composite_clustering_options
+def composite_relational_attribute_clustering_blocker(
+    top_n_a: int,
+    top_n_r: int,
+    inner_encoder: str,
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    min_cluster_size: int,
+    noise_cluster_handling: str,
+):
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    start = time.time()
+    blocker = CompositeRelationalAttributeClusteringBlocker(
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+        encoder=inner_encoder_inst,
+        min_cluster_size=min_cluster_size,
+        noise_cluster_handling=noise_cluster_handling,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@composite_clustering_options
+def composite_relational_token_clustering_blocker(
+    top_n_a: int,
+    top_n_r: int,
+    inner_encoder: str,
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    min_cluster_size: int,
+    noise_cluster_handling: str,
+):
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    start = time.time()
+    blocker = CompositeRelationalTokenClusteringBlocker(
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+        encoder=inner_encoder_inst,
+        min_cluster_size=min_cluster_size,
+        noise_cluster_handling=noise_cluster_handling,
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command()
+@composite_clustering_options
+@click.option("--rel-threshold", type=float, default=0.2)
+@click.option("--rel-num-perm", type=int, default=128)
+@click.option("--rel-fn-weight", type=float, default=0.8)
+def composite_relational_attribute_clustering_lsh_blocker(
+    top_n_a: int,
+    top_n_r: int,
+    inner_encoder: str,
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    min_cluster_size: int,
+    noise_cluster_handling: str,
+    rel_threshold: float,
+    rel_num_perm: int,
+    rel_fn_weight: float,
+):
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    fp_weight = 1.0 - rel_fn_weight
+    start = time.time()
+    blocker = CompositeRelationalAttributeClusteringLSHBlocker(
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+        encoder=inner_encoder_inst,
+        min_cluster_size=min_cluster_size,
+        noise_cluster_handling=noise_cluster_handling,
+        rel_threshold=rel_threshold,
+        rel_num_perm=rel_num_perm,
+        rel_weights=(fp_weight, rel_fn_weight),
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command
+@composite_clustering_options
+@click.option("--rel-threshold", type=float, default=0.2)
+@click.option("--rel-num-perm", type=int, default=128)
+@click.option("--rel-fn-weight", type=float, default=0.8)
+def composite_relational_token_clustering_lsh_blocker(
+    top_n_a: int,
+    top_n_r: int,
+    inner_encoder: str,
+    embeddings: str,
+    inner_encoder_batch_size: int,
+    reduce_transformer_dim_to: int,
+    reduce_sample_perc: float,
+    min_cluster_size: int,
+    noise_cluster_handling: str,
+    rel_threshold: float,
+    rel_num_perm: int,
+    rel_fn_weight: float,
+):
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    inner_encoder_inst = create_inner_encoder(
+        inner_encoder,
+        embeddings,
+        inner_encoder_batch_size,
+        reduce_transformer_dim_to,
+        reduce_sample_perc,
+    )
+    fp_weight = 1.0 - rel_fn_weight
+    start = time.time()
+    blocker = CompositeRelationalTokenClusteringLSHBlocker(
+        top_n_a=top_n_a,
+        top_n_r=top_n_r,
+        encoder=inner_encoder_inst,
+        min_cluster_size=min_cluster_size,
+        noise_cluster_handling=noise_cluster_handling,
+        rel_threshold=rel_threshold,
+        rel_num_perm=rel_num_perm,
+        rel_weights=(fp_weight, rel_fn_weight),
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)

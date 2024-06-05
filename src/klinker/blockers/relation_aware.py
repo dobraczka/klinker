@@ -246,11 +246,7 @@ def concat_neighbor_attributes(
     return res.concat_values()
 
 
-class BaseSimpleRelationalBlocker(Blocker):
-    """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
-
-    _blocker: SchemaAgnosticBlocker
-
+class ConcatRelationalInfoMixin:
     def __init__(self, top_n_a: Optional[int] = None, top_n_r: Optional[int] = None):
         self.top_n_a = top_n_a
         self.top_n_r = top_n_r
@@ -291,6 +287,12 @@ class BaseSimpleRelationalBlocker(Blocker):
             top_n_r=self.top_n_r,
         )
         return left_conc, right_conc
+
+
+class BaseSimpleRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
+    """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
+
+    _blocker: SchemaAgnosticBlocker
 
     def assign(
         self,
@@ -382,15 +384,11 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
         )
 
 
-class RelationalBlocker(Blocker):
+class BaseRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
     """Uses seperate blocker for entity attribute values and concatenation of neighboring entity attribute values."""
 
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
-
-    def __init__(self, top_n_a: Optional[int] = None, top_n_r: Optional[int] = None):
-        self.top_n_a = top_n_a
-        self.top_n_r = top_n_r
 
     def assign(
         self,
@@ -426,7 +424,7 @@ class RelationalBlocker(Blocker):
         return combine_blocks(attr_blocked, rel_blocked)
 
 
-class RelationalMinHashLSHBlocker(RelationalBlocker):
+class RelationalMinHashLSHBlocker(BaseRelationalBlocker):
     """Seperate MinHashLSH blocking on concatenation of entity attribute values and neighboring values.
 
     Examples
@@ -467,7 +465,7 @@ class RelationalMinHashLSHBlocker(RelationalBlocker):
         )
 
 
-class RelationalTokenBlocker(RelationalBlocker):
+class RelationalTokenBlocker(BaseRelationalBlocker):
     """Seperate Tokenblocking on concatenation of entity attribute values and neighboring values.
 
     Examples
@@ -501,7 +499,7 @@ class RelationalTokenBlocker(RelationalBlocker):
         )
 
 
-class RelationalDeepBlocker(RelationalBlocker):
+class RelationalDeepBlocker(BaseRelationalBlocker):
     """Seperate DeepBlocker strategy on concatenation of entity attribute values and neighboring values.
 
     Examples

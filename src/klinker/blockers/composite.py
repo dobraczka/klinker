@@ -1,5 +1,5 @@
 from .relation_aware import (
-    RelationalBlocker,
+    BaseRelationalBlocker,
     SimpleRelationalTokenBlocker,
     concat_neighbor_attributes,
 )
@@ -8,6 +8,9 @@ from klinker.typing import SeriesType
 from .attribute_clustering import (
     AttributeClusteringTokenBlocker,
     TokenClusteringTokenBlocker,
+    TokenClusteringMinHashLSHBlocker,
+    AttributeClusteringMinHashLSHBlocker,
+    NoiseClusterHandling,
 )
 from class_resolver import HintOrType, OptionalKwargs
 from typing import Callable, List, Optional, Type, Tuple
@@ -45,7 +48,7 @@ def filter_with_unique(conc, unique_blocks_side):
     return value_df.loc[mask].reset_index()
 
 
-class BaseCompositeUniqueNameBlocker(RelationalBlocker):
+class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
     _attribute_blocker: SchemaAgnosticBlocker
     _relation_blocker: SchemaAgnosticBlocker
     _attr_blocker_cls: Type[SchemaAgnosticBlocker]
@@ -73,6 +76,9 @@ class BaseCompositeUniqueNameBlocker(RelationalBlocker):
         right_attr_filtered = filter_with_unique(
             right, unique_blocks.blocks[right.table_name]
         )
+        if len(left_attr_filtered) == 0 or len(right_attr_filtered) == 0:
+            print("Nothing left to do for attr_blocks because unique got everything!")
+            return unique_blocks
         return combine_blocks(
             unique_blocks,
             self._attribute_blocker.assign(left_attr_filtered, right_attr_filtered),
@@ -80,7 +86,7 @@ class BaseCompositeUniqueNameBlocker(RelationalBlocker):
 
     def _compute_rel_blocks(
         self, left, right, left_rel, right_rel, unique_blocks
-    ) -> KlinkerBlockManager:
+    ) -> Optional[KlinkerBlockManager]:
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
@@ -90,6 +96,9 @@ class BaseCompositeUniqueNameBlocker(RelationalBlocker):
         right_filtered = filter_with_unique(
             right_conc, unique_blocks.blocks[right.table_name]
         )
+        if len(left_filtered) == 0 or len(right_filtered) == 0:
+            print("Nothing left to do for rel_blocks because unique got everything!")
+            return None
         return self._relation_blocker._assign(left=left_filtered, right=right_filtered)
 
     def assign(
@@ -104,13 +113,13 @@ class BaseCompositeUniqueNameBlocker(RelationalBlocker):
         unique_blocks = UniqueNameBlocker().assign(left, right)
         unique_blocks.blocks.persist()
 
-        # attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
+        attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
         rel_blocks = self._compute_rel_blocks(
             left, right, left_rel, right_rel, unique_blocks
         )
-        print("NOT COMBINING BLOCKS!!!")
-        return rel_blocks
-        # return combine_blocks(attr_blocks, rel_blocks)
+        if rel_blocks is None:
+            return attr_blocks
+        return combine_blocks(attr_blocks, rel_blocks)
 
 
 class BaseAttrTokenCompositeUniqueNameBlocker(BaseCompositeUniqueNameBlocker):
@@ -159,22 +168,8 @@ class CompositeRelationalTokenBlocker(SimpleRelationalTokenBlocker):
     ) -> KlinkerBlockManager:
         unique_blocks = self._unique_blocker.assign(left, right)
         unique_blocks.blocks.persist()
-        # left_conc, right_conc = self.concat_relational_info(
-        #     left=left, right=right, left_rel=left_rel, right_rel=right_rel
-        # )
-        # left_filtered = filter_with_unique(
-        #     left_conc, unique_blocks.blocks[left.table_name]
-        # )
-        # right_filtered = filter_with_unique(
-        #     right_conc, unique_blocks.blocks[right.table_name]
-        # )
-        print("NOT COMBINING BLOCKS!!")
         left_conc, right_conc = self.concat_relational_info(
-            left=left,
-            right=right,
-            left_rel=left_rel,
-            right_rel=right_rel,
-            include_own_attributes=False,
+            left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
         left_filtered = filter_with_unique(
             left_conc, unique_blocks.blocks[left.table_name]
@@ -182,11 +177,10 @@ class CompositeRelationalTokenBlocker(SimpleRelationalTokenBlocker):
         right_filtered = filter_with_unique(
             right_conc, unique_blocks.blocks[right.table_name]
         )
-        return self._blocker._assign(left=left_filtered, right=right_filtered)
-        # return combine_blocks(
-        #     unique_blocks,
-        #     self._blocker._assign(left=left_filtered, right=right_filtered),
-        # )
+        return combine_blocks(
+            unique_blocks,
+            self._blocker._assign(left=left_filtered, right=right_filtered),
+        )
 
 
 class BaseCompositeRelationalClusteringBlocker(BaseCompositeUniqueNameBlocker):
@@ -272,7 +266,7 @@ class CompositeRelationalAttributeClusteringBlocker(
         alpha: float = 1.0,
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
-        remove_noise_cluster: bool = True,
+        noise_cluster_handling: NoiseClusterHandling = "remove",
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -292,7 +286,10 @@ class CompositeRelationalAttributeClusteringBlocker(
                 alpha=alpha,
                 p=p,
                 cluster_selection_method=cluster_selection_method,
-                remove_noise_cluster=remove_noise_cluster,
+                noise_cluster_handling=noise_cluster_handling,
+                tokenize_fn=tokenize_fn,
+                stop_words=stop_words,
+                min_token_length=min_token_length,
             ),
         )
 
@@ -321,10 +318,7 @@ class CompositeRelationalTokenClusteringBlocker(
         alpha: float = 1.0,
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
-        remove_noise_cluster: bool = True,
-        rel_tokenize_fn: Callable[[str], List[str]] = word_tokenize,
-        rel_stop_words: Optional[List[str]] = None,
-        rel_min_token_length: int = 3,
+        noise_cluster_handling: NoiseClusterHandling = "remove",
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -344,10 +338,123 @@ class CompositeRelationalTokenClusteringBlocker(
                 alpha=alpha,
                 p=p,
                 cluster_selection_method=cluster_selection_method,
-                remove_noise_cluster=remove_noise_cluster,
-                tokenize_fn=rel_tokenize_fn,
-                stop_words=rel_stop_words,
-                min_token_length=rel_min_token_length,
+                noise_cluster_handling=noise_cluster_handling,
+                tokenize_fn=tokenize_fn,
+                stop_words=stop_words,
+                min_token_length=min_token_length,
+            ),
+        )
+
+
+class CompositeRelationalAttributeClusteringLSHBlocker(
+    BaseCompositeRelationalClusteringBlocker
+):
+    _attribute_blocker: TokenBlocker
+    _attr_blocker_cls = TokenBlocker
+    _relation_blocker: AttributeClusteringMinHashLSHBlocker
+    _rel_blocker_cls = AttributeClusteringMinHashLSHBlocker
+
+    def __init__(
+        self,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+        stop_words: Optional[List[str]] = None,
+        min_token_length: int = 3,
+        encoder: HintOrType[TokenizedFrameEncoder] = None,
+        encoder_kwargs: OptionalKwargs = None,
+        min_cluster_size: int = 5,
+        min_samples: Optional[int] = None,
+        cluster_selection_epsilon: float = 0.0,
+        metric: str = "euclidean",
+        alpha: float = 1.0,
+        p: Optional[float] = None,
+        cluster_selection_method: str = "eom",
+        noise_cluster_handling: NoiseClusterHandling = "remove",
+        rel_threshold: float = 0.5,
+        rel_num_perm: int = 128,
+        rel_weights: Tuple[float, float] = (0.5, 0.5),
+    ):
+        super().__init__(
+            top_n_a=top_n_a,
+            top_n_r=top_n_r,
+            attr_blocker_kwargs=dict(
+                tokenize_fn=tokenize_fn,
+                stop_words=stop_words,
+                min_token_length=min_token_length,
+            ),
+            rel_blocker_kwargs=dict(
+                encoder=encoder,
+                encoder_kwargs=encoder_kwargs,
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples,
+                cluster_selection_epsilon=cluster_selection_epsilon,
+                metric=metric,
+                alpha=alpha,
+                p=p,
+                cluster_selection_method=cluster_selection_method,
+                noise_cluster_handling=noise_cluster_handling,
+                threshold=rel_threshold,
+                num_perm=rel_num_perm,
+                weights=rel_weights,
+            ),
+        )
+
+
+class CompositeRelationalTokenClusteringLSHBlocker(
+    BaseCompositeRelationalClusteringBlocker
+):
+    _attribute_blocker: TokenBlocker
+    _attr_blocker_cls = TokenBlocker
+    _relation_blocker: TokenClusteringMinHashLSHBlocker
+    _rel_blocker_cls = TokenClusteringMinHashLSHBlocker
+
+    def __init__(
+        self,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+        stop_words: Optional[List[str]] = None,
+        min_token_length: int = 3,
+        encoder: HintOrType[TokenizedFrameEncoder] = None,
+        encoder_kwargs: OptionalKwargs = None,
+        min_cluster_size: int = 5,
+        min_samples: Optional[int] = None,
+        cluster_selection_epsilon: float = 0.0,
+        metric: str = "euclidean",
+        alpha: float = 1.0,
+        p: Optional[float] = None,
+        cluster_selection_method: str = "eom",
+        noise_cluster_handling: NoiseClusterHandling = "remove",
+        rel_threshold: float = 0.5,
+        rel_num_perm: int = 128,
+        rel_weights: Tuple[float, float] = (0.5, 0.5),
+    ):
+        super().__init__(
+            top_n_a=top_n_a,
+            top_n_r=top_n_r,
+            attr_blocker_kwargs=dict(
+                tokenize_fn=tokenize_fn,
+                stop_words=stop_words,
+                min_token_length=min_token_length,
+            ),
+            rel_blocker_kwargs=dict(
+                encoder=encoder,
+                encoder_kwargs=encoder_kwargs,
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples,
+                cluster_selection_epsilon=cluster_selection_epsilon,
+                metric=metric,
+                alpha=alpha,
+                p=p,
+                cluster_selection_method=cluster_selection_method,
+                noise_cluster_handling=noise_cluster_handling,
+                tokenize_fn=tokenize_fn,
+                stop_words=stop_words,
+                min_token_length=min_token_length,
+                threshold=rel_threshold,
+                num_perm=rel_num_perm,
+                weights=rel_weights,
             ),
         )
 
@@ -358,7 +465,7 @@ if __name__ == "__main__":
     from klinker.eval import Evaluation
     from klinker.blockers import SimpleRelationalTokenBlocker
 
-    ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True)
+    ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True).sample(0.01)
     # blocks = SimpleRelationalTokenBlocker().assign(
     #     ds.left, ds.right, ds.left_rel, ds.right_rel
     # )
@@ -367,41 +474,73 @@ if __name__ == "__main__":
     # print(Evaluation.from_dataset(blocks, ds).to_dict())
     # print("====================\n")
 
-    blocks = CompositeRelationalTokenBlocker().assign(
-        ds.left, ds.right, ds.left_rel, ds.right_rel
-    )
-    print("\n====================")
-    print("Basic Composite")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # blocks = CompositeRelationalTokenBlocker().assign(
+    #     ds.left, ds.right, ds.left_rel, ds.right_rel
+    # )
+    # print("\n====================")
+    # print("Basic Composite")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
 
-    blocks = CompositeRelationalAttributeClusteringBlocker().assign(
-        ds.left, ds.right, ds.left_rel, ds.right_rel
-    )
-    print("\n====================")
-    print("Attribute + SIF")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # blocks = CompositeRelationalAttributeClusteringBlocker().assign(
+    #     ds.left, ds.right, ds.left_rel, ds.right_rel
+    # )
+    # print("\n====================")
+    # print("Attribute + SIF")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
 
-    blocks = CompositeRelationalTokenClusteringBlocker().assign(
-        ds.left, ds.right, ds.left_rel, ds.right_rel
-    )
-    print("\n====================")
-    print("Token + SIF")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # blocks = CompositeRelationalTokenClusteringBlocker().assign(
+    #     ds.left, ds.right, ds.left_rel, ds.right_rel
+    # )
+    # print("\n====================")
+    # print("Token + SIF")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
 
-    blocks = CompositeRelationalAttributeClusteringBlocker(
-        encoder="sentencetransformertokenized"
+    # blocks = CompositeRelationalAttributeClusteringBlocker(
+    #     encoder="sentencetransformertokenized"
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("Attribute + SenTrans")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
+    # blocks = CompositeRelationalTokenClusteringBlocker(
+    #     encoder="sentencetransformertokenized"
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("Token + SenTrans")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
+
+    threshold = 0.3
+    blocks = CompositeRelationalAttributeClusteringLSHBlocker(
+        rel_threshold=threshold
     ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
     print("\n====================")
-    print("Attribute + SenTrans")
+    print("LSH Attribute + SIF")
     print(Evaluation.from_dataset(blocks, ds).to_dict())
     print("====================\n")
-    blocks = CompositeRelationalTokenClusteringBlocker(
-        encoder="sentencetransformertokenized"
+
+    blocks = CompositeRelationalTokenClusteringLSHBlocker(
+        rel_threshold=threshold
     ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
     print("\n====================")
-    print("Token + SenTrans")
+    print("LSH Token + SIF")
+    print(Evaluation.from_dataset(blocks, ds).to_dict())
+    print("====================\n")
+
+    blocks = CompositeRelationalAttributeClusteringLSHBlocker(
+        rel_threshold=threshold, encoder="sentencetransformertokenized"
+    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    print("\n====================")
+    print("LSH Attribute + SenTrans")
+    print(Evaluation.from_dataset(blocks, ds).to_dict())
+    print("====================\n")
+    blocks = CompositeRelationalTokenClusteringLSHBlocker(
+        rel_threshold=threshold, encoder="sentencetransformertokenized"
+    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    print("\n====================")
+    print("LSH Token + SenTrans")
     print(Evaluation.from_dataset(blocks, ds).to_dict())
     print("====================\n")
