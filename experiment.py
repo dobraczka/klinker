@@ -27,6 +27,7 @@ from klinker.blockers import (
     SimpleRelationalTokenBlocker,
     TokenBlocker,
 )
+from klinker.blockers.attribute_clustering import TokenClusteringMixin
 from klinker.blockers.composite import (
     CompositeRelationalTokenBlocker,
     CompositeRelationalAttributeClusteringBlocker,
@@ -310,20 +311,21 @@ def cleanup_name(blocker) -> str:
         blocker_name = blocker.frame_encoder.__class__.__name__.replace(
             "FrameEncoder", ""
         )
-    if isinstance(blocker, CompositeEmbeddingBlocker):
-        blocker_name = (
-            "CompositeRelational"
-            + blocker._relation_blocker.frame_encoder.__class__.__name__.replace(
-                "FrameEncoder", ""
+    if hasattr(blocker, "_relation_blocker"):
+        if isinstance(blocker._relation_blocker, TokenClusteringMixin):
+            blocker_name = (
+                blocker.__class__.__name__
+                + blocker._relation_blocker.encoder.__class__.__name__.replace(
+                    "FrameEncoder", ""
+                )
             )
-        )
-    if isinstance(blocker, CompositeRelationalDeepBlocker):
-        blocker_name = (
-            "CompositeRelational"
-            + blocker._relation_blocker.frame_encoder.__class__.__name__.replace(
-                "FrameEncoder", ""
+        else:
+            blocker_name = (
+                "CompositeRelational"
+                + blocker._relation_blocker.frame_encoder.__class__.__name__.replace(
+                    "FrameEncoder", ""
+                )
             )
-        )
     if isinstance(blocker, RelationalDeepBlocker):
         blocker_name = (
             "Relational"
@@ -347,9 +349,6 @@ def prepare(
     blocker_name = cleanup_name(blocker)
     print(blocker_name)
 
-    if "kiez" in params.values():
-        # TODO remove
-        params["improved_time"] = True
     params["blocker_name"] = blocker_name
     params["random_seed"] = seed
 
