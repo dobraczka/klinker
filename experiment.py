@@ -460,6 +460,7 @@ def prepare_dask_slurm_cluster(
 @click.option("--clean/--no-clean", default=True)
 @click.option("--wandb/--no-wandb", is_flag=True, default=False)
 @click.option("--nextcloud/--no-nextcloud", is_flag=True, default=False)
+@click.option("--data-sample-frac", type=float, default=None)
 @click.option("--random-seed", type=int, default=None)
 @click.option("--partition-size", type=str, default="100MB")
 @click.option("--use-cluster", type=bool, default=False)
@@ -472,6 +473,7 @@ def cli(
     clean: bool,
     wandb: bool,
     nextcloud: bool,
+    data_sample_frac: float,
     random_seed: Optional[int],
     partition_size: Optional[str],
     use_cluster: bool,
@@ -497,6 +499,7 @@ def process_pipeline(
     clean: bool,
     wandb: bool,
     nextcloud: bool,
+    data_sample_frac: float,
     random_seed: Optional[int],
     partition_size: Optional[str],
     use_cluster: bool,
@@ -520,6 +523,9 @@ def process_pipeline(
     klinker_dataset = KlinkerDataset.from_sylloge(
         dataset, clean=clean, partition_size=partition_size
     )
+    if data_sample_frac:
+        logger.info(f"Using sample of data: {data_sample_frac * 100}%!")
+        klinker_dataset = klinker_dataset.sample(data_sample_frac)
     params = {**ds_params, **bl_params}
 
     experiment_info = prepare(
