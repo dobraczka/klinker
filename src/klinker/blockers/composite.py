@@ -249,11 +249,14 @@ class BaseCompositeRelationalClusteringBlocker(BaseCompositeUniqueNameBlocker):
     def _compute_rel_blocks(
         self, left, right, left_rel, right_rel, unique_blocks
     ) -> KlinkerBlockManager:
+        logger.info("Gathering rel info")
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
+        logger.info("Got rel info")
         left_conc = left_conc.drop_duplicates()
         right_conc = right_conc.drop_duplicates()
+        logger.info("Deduplicated")
         left_filtered = left_conc
         right_filtered = right_conc
         if self.use_unique_name:
