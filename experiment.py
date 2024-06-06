@@ -149,7 +149,7 @@ def embedding_options(f):
 
 def composite_clustering_options(f):
     @click.option("--top-n-a", type=int, default=None)
-    @click.option("--top-n-r", type=int, default=None)
+    @click.option("-top-n-r", type=int, default=None)
     @click.option(
         "--inner-encoder",
         type=click.Choice(
@@ -357,7 +357,7 @@ def prepare(
     params_artifact_path = None
     if wandb:
         tracker = WANDBResultTracker(
-            project="klinker", entity="dobraczka", config=params
+            project="klinker", entity="dobraczka", config=params, dir="wandb_dir"
         )
     else:
         tracker = ConsoleResultTracker()
