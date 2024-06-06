@@ -208,7 +208,12 @@ class WANDBResultTracker(ResultTracker):
         self.run = None
 
     def start_run(self, run_name: Optional[str] = None) -> None:
-        self.run = self.wandb.init(project=self.project, name=run_name, **self.kwargs)  # type: ignore
+        self.run = self.wandb.init(
+            project=self.project,
+            name=run_name,
+            settings=wandb.Settings(start_method="fork"),
+            **self.kwargs,
+        )  # type: ignore
 
     def end_run(self, success: bool = True) -> None:
         assert self.run
