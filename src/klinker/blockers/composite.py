@@ -95,12 +95,14 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
+        logger.info("Got relational information")
         left_filtered = filter_with_unique(
             left_conc, unique_blocks.blocks[left.table_name]
         )
         right_filtered = filter_with_unique(
             right_conc, unique_blocks.blocks[right.table_name]
         )
+        logger.info("Filtered relational information")
         if len(left_filtered) == 0 or len(right_filtered) == 0:
             logging.info(
                 "Nothing left to do for rel_blocks because unique got everything!"

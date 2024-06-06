@@ -97,6 +97,7 @@ class TokenClusteringMixin:
         right: KlinkerFrame,
         value_col_name: str = "tail",
     ) -> Tuple[KlinkerFrame, KlinkerFrame]:
+        logger.info("Getting embeddings ...")
         left_emb, right_emb = self._get_all_embeddings(left, right, value_col_name)
         logger.info("Got embeddings, starting clustering")
         labels = self.hdbscan.fit_predict(
