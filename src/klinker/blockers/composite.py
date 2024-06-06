@@ -3,6 +3,7 @@ from .relation_aware import (
     SimpleRelationalTokenBlocker,
     concat_neighbor_attributes,
 )
+import logging
 from ..encoders import TokenizedFrameEncoder
 from klinker.typing import SeriesType
 from .attribute_clustering import (
@@ -27,6 +28,8 @@ from ..data import (
 )
 from .base import SchemaAgnosticBlocker
 from .token_blocking import TokenBlocker, UniqueNameBlocker
+
+logger = logging.getLogger(__name__)
 
 
 def filter_with_unique(conc, unique_blocks_side):
@@ -77,7 +80,9 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
             right, unique_blocks.blocks[right.table_name]
         )
         if len(left_attr_filtered) == 0 or len(right_attr_filtered) == 0:
-            print("Nothing left to do for attr_blocks because unique got everything!")
+            logging.info(
+                "Nothing left to do for attr_blocks because unique got everything!"
+            )
             return unique_blocks
         return combine_blocks(
             unique_blocks,
@@ -97,7 +102,9 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
             right_conc, unique_blocks.blocks[right.table_name]
         )
         if len(left_filtered) == 0 or len(right_filtered) == 0:
-            print("Nothing left to do for rel_blocks because unique got everything!")
+            logging.info(
+                "Nothing left to do for rel_blocks because unique got everything!"
+            )
             return None
         return self._relation_blocker._assign(left=left_filtered, right=right_filtered)
 
@@ -112,11 +119,14 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         assert right_rel is not None
         unique_blocks = UniqueNameBlocker().assign(left, right)
         unique_blocks.blocks.persist()
+        logger.info("Done with unique!")
 
         attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
+        logger.info("Done with attr!")
         rel_blocks = self._compute_rel_blocks(
             left, right, left_rel, right_rel, unique_blocks
         )
+        logger.info("Done with rel!")
         if rel_blocks is None:
             return attr_blocks
         return combine_blocks(attr_blocks, rel_blocks)
