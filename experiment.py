@@ -532,6 +532,8 @@ def process_pipeline(
     experiment_info = prepare(
         blocker=blocker, dataset=dataset, params=params, wandb=wandb, seed=seed
     )
+    logger.info("Finished prepare")
+
     tracker = experiment_info.tracker
 
     start = time.time()
