@@ -148,8 +148,8 @@ def embedding_options(f):
 
 
 def composite_clustering_options(f):
-    @click.option("--top_n_a", type=int, default=None)
-    @click.option("--top_n_r", type=int, default=None)
+    @click.option("--top-n-a", type=int, default=None)
+    @click.option("--top-n-r", type=int, default=None)
     @click.option(
         "--inner-encoder",
         type=click.Choice(
