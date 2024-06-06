@@ -1,4 +1,5 @@
 from .token_blocking import TokenBlocker
+import logging
 from .lsh import MinHashLSHBlocker
 from typing import Callable, List, Optional, Tuple, Literal
 
@@ -17,6 +18,8 @@ except ImportError:
     from hdbscan import HDBSCAN
 
 NoiseClusterHandling = Literal["remove", "token", "keep"]
+
+logger = logging.getLogger(__name__)
 
 
 class TokenClusteringMixin:
@@ -94,6 +97,7 @@ class TokenClusteringMixin:
         value_col_name: str = "tail",
     ) -> Tuple[KlinkerFrame, KlinkerFrame]:
         left_emb, right_emb = self._get_all_embeddings(left, right, value_col_name)
+        logger.info("Got embeddings, starting clustering")
         labels = self.hdbscan.fit_predict(
             left_emb._tensor_lib.concatenate([left_emb.vectors, right_emb.vectors])
         )
