@@ -523,6 +523,7 @@ def process_pipeline(
     klinker_dataset = KlinkerDataset.from_sylloge(
         dataset, clean=clean, partition_size=partition_size
     )
+    logger.info("Loaded dataset!")
     if data_sample_frac:
         logger.info(f"Using sample of data: {data_sample_frac * 100}%!")
         klinker_dataset = klinker_dataset.sample(data_sample_frac)
