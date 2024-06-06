@@ -171,6 +171,7 @@ def composite_clustering_options(f):
         type=click.Choice(["remove", "token", "keep"]),
         default="remove",
     )
+    @click.option("--use-unique-name", type=bool, default=True)
     @functools.wraps(f)
     def wrapper_common_options(*args, **kwargs):
         return f(*args, **kwargs)
@@ -1447,6 +1448,7 @@ def composite_relational_attribute_clustering_blocker(
     reduce_sample_perc: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
+    use_unique_name: bool,
 ):
     if top_n_a and top_n_a < 0:
         top_n_a = None
@@ -1463,6 +1465,7 @@ def composite_relational_attribute_clustering_blocker(
     blocker = CompositeRelationalAttributeClusteringBlocker(
         top_n_a=top_n_a,
         top_n_r=top_n_r,
+        use_unique_name=use_unique_name,
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
@@ -1471,6 +1474,7 @@ def composite_relational_attribute_clustering_blocker(
     return (blocker, click.get_current_context().params, end - start)
 
 
+@cli.command()
 @composite_clustering_options
 def composite_relational_token_clustering_blocker(
     top_n_a: int,
@@ -1482,6 +1486,7 @@ def composite_relational_token_clustering_blocker(
     reduce_sample_perc: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
+    use_unique_name: bool,
 ):
     if top_n_a and top_n_a < 0:
         top_n_a = None
@@ -1498,6 +1503,7 @@ def composite_relational_token_clustering_blocker(
     blocker = CompositeRelationalTokenClusteringBlocker(
         top_n_a=top_n_a,
         top_n_r=top_n_r,
+        use_unique_name=use_unique_name,
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
@@ -1521,6 +1527,7 @@ def composite_relational_attribute_clustering_lsh_blocker(
     reduce_sample_perc: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
+    use_unique_name: bool,
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
@@ -1541,6 +1548,7 @@ def composite_relational_attribute_clustering_lsh_blocker(
     blocker = CompositeRelationalAttributeClusteringLSHBlocker(
         top_n_a=top_n_a,
         top_n_r=top_n_r,
+        use_unique_name=use_unique_name,
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
@@ -1567,6 +1575,7 @@ def composite_relational_token_clustering_lsh_blocker(
     reduce_sample_perc: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
+    use_unique_name: bool,
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
@@ -1587,6 +1596,7 @@ def composite_relational_token_clustering_lsh_blocker(
     blocker = CompositeRelationalTokenClusteringLSHBlocker(
         top_n_a=top_n_a,
         top_n_r=top_n_r,
+        use_unique_name=use_unique_name,
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,

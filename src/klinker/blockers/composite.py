@@ -63,6 +63,7 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         top_n_r: Optional[int] = None,
         attr_blocker_kwargs=None,
         rel_blocker_kwargs=None,
+        use_unique_name: bool = True,
     ):
         super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
         attr_blocker_kwargs = {} if not attr_blocker_kwargs else attr_blocker_kwargs
@@ -71,23 +72,26 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
             **attr_blocker_kwargs
         )
         self._relation_blocker = self.__class__._rel_blocker_cls(**rel_blocker_kwargs)
+        self.use_unique_name = use_unique_name
 
     def _compute_attr_blocks(self, left, right, unique_blocks) -> KlinkerBlockManager:
-        left_attr_filtered = filter_with_unique(
-            left, unique_blocks.blocks[left.table_name]
-        )
-        right_attr_filtered = filter_with_unique(
-            right, unique_blocks.blocks[right.table_name]
-        )
-        if len(left_attr_filtered) == 0 or len(right_attr_filtered) == 0:
-            logging.info(
-                "Nothing left to do for attr_blocks because unique got everything!"
+        if self.use_unique_name:
+            left_attr_filtered = filter_with_unique(
+                left, unique_blocks.blocks[left.table_name]
             )
-            return unique_blocks
-        return combine_blocks(
-            unique_blocks,
-            self._attribute_blocker.assign(left_attr_filtered, right_attr_filtered),
-        )
+            right_attr_filtered = filter_with_unique(
+                right, unique_blocks.blocks[right.table_name]
+            )
+            if len(left_attr_filtered) == 0 or len(right_attr_filtered) == 0:
+                logging.info(
+                    "Nothing left to do for attr_blocks because unique got everything!"
+                )
+                return unique_blocks
+            return combine_blocks(
+                unique_blocks,
+                self._attribute_blocker.assign(left_attr_filtered, right_attr_filtered),
+            )
+        return self._attribute_blocker.assign(left, right)
 
     def _compute_rel_blocks(
         self, left, right, left_rel, right_rel, unique_blocks
@@ -95,19 +99,22 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        logger.info("Got relational information")
-        left_filtered = filter_with_unique(
-            left_conc, unique_blocks.blocks[left.table_name]
-        )
-        right_filtered = filter_with_unique(
-            right_conc, unique_blocks.blocks[right.table_name]
-        )
-        logger.info("Filtered relational information")
-        if len(left_filtered) == 0 or len(right_filtered) == 0:
-            logging.info(
-                "Nothing left to do for rel_blocks because unique got everything!"
+        left_filtered = left
+        right_filtered = right
+        if self.use_unique_name:
+            logger.info("Got relational information")
+            left_filtered = filter_with_unique(
+                left_conc, unique_blocks.blocks[left.table_name]
             )
-            return None
+            right_filtered = filter_with_unique(
+                right_conc, unique_blocks.blocks[right.table_name]
+            )
+            logger.info("Filtered relational information")
+            if len(left_filtered) == 0 or len(right_filtered) == 0:
+                logging.info(
+                    "Nothing left to do for rel_blocks because unique got everything!"
+                )
+                return None
         return self._relation_blocker._assign(left=left_filtered, right=right_filtered)
 
     def assign(
@@ -119,9 +126,11 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
     ) -> KlinkerBlockManager:
         assert left_rel is not None
         assert right_rel is not None
-        unique_blocks = UniqueNameBlocker().assign(left, right)
-        unique_blocks.blocks.persist()
-        logger.info("Done with unique!")
+        unique_blocks = None
+        if self.use_unique_name:
+            unique_blocks = UniqueNameBlocker().assign(left, right)
+            unique_blocks.blocks.persist()
+            logger.info("Done with unique!")
 
         attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
         logger.info("Done with attr!")
@@ -245,12 +254,15 @@ class BaseCompositeRelationalClusteringBlocker(BaseCompositeUniqueNameBlocker):
         )
         left_conc = left_conc.drop_duplicates()
         right_conc = right_conc.drop_duplicates()
-        left_filtered = filter_with_unique(
-            left_conc, unique_blocks.blocks[left.table_name]
-        )
-        right_filtered = filter_with_unique(
-            right_conc, unique_blocks.blocks[right.table_name]
-        )
+        left_filtered = left_conc
+        right_filtered = right_conc
+        if self.use_unique_name:
+            left_filtered = filter_with_unique(
+                left_conc, unique_blocks.blocks[left.table_name]
+            )
+            right_filtered = filter_with_unique(
+                right_conc, unique_blocks.blocks[right.table_name]
+            )
         return self._relation_blocker.assign(left=left_filtered, right=right_filtered)
 
 
@@ -279,10 +291,12 @@ class CompositeRelationalAttributeClusteringBlocker(
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
+        use_unique_name: bool = True,
     ):
         super().__init__(
             top_n_a=top_n_a,
             top_n_r=top_n_r,
+            use_unique_name=use_unique_name,
             attr_blocker_kwargs=dict(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
@@ -331,10 +345,12 @@ class CompositeRelationalTokenClusteringBlocker(
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
+        use_unique_name: bool = True,
     ):
         super().__init__(
             top_n_a=top_n_a,
             top_n_r=top_n_r,
+            use_unique_name=use_unique_name,
             attr_blocker_kwargs=dict(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
@@ -386,10 +402,12 @@ class CompositeRelationalAttributeClusteringLSHBlocker(
         rel_threshold: float = 0.5,
         rel_num_perm: int = 128,
         rel_weights: Tuple[float, float] = (0.5, 0.5),
+        use_unique_name: bool = True,
     ):
         super().__init__(
             top_n_a=top_n_a,
             top_n_r=top_n_r,
+            use_unique_name=use_unique_name,
             attr_blocker_kwargs=dict(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
@@ -441,10 +459,12 @@ class CompositeRelationalTokenClusteringLSHBlocker(
         rel_threshold: float = 0.5,
         rel_num_perm: int = 128,
         rel_weights: Tuple[float, float] = (0.5, 0.5),
+        use_unique_name: bool = True,
     ):
         super().__init__(
             top_n_a=top_n_a,
             top_n_r=top_n_r,
+            use_unique_name=use_unique_name,
             attr_blocker_kwargs=dict(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
