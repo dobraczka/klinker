@@ -186,7 +186,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         if SentenceTransformer is None:
             raise ImportError("Please install the sentence-transformers library!")
         self.model = SentenceTransformer(model_name)
-        print("Loaded model")
+        logger.info("Loaded model")
         self.model.max_seq_length = max_length
         self.batch_size = batch_size
         self.reduce_dim_to = reduce_dim_to
@@ -246,7 +246,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
-        print("Started encode")
+        logger.info("Started encode")
         if self.reduce_dim_to:
             self._add_dimensionality_reduction_layer(left, right)
         return self._encode_side(left), self._encode_side(right)

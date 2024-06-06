@@ -99,7 +99,7 @@ class ConsoleResultTracker(ResultTracker):
         track_metrics: bool = True,
         metric_filter: Union[None, str, Pattern[str]] = None,
         start_end_run: bool = False,
-        writer: str = "tqdm",
+        writer: str = "logger",
     ):
         """Initialize the tracker.
 
