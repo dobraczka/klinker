@@ -1,4 +1,5 @@
 from .token_blocking import TokenBlocker
+import numpy as np
 import logging
 from .lsh import MinHashLSHBlocker
 from typing import Callable, List, Optional, Tuple, Literal
@@ -101,6 +102,8 @@ class TokenClusteringMixin:
         labels = self.hdbscan.fit_predict(
             left_emb._tensor_lib.concatenate([left_emb.vectors, right_emb.vectors])
         )
+        if not isinstance(labels, np.ndarray):
+            labels = labels.get()
         # TODO adapt for dask
         val_cluster_label = pd.DataFrame.from_dict(
             dict(value=left_emb.names + right_emb.names, cluster_label=labels)
