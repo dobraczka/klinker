@@ -211,7 +211,7 @@ class WANDBResultTracker(ResultTracker):
         self.run = self.wandb.init(
             project=self.project,
             name=run_name,
-            settings=wandb.Settings(start_method="fork"),
+            settings=self.wandb.Settings(start_method="fork"),
             **self.kwargs,
         )  # type: ignore
 
