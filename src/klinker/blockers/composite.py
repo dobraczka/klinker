@@ -102,14 +102,12 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         left_filtered = left
         right_filtered = right
         if self.use_unique_name:
-            logger.info("Got relational information")
             left_filtered = filter_with_unique(
                 left_conc, unique_blocks.blocks[left.table_name]
             )
             right_filtered = filter_with_unique(
                 right_conc, unique_blocks.blocks[right.table_name]
             )
-            logger.info("Filtered relational information")
             if len(left_filtered) == 0 or len(right_filtered) == 0:
                 logging.info(
                     "Nothing left to do for rel_blocks because unique got everything!"
@@ -130,14 +128,11 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         if self.use_unique_name:
             unique_blocks = UniqueNameBlocker().assign(left, right)
             unique_blocks.blocks.persist()
-            logger.info("Done with unique!")
 
         attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
-        logger.info("Done with attr!")
         rel_blocks = self._compute_rel_blocks(
             left, right, left_rel, right_rel, unique_blocks
         )
-        logger.info("Done with rel!")
         if rel_blocks is None:
             return attr_blocks
         return combine_blocks(attr_blocks, rel_blocks)
@@ -249,14 +244,11 @@ class BaseCompositeRelationalClusteringBlocker(BaseCompositeUniqueNameBlocker):
     def _compute_rel_blocks(
         self, left, right, left_rel, right_rel, unique_blocks
     ) -> KlinkerBlockManager:
-        logger.info("Gathering rel info")
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        logger.info("Got rel info")
         left_conc = left_conc.drop_duplicates()
         right_conc = right_conc.drop_duplicates()
-        logger.info("Deduplicated")
         left_filtered = left_conc
         right_filtered = right_conc
         if self.use_unique_name:
