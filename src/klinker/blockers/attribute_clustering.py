@@ -1,4 +1,5 @@
 from .token_blocking import TokenBlocker
+import torch
 import numpy as np
 import logging
 from .lsh import MinHashLSHBlocker
@@ -98,9 +99,16 @@ class TokenClusteringMixin:
         value_col_name: str = "tail",
     ) -> Tuple[KlinkerFrame, KlinkerFrame]:
         left_emb, right_emb = self._get_all_embeddings(left, right, value_col_name)
-        labels = self.hdbscan.fit_predict(
-            left_emb._tensor_lib.concatenate([left_emb.vectors, right_emb.vectors])
+        all_vec = left_emb._tensor_lib.concatenate(
+            [left_emb.vectors, right_emb.vectors]
         )
+        try:
+            labels = self.hdbscan.fit_predict(all_vec)
+        except TypeError as err:  # happens for torch float32 and cuml....
+            if isinstance(all_vec, torch.Tensor):
+                labels = self.hdbscan.fit_predict(all_vec.detach().cpu().numpy())
+            else:
+                raise err
         if not isinstance(labels, np.ndarray):
             labels = labels.get()
         # TODO adapt for dask
