@@ -1,4 +1,5 @@
 from .token_blocking import TokenBlocker
+import os
 import torch
 import numpy as np
 import logging
@@ -39,6 +40,8 @@ class TokenClusteringMixin:
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
+        save_dir: Optional[str] = None,
+        save: bool = False,
         **kwargs,
     ):
         self.encoder = frame_encoder_resolver.make(encoder, encoder_kwargs)
@@ -52,6 +55,8 @@ class TokenClusteringMixin:
             cluster_selection_method=cluster_selection_method,
         )
         self.noise_cluster_handling = noise_cluster_handling
+        self.save = save
+        self.save_dir = save_dir
         super().__init__(**kwargs)
 
     def _conc_cluster_labels(
@@ -92,6 +97,23 @@ class TokenClusteringMixin:
             ] = val_cluster_label[val_cluster_label["cluster_label"] == -1]["value"]
             return val_cluster_label
 
+    def _save_embeddings_if_wanted(self, left_emb, right_emb, left_name, right_name):
+        if self.save_dir is None:
+            self.save_dir = f"clustering_{left_name}_{right_name}"
+        if self.save:
+            if not os.path.exists(self.save_dir):
+                os.makedirs(self.save_dir)
+            left_emb.to_pickle(os.path.join(self.save_dir, "left_emb"))
+            right_emb.to_pickle(os.path.join(self.save_dir, "right_emb"))
+            logger.info(f"Saved embeddings in {self.save_dir}")
+
+    def _save_labels_if_wanted(self, labels: np.ndarray):
+        if self.save:
+            if not os.path.exists(self.save_dir):
+                os.makedirs(self.save_dir)
+            np.save(os.path.join(self.save_dir, "cluster_labels"), labels)
+            logger.info(f"Saved cluster_labels in {self.save_dir}")
+
     def embed_and_cluster(
         self,
         left: KlinkerFrame,
@@ -99,6 +121,9 @@ class TokenClusteringMixin:
         value_col_name: str = "tail",
     ) -> Tuple[KlinkerFrame, KlinkerFrame]:
         left_emb, right_emb = self._get_all_embeddings(left, right, value_col_name)
+        self._save_embeddings_if_wanted(
+            left_emb, right_emb, left.table_name, right.table_name
+        )
         all_vec = left_emb._tensor_lib.concatenate(
             [left_emb.vectors, right_emb.vectors]
         )
@@ -111,6 +136,7 @@ class TokenClusteringMixin:
                 raise err
         if not isinstance(labels, np.ndarray):
             labels = labels.get()
+        self._save_labels_if_wanted(labels)
         # TODO adapt for dask
         val_cluster_label = pd.DataFrame.from_dict(
             dict(value=left_emb.names + right_emb.names, cluster_label=labels)
@@ -141,6 +167,8 @@ class AttributeClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         stop_words: Optional[List[str]] = None,
         min_token_length: int = 3,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             encoder=encoder,
@@ -156,6 +184,8 @@ class AttributeClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
             min_token_length=min_token_length,
             tokenize_fn=tokenize_fn,
             stop_words=stop_words,
+            save_dir=save_dir,
+            save=save,
         )
 
     def assign(
@@ -188,6 +218,8 @@ class AttributeClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlock
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         stop_words: Optional[List[str]] = None,
         min_token_length: int = 3,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             encoder=encoder,
@@ -206,6 +238,8 @@ class AttributeClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlock
             min_token_length=min_token_length,
             tokenize_fn=tokenize_fn,
             stop_words=stop_words,
+            save_dir=save_dir,
+            save=save,
         )
 
     def assign(
@@ -235,6 +269,8 @@ class TokenClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             encoder=encoder,
@@ -250,6 +286,8 @@ class TokenClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
             tokenize_fn=tokenize_fn,
             min_token_length=min_token_length,
             stop_words=stop_words,
+            save_dir=save_dir,
+            save=save,
         )
         self._inner_token_blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,
@@ -301,6 +339,8 @@ class TokenClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlocker):
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             encoder=encoder,
@@ -319,6 +359,8 @@ class TokenClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlocker):
             threshold=threshold,
             num_perm=num_perm,
             weights=weights,
+            save_dir=save_dir,
+            save=save,
         )
         self._inner_token_blocker = TokenBlocker(
             tokenize_fn=tokenize_fn,

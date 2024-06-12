@@ -172,6 +172,7 @@ def composite_clustering_options(f):
         default="remove",
     )
     @click.option("--use-unique-name", type=bool, default=True)
+    @click.option("--save", type=bool, default=False)
     @functools.wraps(f)
     def wrapper_common_options(*args, **kwargs):
         return f(*args, **kwargs)
@@ -282,26 +283,32 @@ def _handle_artifacts(
 
 
 def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
-    if isinstance(blocker, (EmbeddingBlocker, RelationalDeepBlocker)):
-        if blocker.force:
-            encodings_dir = _create_artifact_path(
-                artifact_name, experiment_artifact_dir, suffix="_encoded"
-            )
-        else:
-            encodings_dir = _create_artifact_path(
-                "ignoring_params", experiment_artifact_dir, suffix="_encoded"
-            )
-            if not os.path.exists(encodings_dir):
-                os.makedirs(encodings_dir)
-                run_info_path = _create_artifact_path(
-                    f"created_by_{artifact_name}",
-                    encodings_dir,
-                    suffix="_encoded",
-                )
-                Path(run_info_path).touch()
-        blocker.save = True
-        blocker.save_dir = encodings_dir
+    if hasattr(blocker, "_relation_blocker") and blocker._relation_blocker.save:
+        encodings_dir = _create_artifact_path(
+            artifact_name, experiment_artifact_dir, suffix="_clustering"
+        )
+        blocker._relation_blocker.save_dir = encodings_dir
         return encodings_dir
+    elif hasattr(blocker, "save") and blocker.save:
+        if isinstance(blocker, (EmbeddingBlocker, RelationalDeepBlocker)):
+            if blocker.force:
+                encodings_dir = _create_artifact_path(
+                    artifact_name, experiment_artifact_dir, suffix="_encoded"
+                )
+            else:
+                encodings_dir = _create_artifact_path(
+                    "ignoring_params", experiment_artifact_dir, suffix="_encoded"
+                )
+                if not os.path.exists(encodings_dir):
+                    os.makedirs(encodings_dir)
+                    run_info_path = _create_artifact_path(
+                        f"created_by_{artifact_name}",
+                        encodings_dir,
+                        suffix="_encoded",
+                    )
+                    Path(run_info_path).touch()
+            blocker.save_dir = encodings_dir
+            return encodings_dir
     else:
         return None
 
@@ -1449,6 +1456,7 @@ def composite_relational_attribute_clustering_blocker(
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
+    save: bool,
 ):
     if top_n_a and top_n_a < 0:
         top_n_a = None
@@ -1469,6 +1477,7 @@ def composite_relational_attribute_clustering_blocker(
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
+        save=save,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -1487,6 +1496,7 @@ def composite_relational_token_clustering_blocker(
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
+    save: bool,
 ):
     if top_n_a and top_n_a < 0:
         top_n_a = None
@@ -1507,6 +1517,7 @@ def composite_relational_token_clustering_blocker(
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
+        save=save,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)
@@ -1528,6 +1539,7 @@ def composite_relational_attribute_clustering_lsh_blocker(
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
+    save: bool,
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
@@ -1552,6 +1564,7 @@ def composite_relational_attribute_clustering_lsh_blocker(
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
+        save=save,
         rel_threshold=rel_threshold,
         rel_num_perm=rel_num_perm,
         rel_weights=(fp_weight, rel_fn_weight),
@@ -1576,6 +1589,7 @@ def composite_relational_token_clustering_lsh_blocker(
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
+    save: bool,
     rel_threshold: float,
     rel_num_perm: int,
     rel_fn_weight: float,
@@ -1600,6 +1614,7 @@ def composite_relational_token_clustering_lsh_blocker(
         encoder=inner_encoder_inst,
         min_cluster_size=min_cluster_size,
         noise_cluster_handling=noise_cluster_handling,
+        save=save,
         rel_threshold=rel_threshold,
         rel_num_perm=rel_num_perm,
         rel_weights=(fp_weight, rel_fn_weight),

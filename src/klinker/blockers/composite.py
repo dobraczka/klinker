@@ -287,6 +287,8 @@ class CompositeRelationalAttributeClusteringBlocker(
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
         use_unique_name: bool = True,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -311,6 +313,8 @@ class CompositeRelationalAttributeClusteringBlocker(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
                 min_token_length=min_token_length,
+                save_dir=save_dir,
+                save=save,
             ),
         )
 
@@ -341,6 +345,8 @@ class CompositeRelationalTokenClusteringBlocker(
         cluster_selection_method: str = "eom",
         noise_cluster_handling: NoiseClusterHandling = "remove",
         use_unique_name: bool = True,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -365,6 +371,8 @@ class CompositeRelationalTokenClusteringBlocker(
                 tokenize_fn=tokenize_fn,
                 stop_words=stop_words,
                 min_token_length=min_token_length,
+                save_dir=save_dir,
+                save=save,
             ),
         )
 
@@ -398,6 +406,8 @@ class CompositeRelationalAttributeClusteringLSHBlocker(
         rel_num_perm: int = 128,
         rel_weights: Tuple[float, float] = (0.5, 0.5),
         use_unique_name: bool = True,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -422,6 +432,8 @@ class CompositeRelationalAttributeClusteringLSHBlocker(
                 threshold=rel_threshold,
                 num_perm=rel_num_perm,
                 weights=rel_weights,
+                save_dir=save_dir,
+                save=save,
             ),
         )
 
@@ -455,6 +467,8 @@ class CompositeRelationalTokenClusteringLSHBlocker(
         rel_num_perm: int = 128,
         rel_weights: Tuple[float, float] = (0.5, 0.5),
         use_unique_name: bool = True,
+        save_dir: Optional[str] = None,
+        save: bool = False,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -482,6 +496,8 @@ class CompositeRelationalTokenClusteringLSHBlocker(
                 threshold=rel_threshold,
                 num_perm=rel_num_perm,
                 weights=rel_weights,
+                save_dir=save_dir,
+                save=save,
             ),
         )
 
@@ -489,7 +505,6 @@ class CompositeRelationalTokenClusteringLSHBlocker(
 if __name__ == "__main__":
     from klinker.data import KlinkerDataset
     from sylloge import OpenEA
-    from klinker.eval import Evaluation
     from klinker.blockers import SimpleRelationalTokenBlocker
 
     ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True).sample(0.01)
@@ -509,13 +524,9 @@ if __name__ == "__main__":
     # print(Evaluation.from_dataset(blocks, ds).to_dict())
     # print("====================\n")
 
-    # blocks = CompositeRelationalAttributeClusteringBlocker().assign(
-    #     ds.left, ds.right, ds.left_rel, ds.right_rel
-    # )
-    # print("\n====================")
-    # print("Attribute + SIF")
-    # print(Evaluation.from_dataset(blocks, ds).to_dict())
-    # print("====================\n")
+    blocks = CompositeRelationalAttributeClusteringBlocker(
+        encoder="sentencetransformertokenized", save_dir="/tmp/", save=True
+    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
 
     # blocks = CompositeRelationalTokenClusteringBlocker().assign(
     #     ds.left, ds.right, ds.left_rel, ds.right_rel
@@ -540,34 +551,34 @@ if __name__ == "__main__":
     # print(Evaluation.from_dataset(blocks, ds).to_dict())
     # print("====================\n")
 
-    threshold = 0.3
-    blocks = CompositeRelationalAttributeClusteringLSHBlocker(
-        rel_threshold=threshold
-    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-    print("\n====================")
-    print("LSH Attribute + SIF")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # threshold = 0.3
+    # blocks = CompositeRelationalAttributeClusteringLSHBlocker(
+    #     rel_threshold=threshold
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("LSH Attribute + SIF")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
 
-    blocks = CompositeRelationalTokenClusteringLSHBlocker(
-        rel_threshold=threshold
-    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-    print("\n====================")
-    print("LSH Token + SIF")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # blocks = CompositeRelationalTokenClusteringLSHBlocker(
+    #     rel_threshold=threshold
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("LSH Token + SIF")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
 
-    blocks = CompositeRelationalAttributeClusteringLSHBlocker(
-        rel_threshold=threshold, encoder="sentencetransformertokenized"
-    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-    print("\n====================")
-    print("LSH Attribute + SenTrans")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
-    blocks = CompositeRelationalTokenClusteringLSHBlocker(
-        rel_threshold=threshold, encoder="sentencetransformertokenized"
-    ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
-    print("\n====================")
-    print("LSH Token + SenTrans")
-    print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print("====================\n")
+    # blocks = CompositeRelationalAttributeClusteringLSHBlocker(
+    #     rel_threshold=threshold, encoder="sentencetransformertokenized"
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("LSH Attribute + SenTrans")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
+    # blocks = CompositeRelationalTokenClusteringLSHBlocker(
+    #     rel_threshold=threshold, encoder="sentencetransformertokenized"
+    # ).assign(ds.left, ds.right, ds.left_rel, ds.right_rel)
+    # print("\n====================")
+    # print("LSH Token + SenTrans")
+    # print(Evaluation.from_dataset(blocks, ds).to_dict())
+    # print("====================\n")
