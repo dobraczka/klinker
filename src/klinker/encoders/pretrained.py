@@ -25,8 +25,10 @@ except ImportError:
 
 try:
     from cuml.decomposition import PCA
+    from cuml import UMAP
 except ImportError:
     from sklearn.decomposition import PCA
+    from umap import UMAP
 
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
@@ -435,6 +437,9 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         min_freq: int = 0,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
         tokenized_word_embedder_kwargs: OptionalKwargs = None,
+        reduce_dim_to: Optional[int] = None,
+        umap_n_neighbors: int = 15,
+        umap_min_dist: int = 0.1,
     ):
         self.tokenized_word_embedder = tokenized_word_embedder_resolver.make(
             tokenized_word_embedder, tokenized_word_embedder_kwargs
@@ -444,6 +449,9 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.remove_pc = remove_pc
         self.min_freq = min_freq
         self.token_weight_dict: Optional[Dict[str, float]] = None
+        self.reduce_dim_to = reduce_dim_to
+        self.umap_n_neighbors = umap_n_neighbors
+        self.umap_min_dist = umap_min_dist
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
@@ -513,6 +521,36 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             return sif_embeddings[: len(left)], sif_embeddings[len(left) :]
         return left, right
 
+    def _reduce_dim(
+        self, left_emb: GeneralVector, right_emb: GeneralVector
+    ) -> Tuple[GeneralVector, GeneralVector]:
+        if self.reduce_dim_to:
+            initial_dim = left_emb.shape[0]
+            if self.reduce_dim_to == initial_dim:
+                logger.info(
+                    f"Can't reduce to the same dimensionality ({initial_dim}) so returning"
+                )
+                return left_emb, right_emb
+            if self.reduce_dim_to > initial_dim:
+                raise ValueError(
+                    f"Cannot reduce embeddings of dimensionality {initial_dim} to higher dimensionality of {self.reduce_dim_to}!"
+                )
+            logger.info(f"Reducing embedding dim to {self.reduce_dim_to}")
+            umap = UMAP(
+                n_components=self.reduce_dim_to,
+                n_neighbors=self.umap_n_neighbors,
+                min_dist=self.umap_min_dist,
+            )
+            all_vec = (
+                np.concatenate([left_emb, right_emb])
+                if isinstance(left_emb, np.ndarray)
+                else torch.concat([left_emb, right_emb])
+            )
+            reduced_vec = umap.fit_transform(all_vec)
+            left_emb = reduced_vec[: len(left_emb)]
+            right_emb = reduced_vec[len(left_emb) :]
+        return left_emb, right_emb
+
     def _encode(
         self,
         left: Frame,
@@ -546,7 +584,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             )
         if self.remove_pc:
             left_enc, right_enc = self._postprocess(left_enc, right_enc)
-        return left_enc, right_enc
+        return self._reduce_dim(left_enc, right_enc)
 
 
 tokenized_frame_encoder_resolver = ClassResolver(

@@ -160,11 +160,14 @@ def composite_clustering_options(f):
                 "sentencetransformertokenized",
             ]
         ),
+        default="sifembeddingtokenized",
     )
     @click.option("--embeddings", type=str, default="fasttext")
     @click.option("--inner-encoder-batch-size", type=int, default=256)
-    @click.option("--reduce-transformer-dim-to", type=int, default=-1)
+    @click.option("--reduce-dim-to", type=int, default=-1)
     @click.option("--reduce-sample-perc", type=float, default=0.3)
+    @click.option("--umap-n-neighbors", type=int, default=15)
+    @click.option("--umap-min-dist", type=float, default=0.1)
     @click.option("--min-cluster-size", type=int, default=2)
     @click.option(
         "--noise-cluster-handling",
@@ -186,6 +189,8 @@ def create_inner_encoder(
     inner_encoder_batch_size: int,
     reduce_dim_to: int,
     reduce_sample_perc: float,
+    umap_n_neighbors: int = 15,
+    umap_min_dist: float = 0.1,
 ) -> FrameEncoder:
     attribute_encoder_kwargs: Dict = {}
     if inner_encoder in (
@@ -206,6 +211,10 @@ def create_inner_encoder(
         attribute_encoder_kwargs = {
             "tokenized_word_embedder_kwargs": {"embedding_fn": embeddings}
         }
+        if reduce_dim_to > 0:
+            attribute_encoder_kwargs["reduce_dim_to"] = reduce_dim_to
+            attribute_encoder_kwargs["umap_n_neighbors"] = umap_n_neighbors
+            attribute_encoder_kwargs["umap_min_dist"] = umap_min_dist
     return frame_encoder_resolver.make(inner_encoder, attribute_encoder_kwargs)
 
 
@@ -723,7 +732,7 @@ def deepblocker(
     hidden_dimension: int,
     inner_encoder: Type[TokenizedFrameEncoder],
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     embeddings: str,
     block_builder: Type[EmbeddingBlockBuilder],
@@ -737,7 +746,7 @@ def deepblocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     encoder_kwargs = {
@@ -803,7 +812,7 @@ def relational_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -820,7 +829,7 @@ def relational_deepblocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     encoder_kwargs = {
@@ -907,7 +916,7 @@ def light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -920,7 +929,7 @@ def light_ea_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
@@ -965,7 +974,7 @@ def gcn_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -978,7 +987,7 @@ def gcn_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
@@ -1045,7 +1054,7 @@ def gcn_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1058,7 +1067,7 @@ def gcn_deepblocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
 
@@ -1133,7 +1142,7 @@ def light_ea_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1146,7 +1155,7 @@ def light_ea_deepblocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
 
@@ -1193,7 +1202,7 @@ def only_embeddings_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1207,7 +1216,7 @@ def only_embeddings_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
@@ -1278,7 +1287,7 @@ def composite_relational_deepblocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1295,7 +1304,7 @@ def composite_relational_deepblocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     encoder_kwargs = {
@@ -1351,7 +1360,7 @@ def composite_light_ea_blocker(
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1368,7 +1377,7 @@ def composite_light_ea_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
@@ -1404,7 +1413,7 @@ def composite_only_embeddings_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
     block_builder: Type[EmbeddingBlockBuilder],
     block_builder_kwargs: str,
@@ -1422,7 +1431,7 @@ def composite_only_embeddings_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
     )
     bb_kwargs = parse_bb_kwargs(
@@ -1451,8 +1460,10 @@ def composite_relational_attribute_clustering_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
+    umap_n_neighbors: int,
+    umap_min_dist: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
@@ -1466,8 +1477,10 @@ def composite_relational_attribute_clustering_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
     )
     start = time.time()
     blocker = CompositeRelationalAttributeClusteringBlocker(
@@ -1491,8 +1504,10 @@ def composite_relational_token_clustering_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
+    umap_n_neighbors: int,
+    umap_min_dist: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
@@ -1506,8 +1521,10 @@ def composite_relational_token_clustering_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
     )
     start = time.time()
     blocker = CompositeRelationalTokenClusteringBlocker(
@@ -1534,8 +1551,10 @@ def composite_relational_attribute_clustering_lsh_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
+    umap_n_neighbors: int,
+    umap_min_dist: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
@@ -1552,8 +1571,10 @@ def composite_relational_attribute_clustering_lsh_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
     )
     fp_weight = 1.0 - rel_fn_weight
     start = time.time()
@@ -1584,8 +1605,10 @@ def composite_relational_token_clustering_lsh_blocker(
     inner_encoder: str,
     embeddings: str,
     inner_encoder_batch_size: int,
-    reduce_transformer_dim_to: int,
+    reduce_dim_to: int,
     reduce_sample_perc: float,
+    umap_n_neighbors: int,
+    umap_min_dist: float,
     min_cluster_size: int,
     noise_cluster_handling: str,
     use_unique_name: bool,
@@ -1602,8 +1625,10 @@ def composite_relational_token_clustering_lsh_blocker(
         inner_encoder,
         embeddings,
         inner_encoder_batch_size,
-        reduce_transformer_dim_to,
+        reduce_dim_to,
         reduce_sample_perc,
+        umap_n_neighbors=umap_n_neighbors,
+        umap_min_dist=umap_min_dist,
     )
     fp_weight = 1.0 - rel_fn_weight
     start = time.time()

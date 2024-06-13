@@ -53,6 +53,8 @@ eche = "^0.2.1"
 dask-jobqueue = "*"
 dask-ml = "^2024.4.4"
 dask-tfidf = "^0.0.1"
+umap-learn = "*"
+scipy = "1.11.4"
 
 
 [tool.poetry.group.dev.dependencies]
