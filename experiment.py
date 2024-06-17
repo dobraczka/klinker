@@ -130,7 +130,7 @@ def embedding_options(f):
     )
     @click.option("--embeddings", type=str, default="fasttext")
     @click.option("--inner-encoder-batch-size", type=int, default=256)
-    @click.option("--reduce-transformer-dim-to", type=int, default=-1)
+    @click.option("--reduce-dim-to", type=int, default=-1)
     @click.option("--reduce-sample-perc", type=float, default=0.3)
     @block_builder_resolver.get_option(
         "--block-builder", default="kiez", as_string=True
