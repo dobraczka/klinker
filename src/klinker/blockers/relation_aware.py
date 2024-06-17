@@ -24,6 +24,7 @@ from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
 from .token_blocking import TokenBlocker
+from .standard import StandardBlocker
 
 FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
@@ -258,6 +259,7 @@ class ConcatRelationalInfoMixin:
         left_rel: KlinkerFrame,
         right_rel: KlinkerFrame,
         include_own_attributes: bool = True,
+        do_not_concat_values: bool = False,
     ) -> Tuple[SeriesType, SeriesType]:
         """Concatenate neighbor entity attribute values with own.
 
@@ -278,6 +280,7 @@ class ConcatRelationalInfoMixin:
             include_own_attributes=include_own_attributes,
             top_n_a=self.top_n_a,
             top_n_r=self.top_n_r,
+            do_not_concat_values=do_not_concat_values,
         )
         right_conc = concat_neighbor_attributes(
             right,
@@ -285,6 +288,7 @@ class ConcatRelationalInfoMixin:
             include_own_attributes=include_own_attributes,
             top_n_a=self.top_n_a,
             top_n_r=self.top_n_r,
+            do_not_concat_values=do_not_concat_values,
         )
         return left_conc, right_conc
 
@@ -585,3 +589,55 @@ class RelationalDeepBlocker(BaseRelationalBlocker):
             self._save_dir = sd
             self._attribute_blocker.save_dir = sd.joinpath("attributes")
             self._relation_blocker.save_dir = sd.joinpath("relation")
+
+
+class RelationalTokenBlockerAttributeBlocker(BaseRelationalBlocker):
+    _attribute_blocker: TokenBlocker
+    _relation_blocker: StandardBlocker
+
+    def __init__(
+        self,
+        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
+        min_token_length: int = 3,
+        top_n_a: Optional[int] = None,
+        top_n_r: Optional[int] = None,
+    ):
+        super().__init__(top_n_a=top_n_a, top_n_r=top_n_r)
+        self._attribute_blocker = TokenBlocker(
+            tokenize_fn=tokenize_fn,
+            min_token_length=min_token_length,
+        )
+        self._relation_blocker = StandardBlocker(blocking_key="tail")
+
+    def assign(
+        self,
+        left: KlinkerFrame,
+        right: KlinkerFrame,
+        left_rel: Optional[KlinkerFrame] = None,
+        right_rel: Optional[KlinkerFrame] = None,
+    ) -> KlinkerBlockManager:
+        assert left_rel is not None
+        assert right_rel is not None
+        attr_blocked = self._attribute_blocker.assign(left=left, right=right)
+        left_rel_conc, right_rel_conc = self.concat_relational_info(
+            left,
+            right,
+            left_rel,
+            right_rel,
+            include_own_attributes=False,
+            do_not_concat_values=True,
+        )
+        rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
+        return KlinkerBlockManager(dd.concat([attr_blocked.blocks, rel_blocked.blocks]))
+
+
+if __name__ == "__main__":
+    from sylloge import OpenEA
+    from klinker.data import KlinkerDataset
+    from klinker.eval import Evaluation
+
+    ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True)
+    blocks = RelationalTokenBlockerAttributeBlocker().assign(
+        ds.left, ds.right, ds.left_rel, ds.right_rel
+    )
+    print(Evaluation.from_dataset(blocks, ds).to_dict())

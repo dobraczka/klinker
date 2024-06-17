@@ -24,8 +24,8 @@ except ImportError:
     AutoModel = None
 
 try:
-    from cuml.decomposition import PCA
     from cuml import UMAP
+    from cuml.decomposition import PCA
 except ImportError:
     from sklearn.decomposition import PCA
     from umap import UMAP
