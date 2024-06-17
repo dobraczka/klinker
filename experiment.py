@@ -61,6 +61,7 @@ from klinker.encoders.deepblocker import (
 from klinker.encoders.pretrained import (
     TokenizedFrameEncoder,
 )
+from klinker.blockers.relation_aware import RelationalTokenBlockerAttributeBlocker
 from klinker.eval import Evaluation
 from klinker.trackers import ConsoleResultTracker, ResultTracker, WANDBResultTracker
 from nephelai import upload
@@ -292,6 +293,8 @@ def _handle_artifacts(
 
 
 def _handle_encodings_dir(blocker, artifact_name, experiment_artifact_dir):
+    if isinstance(blocker, RelationalTokenBlockerAttributeBlocker):
+        return None
     if hasattr(blocker, "_relation_blocker") and blocker._relation_blocker.save:
         encodings_dir = _create_artifact_path(
             artifact_name, experiment_artifact_dir, suffix="_clustering"
@@ -329,6 +332,8 @@ def cleanup_name(blocker) -> str:
             "FrameEncoder", ""
         )
     if hasattr(blocker, "_relation_blocker"):
+        if isinstance(blocker, RelationalTokenBlockerAttributeBlocker):
+            return blocker_name
         if isinstance(blocker._relation_blocker, TokenClusteringMixin):
             blocker_name = (
                 blocker.__class__.__name__
@@ -898,6 +903,27 @@ def relational_token_blocker(
         top_n_r = None
     start = time.time()
     blocker = SimpleRelationalTokenBlocker(
+        min_token_length=min_token_length, top_n_a=top_n_a, top_n_r=top_n_r
+    )
+    end = time.time()
+    return (blocker, click.get_current_context().params, end - start)
+
+
+@cli.command()
+@click.option("--min-token-length", type=int, default=3)
+@click.option("--top-n-a", type=int, default=None)
+@click.option("--top-n-r", type=int, default=None)
+def relational_token_attribute_blocker(
+    min_token_length: int,
+    top_n_a: Optional[int],
+    top_n_r: Optional[int],
+) -> Tuple[Blocker, Dict, float]:
+    if top_n_a and top_n_a < 0:
+        top_n_a = None
+    if top_n_r and top_n_r < 0:
+        top_n_r = None
+    start = time.time()
+    blocker = RelationalTokenBlockerAttributeBlocker(
         min_token_length=min_token_length, top_n_a=top_n_a, top_n_r=top_n_r
     )
     end = time.time()
