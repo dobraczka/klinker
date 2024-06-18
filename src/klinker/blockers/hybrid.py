@@ -29,6 +29,7 @@ class CompositeRelationalDeepBlocker(BaseAttrTokenCompositeUniqueNameBlocker):
         force: bool = False,
         top_n_a: Optional[int] = None,
         top_n_r: Optional[int] = None,
+        use_unique_name: bool = False,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -41,6 +42,7 @@ class CompositeRelationalDeepBlocker(BaseAttrTokenCompositeUniqueNameBlocker):
                 embedding_block_builder=embedding_block_builder,
                 embedding_block_builder_kwargs=embedding_block_builder_kwargs,
             ),
+            use_unique_name=use_unique_name,
         )
         # set after instatiating seperate blocker to use setter
         self.save = save

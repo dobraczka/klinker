@@ -1296,6 +1296,7 @@ def composite_relational_token_blocker(
 @click.option("--hidden-dimension", type=int, default=150)
 @click.option("--top-n-a", type=int, default=None)
 @click.option("--top-n-r", type=int, default=None)
+@click.option("--use-unique-name", type=bool, default=False)
 @embedding_options
 def composite_relational_deepblocker(
     min_token_length: int,
@@ -1310,6 +1311,7 @@ def composite_relational_deepblocker(
     hidden_dimension: int,
     top_n_a: Optional[int],
     top_n_r: Optional[int],
+    use_unique_name: bool,
     inner_encoder: Type[TokenizedFrameEncoder],
     embeddings: str,
     inner_encoder_batch_size: int,
@@ -1363,6 +1365,7 @@ def composite_relational_deepblocker(
         save=save_emb,
         top_n_a=top_n_a,
         top_n_r=top_n_r,
+        use_unique_name=use_unique_name,
     )
     end = time.time()
     return (blocker, click.get_current_context().params, end - start)

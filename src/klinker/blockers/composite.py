@@ -99,8 +99,8 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        left_filtered = left
-        right_filtered = right
+        left_filtered = left_conc
+        right_filtered = right_conc
         if self.use_unique_name:
             left_filtered = filter_with_unique(
                 left_conc, unique_blocks.blocks[left.table_name]
@@ -148,6 +148,7 @@ class BaseAttrTokenCompositeUniqueNameBlocker(BaseCompositeUniqueNameBlocker):
         tokenize_fn: Callable[[str], List[str]] = word_tokenize,
         min_token_length: int = 3,
         rel_blocker_kwargs=None,
+        use_unique_name: bool = True,
     ):
         super().__init__(
             top_n_a=top_n_a,
@@ -156,6 +157,7 @@ class BaseAttrTokenCompositeUniqueNameBlocker(BaseCompositeUniqueNameBlocker):
                 tokenize_fn=tokenize_fn, min_token_length=min_token_length
             ),
             rel_blocker_kwargs=rel_blocker_kwargs,
+            use_unique_name=use_unique_name,
         )
 
 

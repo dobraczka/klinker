@@ -658,6 +658,8 @@ def generic_upgrade_from_series(
         Table Name: A, id_col: id
 
     """
+    if isinstance(conc, (pd.DataFrame, dd.DataFrame)):
+        return conc
     frame_class: Type[KlinkerFrame]
     id_col = "id"
     if isinstance(conc, pd.Series):
