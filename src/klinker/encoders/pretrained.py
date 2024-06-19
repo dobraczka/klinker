@@ -193,6 +193,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.batch_size = batch_size
         self.reduce_dim_to = reduce_dim_to
         self.reduce_sample_perc = reduce_sample_perc
+        self._added_reduce_layer = False
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
@@ -240,6 +241,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         logger.info(
             f"Done! Added a dense layer with shape ({dense.in_features}, {dense.out_features}) to the model"
         )
+        self._added_reduce_layer = True
 
     def _encode(
         self,
@@ -249,7 +251,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         logger.info("Started encode")
-        if self.reduce_dim_to:
+        if self.reduce_dim_to and not self._added_reduce_layer:
             self._add_dimensionality_reduction_layer(left, right)
         return self._encode_side(left), self._encode_side(right)
 

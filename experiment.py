@@ -1328,6 +1328,8 @@ def composite_relational_deepblocker(
         top_n_a = None
     if top_n_r and top_n_r < 0:
         top_n_r = None
+    if reduce_dim_to > 0:
+        embedding_dimension = reduce_dim_to
     inner_encoder_inst = create_inner_encoder(
         inner_encoder,
         embeddings,
