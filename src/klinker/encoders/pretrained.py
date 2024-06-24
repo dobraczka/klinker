@@ -276,14 +276,14 @@ class TokenizedWordEmbedder:
         embedding_fn: Union[str, Callable[[str], GeneralVector]] = "fasttext",
         tokenizer_fn: Callable[[str], List[str]] = word_tokenize,
     ):
-        # TODO delay loading
-        if isinstance(embedding_fn, str):
-            if embedding_fn == "100wiki.en.bin":
-                import fasttext
+        # TODO delay loading, cleanup 100
+        if isinstance(embedding_fn, str) and embedding_fn == "100wiki.en.bin":
+            import fasttext
 
-                ft = fasttext.load_model(word_embedding_dir.joinpath(embedding_fn))
-                self.embedding_fn = ft.get_word_vector
-            elif embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
+            ft = fasttext.load_model(str(word_embedding_dir.joinpath(embedding_fn)))
+            self.embedding_fn = ft.get_word_vector
+        elif isinstance(embedding_fn, str):
+            if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
                 actual_name = TokenizedWordEmbedder._gensim_mapping_download[
                     embedding_fn
                 ]
