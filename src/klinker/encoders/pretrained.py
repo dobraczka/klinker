@@ -278,7 +278,12 @@ class TokenizedWordEmbedder:
     ):
         # TODO delay loading
         if isinstance(embedding_fn, str):
-            if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
+            if embedding_fn == "100wiki.en.bin":
+                import fasttext
+
+                ft = fasttext.load_model(word_embedding_dir.joinpath(embedding_fn))
+                self.embedding_fn = ft.get_word_vector
+            elif embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
                 actual_name = TokenizedWordEmbedder._gensim_mapping_download[
                     embedding_fn
                 ]
