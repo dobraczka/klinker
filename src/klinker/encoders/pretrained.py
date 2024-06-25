@@ -277,7 +277,9 @@ class TokenizedWordEmbedder:
         tokenizer_fn: Callable[[str], List[str]] = word_tokenize,
     ):
         # TODO delay loading, cleanup 100
-        if isinstance(embedding_fn, str) and embedding_fn == "100wiki.en.bin":
+        if (isinstance(embedding_fn, str) and embedding_fn == "100wiki.en.bin") or (
+            isinstance(embedding_fn, str) and embedding_fn == "25wiki.en.bin"
+        ):
             import fasttext
 
             ft = fasttext.load_model(str(word_embedding_dir.joinpath(embedding_fn)))
