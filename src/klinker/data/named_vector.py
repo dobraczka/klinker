@@ -12,12 +12,12 @@ T = TypeVar("T", np.ndarray, torch.Tensor)
 
 
 def _shorten_tensor_repr(tensor: GeneralVector) -> str:
-    """
-
-    Args:
+    """Args:
+    ----
       tensor: GeneralVector:
 
-    Returns:
+    Returns
+    -------
 
     """
     t_repr = tensor.__repr__()
@@ -30,11 +30,12 @@ class NamedVector(Generic[T]):
     """Class for holding named embeddings.
 
     Args:
+    ----
         names: Names of embedding rows.
         vectors: Embeddings.
 
     Examples:
-
+    --------
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> emb = np.random.rand(5,2)
@@ -83,7 +84,7 @@ class NamedVector(Generic[T]):
 
     @property
     def names(self) -> List[str]:
-        """List of names"""
+        """List of names."""
         return self._names.index.tolist()
 
     @names.setter
@@ -105,12 +106,12 @@ class NamedVector(Generic[T]):
 
     @property
     def entity_id_mapping(self) -> Dict[str, int]:
-        """Mapping of entity names to ids"""
+        """Mapping of entity names to ids."""
         return self._names.to_dict()
 
     @property
     def id_entity_mapping(self) -> Dict[int, str]:
-        """Mapping of vectors indices to entity names"""
+        """Mapping of vectors indices to entity names."""
         return pd.Series(self._names.index.values, index=self._names).to_dict()
 
     def _key_handling(
@@ -181,13 +182,15 @@ class NamedVector(Generic[T]):
         """Concatenate two NamedVector objects.
 
         Args:
+        ----
           other: "NamedVector": Other instances to append.
 
         Returns:
+        -------
             Concatenated named vector.
 
         Examples:
-
+        --------
             >>> import numpy as np
             >>> from klinker.data import NamedVector
             >>> emb = np.random.rand(5,2)
@@ -213,9 +216,11 @@ class NamedVector(Generic[T]):
         """Return a subset as new object instance.
 
         Args:
+        ----
           key: Union[str, List[str]]: key(s) of subset
 
         Returns:
+        -------
             Specified subset of this instance.
 
         >>> import numpy as np
@@ -241,8 +246,11 @@ class NamedVector(Generic[T]):
         See: `read_pickle`
 
         Args:
+        ----
           path: Path where to save.
         """
+        if isinstance(self.vectors, torch.Tensor):
+            self.vectors = self.vectors.detach().cpu()
         with open(path, "wb") as file_handle:
             pickle.dump((self.names, self.vectors), file_handle)
 
@@ -253,9 +261,11 @@ class NamedVector(Generic[T]):
         See: `to_pickle`
 
         Args:
+        ----
           path: Path from where to load.
 
         Returns:
+        -------
             Loaded named vector
         """
         with open(path, "rb") as file_handle:

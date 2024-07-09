@@ -1,9 +1,9 @@
 name: klinker-conda
 channels:
   - defaults
-  - rapidsai 
-  - conda-forge 
-  - nvidia 
+  - rapidsai
+  - conda-forge
+  - nvidia
   - pytorch
   - esri
 dependencies:
@@ -22,6 +22,6 @@ dependencies:
   - pyarrow
   - nltk
   - pyg::pytorch-sparse=0.6.17
-  - pyg::pytorch-scatter=2.1.1 
+  - pyg::pytorch-scatter=2.1.1
 
 prefix: /home/sc.uni-leipzig.de/se302qele/miniconda3/envs/klinker-conda

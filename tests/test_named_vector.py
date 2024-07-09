@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 import torch
-
 from klinker.data.named_vector import NamedVector
 
 

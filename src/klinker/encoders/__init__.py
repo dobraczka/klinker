@@ -7,6 +7,10 @@ from .deepblocker import (
     HybridDeepBlockerFrameEncoder,
 )
 from .gcn import GCNFrameEncoder
+from .gcn_lp_deepblocker import (
+    GCNDeepBlockerFrameEncoder,
+    LightEADeepBlockerFrameEncoder,
+)
 from .light_ea import LightEAFrameEncoder
 from .pretrained import (
     AverageEmbeddingTokenizedFrameEncoder,
@@ -26,6 +30,8 @@ frame_encoder_resolver = ClassResolver(
         LightEAFrameEncoder,
         GCNFrameEncoder,
         SentenceTransformerTokenizedFrameEncoder,
+        GCNDeepBlockerFrameEncoder,
+        LightEADeepBlockerFrameEncoder,
     ],
     base=FrameEncoder,
     default=SIFEmbeddingTokenizedFrameEncoder,
@@ -46,6 +52,8 @@ __all__ = [
     "HybridDeepBlockerFrameEncoder",
     "LightEAFrameEncoder",
     "GCNFrameEncoder",
+    "GCNDeepBlockerFrameEncoder",
+    "LightEADeepBlockerFrameEncoder",
     # resolver
     "frame_encoder_resolver",
 ]

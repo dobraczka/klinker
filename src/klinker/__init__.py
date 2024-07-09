@@ -5,7 +5,8 @@ from .data import (
     KlinkerDaskFrame,
     KlinkerDataset,
     KlinkerFrame,
-    KlinkerTriplePandasFrame,
+    NNBasedKlinkerBlockManager,
+    CompositeWithNNBasedKlinkerBlockManager,
 )
 
 __all__ = [
@@ -15,6 +16,8 @@ __all__ = [
     "KlinkerPandasTripleFrame",
     "KlinkerDataset",
     "KlinkerBlockManager",
+    "NNBasedKlinkerBlockManager",
+    "CompositeWithNNBasedKlinkerBlockManager",
 ]
 
 __version__ = version(__package__)

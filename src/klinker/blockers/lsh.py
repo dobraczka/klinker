@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 import dask.dataframe as dd
 import pandas as pd
@@ -7,13 +7,34 @@ from nltk.tokenize import word_tokenize
 
 from klinker.typing import SeriesType
 
-from .base import SchemaAgnosticBlocker
 from ..data import (
     KlinkerBlockManager,
-    KlinkerDaskFrame,
     KlinkerFrame,
-    generic_upgrade_from_series,
 )
+from .base import SchemaAgnosticBlocker
+from nltk.corpus import stopwords
+
+
+# TODO handle code duplication
+class FilteredTokenizer:
+    def __init__(self, tokenize_fn=None, min_token_length=3, stop_words=None):
+        if not tokenize_fn:
+            tokenize_fn = word_tokenize
+        if not stop_words:
+            stop_words = stopwords.words("english")
+        self.tokenize_fn = tokenize_fn
+        self.stop_words = stop_words
+        self.min_token_length = min_token_length
+
+    def tokenize(self, x, return_set: bool = False):
+        tokens = filter(
+            lambda tok: len(tok) >= self.min_token_length
+            and tok not in self.stop_words,
+            self.tokenize_fn(str(x.lower())),
+        )
+        if return_set:
+            return set(tokens)
+        return list(tokens)
 
 
 def _insert(
@@ -22,11 +43,13 @@ def _insert(
     """Insert encoded entity info into MinHashLSH instance.
 
     Args:
+    ----
       ser_part: pd.Series: Series containing concatenated entity attribute values.
       lsh: MinHashLSH: lsh instance where encoded attribues will be inserted.
       encode_fn: Callable[[str],Iterable[bytes]]: encoding function
 
     Returns:
+    -------
         index of given series
     """
     with lsh.insertion_session() as session:
@@ -48,6 +71,7 @@ def _query(
     """Query the given lsh with the provided entity information.
 
     Args:
+    ----
       ser_part: pd.Series: series holding concatenated entity attribute values.
       lsh: MinHashLSH: filled lsh instance.
       encode_fn: Callable[[str],Iterable[bytes]]: encoding function
@@ -55,9 +79,11 @@ def _query(
       right_name: str: Name of right dataset.
 
     Returns:
+    -------
         dataframe of blocks
     """
     cur_block: Dict[str, List] = {left_name: [], right_name: []}
+    index = []
     for key, val in ser_part.items():
         msh = MinHash(num_perm=lsh.h)
         msh.update_batch(encode_fn(val))
@@ -66,26 +92,29 @@ def _query(
         if len(res) > 0:
             cur_block[left_name].append(list(res))
             cur_block[right_name].append([key])
-    return pd.DataFrame(cur_block)
+            index.append(key)
+    return pd.DataFrame(cur_block, index=index)
 
 
 class MinHashLSHBlocker(SchemaAgnosticBlocker):
     """Blocker relying on MinHashLSH procedure.
 
     Args:
+    ----
         tokenize_fn Callable: Function that tokenizes entity attribute values.
         threshold: float: Jaccard threshold to use in underlying lsh procedure.
         num_perm: int: number of permutations used in minhash algorithm.
         weights: Tuple[float,float]: false positive/false negative weighting (must add up to one)
 
     Attributes:
+    ----------
         tokenize_fn Callable: Function that tokenizes entity attribute values.
         threshold: float: Jaccard threshold to use in underlying lsh procedure.
         num_perm: int: number of permutations used in minhash algorithm.
         weights: Tuple[float,float]: false positive/false negative weighting (must add up to one)
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset
@@ -99,25 +128,33 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
     def __init__(
         self,
         tokenize_fn: Callable = word_tokenize,
+        stop_words: Optional[List[str]] = None,
+        min_token_length: int = 3,
         threshold: float = 0.5,
         num_perm: int = 128,
         weights: Tuple[float, float] = (0.5, 0.5),
     ):
-        self.tokenize_fn = tokenize_fn
+        self.tokenizer = FilteredTokenizer(
+            tokenize_fn=tokenize_fn,
+            min_token_length=min_token_length,
+            stop_words=stop_words,
+        )
         self.threshold = threshold
         self.num_perm = num_perm
         self.weights = weights
 
     def _inner_encode(self, val: str):
-        """Encodes string to list of bytes
+        """Encodes string to list of bytes.
 
         Args:
+        ----
           val: str: input string.
 
         Returns:
+        -------
             list of bytes.
         """
-        return [tok.encode("utf-8") for tok in self.tokenize_fn(str(val))]
+        return [tok.encode("utf-8") for tok in self.tokenizer.tokenize(str(val))]
 
     def _assign(
         self,
@@ -133,12 +170,14 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         Queries using the right hashes.
 
         Args:
+        ----
           left: SeriesType: concatenated entity attribute values of left dataset as series.
           right: SeriesType: concatenated entity attribute values of left dataset as series.
           left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
           right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
+        -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
         lsh = MinHashLSH(

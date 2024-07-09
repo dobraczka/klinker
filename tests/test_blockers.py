@@ -4,10 +4,6 @@ from typing import Dict, List, Tuple, Type
 import dask.dataframe as dd
 import pandas as pd
 import pytest
-from mocks import MockKeyedVector
-from strawman import dummy_triples
-from util import assert_block_eq
-
 from klinker.blockers import (
     DeepBlocker,
     EmbeddingBlocker,
@@ -23,16 +19,19 @@ from klinker.blockers.relation_aware import (
 )
 from klinker.data import KlinkerBlockManager, KlinkerFrame, from_klinker_frame
 from klinker.encoders.base import _get_ids
+from mocks import MockKeyedVector
+from strawman import dummy_triples
+from util import assert_block_eq
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_rel_triples() -> Tuple[pd.DataFrame, pd.DataFrame]:
     left_rel = dummy_triples(8, 5, entity_prefix="a")
     right_rel = dummy_triples(10, 8, entity_prefix="b")
     return left_rel, right_rel
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_both(
     example_tables, example_triples
 ) -> Tuple[
@@ -43,7 +42,7 @@ def example_both(
     return ta, tb, dataset_names, id_mappings
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
     return [
         pd.DataFrame({"A": {1: {"a2"}, 2: {"a1"}}, "B": {1: {"b2"}}}),
@@ -52,7 +51,7 @@ def example_prepostprocess() -> Tuple[List[pd.DataFrame], pd.DataFrame]:
     ], pd.DataFrame({"A": {1: {"a2"}}, "B": {1: {"b2"}}})
 
 
-@pytest.fixture
+@pytest.fixture()
 def example_with_expected(
     request,
 ) -> Tuple[KlinkerFrame, KlinkerFrame, pd.DataFrame, Type[Blocker]]:
@@ -65,7 +64,7 @@ def example_with_expected(
     return ta, tb, expected, cls
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected_standard_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
@@ -74,7 +73,7 @@ def expected_standard_blocker(example_tables) -> KlinkerBlockManager:
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected_qgrams_blocker(example_tables) -> pd.DataFrame:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
@@ -92,7 +91,7 @@ def expected_qgrams_blocker(example_tables) -> pd.DataFrame:
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected_sorted_neighborhood_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
@@ -109,7 +108,7 @@ def expected_sorted_neighborhood_blocker(example_tables) -> KlinkerBlockManager:
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected_token_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
@@ -136,7 +135,7 @@ def assert_parquet(block: KlinkerBlockManager, tmp_dir):
     assert_block_eq(block, block_pq)
 
 
-@pytest.fixture
+@pytest.fixture()
 def expected_lsh_blocker(example_tables) -> KlinkerBlockManager:
     _, _, dataset_names, id_mappings = example_tables
     return KlinkerBlockManager.from_dict(
@@ -223,7 +222,7 @@ embedding_based_cases.extend(
     "tables", ["example_tables", "example_triples", "example_both"]
 )
 @pytest.mark.parametrize(
-    "cls, frame_encoder, frame_encoder_kwargs, embedding_block_builder",
+    ("cls", "frame_encoder", "frame_encoder_kwargs", "embedding_block_builder"),
     embedding_based_cases,
 )
 @pytest.mark.parametrize("use_dask", [True, False])
@@ -280,11 +279,11 @@ def test_assign_embedding_blocker(
 
 
 @pytest.mark.parametrize(
-    "cls, params",
+    ("cls", "params"),
     [
-        ("LightEAFrameEncoder", dict(mini_dim=3)),
-        ("GCNFrameEncoder", dict(layer_dims=3, use_weight_layers=True)),
-        ("GCNFrameEncoder", dict(layer_dims=3, use_weight_layers=False)),
+        ("LightEAFrameEncoder", {"mini_dim": 3}),
+        ("GCNFrameEncoder", {"layer_dims": 3, "use_weight_layers": True}),
+        ("GCNFrameEncoder", {"layer_dims": 3, "use_weight_layers": False}),
     ],
 )
 def test_assign_relation_frame_encoder(

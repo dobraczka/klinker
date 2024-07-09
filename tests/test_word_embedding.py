@@ -4,17 +4,16 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from mocks import MockGensimDownloader
-from strawman import dummy_df
-
 from klinker.encoders import (
     AverageEmbeddingTokenizedFrameEncoder,
     SIFEmbeddingTokenizedFrameEncoder,
 )
 from klinker.typing import NumpyVectorLiteral, TorchVectorLiteral
+from mocks import MockGensimDownloader
+from strawman import dummy_df
 
 
-@pytest.fixture
+@pytest.fixture()
 def example() -> Tuple[pd.DataFrame, pd.DataFrame]:
     left = dummy_df(
         (10, 1), content_length=20, allowed_chars=" abcdefghijklmnopqrstuvw"
@@ -39,9 +38,9 @@ def test_word_embedding(cls, return_type, example, mocker):
     )
     left, right = example
     left_named_enc, right_named_enc = cls(
-        tokenized_word_embedder_kwargs=dict(
-            embedding_fn="mock"
-        )  # avoid loading downloaded
+        tokenized_word_embedder_kwargs={
+            "embedding_fn": "mock"
+        }  # avoid loading downloaded
     ).encode(left, right, return_type=return_type)
     left_enc, right_enc = left_named_enc.vectors, right_named_enc.vectors
     assert left_enc.shape == (len(left), dimension)

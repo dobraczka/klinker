@@ -10,8 +10,6 @@ from torch.optim import Optimizer
 
 from klinker.utils import resolve_device
 
-from .base import TokenizedFrameEncoder
-from .pretrained import tokenized_frame_encoder_resolver
 from ..data import KlinkerDaskFrame
 from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
@@ -19,6 +17,8 @@ from ..models.deepblocker import (
     DeepBlockerModelTrainer,
 )
 from ..typing import Frame, GeneralVector
+from .base import TokenizedFrameEncoder
+from .pretrained import tokenized_frame_encoder_resolver
 
 FeatureType = TypeVar("FeatureType")
 
@@ -27,6 +27,7 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
     """Base class for DeepBlocker Frame encoders.
 
     Args:
+    ----
         hidden_dimensions: Tuple[int, int]: Hidden dimensions
         num_epochs: int: Number of epochs if training
         batch_size: int: Batch size
@@ -51,7 +52,7 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         optimizer_kwargs: OptionalKwargs = None,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
-        **kwargs
+        **kwargs,
     ):
         self.inner_encoder = tokenized_frame_encoder_resolver.make(
             frame_encoder, frame_encoder_kwargs
@@ -112,6 +113,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
     """Autoencoder class for DeepBlocker Frame encoders.
 
     Args:
+    ----
         hidden_dimensions: Tuple[int, int]: Hidden dimensions
         num_epochs: int: Number of epochs if training
         batch_size: int: Batch size
@@ -131,7 +133,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         learning_rate: float = 1e-3,
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             hidden_dimensions=hidden_dimensions,
@@ -140,7 +142,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
             learning_rate=learning_rate,
             frame_encoder=frame_encoder,
             frame_encoder_kwargs=frame_encoder_kwargs,
-            **kwargs
+            **kwargs,
         )
         self._input_dimension = -1
 
@@ -154,10 +156,12 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         """Features for AutoEncoder.
 
         Args:
+        ----
           left: Frame: left attributes.
           right: Frame: right attributes.
 
         Returns:
+        -------
             Concatenated left/right encoded, left encoded, right encoded
         """
         left_enc, right_enc = self.inner_encoder._encode_as(
@@ -178,6 +182,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     """CrossTupleTraining class for DeepBlocker Frame encoders.
 
     Args:
+    ----
         hidden_dimensions: Tuple[int, int]: Hidden dimensions
         num_epochs: int: Number of epochs
         batch_size: int: Batch size
@@ -209,7 +214,6 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         frame_encoder: HintOrType[TokenizedFrameEncoder] = None,
         frame_encoder_kwargs: OptionalKwargs = None,
     ):
-
         super().__init__(
             hidden_dimensions=hidden_dimensions,
             num_epochs=num_epochs,
@@ -231,13 +235,15 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
-        """Create features for cross-tuple training
+        """Create features for cross-tuple training.
 
         Args:
+        ----
           left: Frame: left attributes.
           right: Frame: right attributes.
 
         Returns:
+        -------
             (left_training, right_training, labels), left encoded, right encoded
         """
         if isinstance(left, KlinkerDaskFrame):
@@ -300,7 +306,6 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
                 right_tuple_list[training_data_index] = random.choice(list_of_tuples)
                 label_list[training_data_index] = 0
                 training_data_index += 1
-
         left_train_enc, right_train_enc = self.inner_encoder._encode_as(
             pd.DataFrame(left_tuple_list),
             pd.DataFrame(right_tuple_list),
@@ -357,6 +362,7 @@ class HybridDeepBlockerFrameEncoder(CrossTupleTrainingDeepBlockerFrameEncoder):
     Uses both Autoencoder and CrossTupleTraining strategy.
 
     Args:
+    ----
         frame_encoder: HintOrType[TokenizedFrameEncoder]: Base encoder class
         frame_encoder_kwargs: OptionalKwargs: Keyword arguments for initializing frame encoder
         hidden_dimensions: Tuple[int, int]: Hidden dimensions
@@ -419,5 +425,5 @@ deep_blocker_encoder_resolver = ClassResolver(
         HybridDeepBlockerFrameEncoder,
     ],
     base=DeepBlockerFrameEncoder,
-    default=CrossTupleTrainingDeepBlockerFrameEncoder,
+    default=AutoEncoderDeepBlockerFrameEncoder,
 )

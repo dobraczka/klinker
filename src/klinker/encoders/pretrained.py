@@ -1,9 +1,7 @@
 import logging
 import math
 import os
-from abc import abstractmethod
-from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import dask.dataframe as dd
 import numpy as np
@@ -12,26 +10,30 @@ import torch
 from class_resolver import ClassResolver, HintOrType, OptionalKwargs
 from gensim import downloader as gensim_downloader
 from gensim.models import KeyedVectors
-from more_itertools import chunked
 from nltk.tokenize import word_tokenize
 from sklearn.decomposition import TruncatedSVD
-from torch import nn
-from tqdm.auto import tqdm
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer, models
 except ImportError:
     SentenceTransformer = None
 
 try:
-    from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerBase
+    from transformers import AutoModel, AutoTokenizer
 except ImportError:
     AutoModel = None
 
-from .base import TokenizedFrameEncoder
+try:
+    from cuml import UMAP
+    from cuml.decomposition import PCA
+except ImportError:
+    from sklearn.decomposition import PCA
+    from umap import UMAP
+
 from ..data import KlinkerDaskFrame
 from ..typing import Frame, GeneralVector
-from ..utils import concat_frames, resolve_device
+from ..utils import concat_frames
+from .base import TokenizedFrameEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +58,13 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     See <https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoModel.from_pretrained> for more information on pretrained models.
 
     Args:
-        pretrained_model_name_or_path: str: Transformer name or path
+    ----
+        model_name: str: Transformer name or path
         max_length: int: max number of tokens per row
         batch_size: int: size of batch for encoding
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> import pandas as pd
 
@@ -83,7 +86,7 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
                 id_col="id",
             ).set_index("id")
         >>> ttfe = TransformerTokenizedFrameEncoder(
-                pretrained_model_name_or_path="bert-base-cased",
+                model_name="bert-base-cased",
                 max_length=10,
                 batch_size=2
             )
@@ -93,14 +96,14 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def __init__(
         self,
-        pretrained_model_name_or_path: str = "bert-base-cased",
+        model_name: str = "bert-base-cased",
         max_length: int = 128,
         batch_size: int = 512,
     ):
         if AutoModel is None:
             raise ImportError("Please install the transformers library!")
-        self.model = AutoModel.from_pretrained(pretrained_model_name_or_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path)
+        self.model = AutoModel.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.max_length = max_length
         self.batch_size = batch_size
 
@@ -138,12 +141,13 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
     See <https://www.sbert.net/docs/pretrained_models.html> for a list of models.
 
     Args:
+    ----
         model_name: str: pretrained model name
         max_length: int: max number of tokens per row
         batch_size: int: size of batch for encoding
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> import pandas as pd
 
@@ -175,25 +179,69 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "gtr-t5-base",
         max_length: int = 128,
         batch_size: int = 512,
+        reduce_dim_to: Optional[int] = None,
+        reduce_sample_perc: float = 0.3,
     ):
         if SentenceTransformer is None:
             raise ImportError("Please install the sentence-transformers library!")
         self.model = SentenceTransformer(model_name)
+        logger.info("Loaded model")
         self.model.max_seq_length = max_length
         self.batch_size = batch_size
+        self.reduce_dim_to = reduce_dim_to
+        self.reduce_sample_perc = reduce_sample_perc
+        self._added_reduce_layer = False
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
         return self.model.tokenizer.tokenize
 
     @torch.no_grad()
-    def _encode_side(self, df: Frame) -> GeneralVector:
+    def _encode_side(self, df: Frame, convert_to_tensor: bool = True) -> GeneralVector:
+        vals = df[df.columns[0]].values
+        if isinstance(df, KlinkerDaskFrame):
+            vals = vals.compute()
+        if convert_to_tensor:
+            return self.model.encode(
+                vals, batch_size=self.batch_size, convert_to_tensor=True
+            )
         return self.model.encode(
-            list(df[df.columns[0]].values), batch_size=self.batch_size
+            vals, batch_size=self.batch_size, convert_to_numpy=True
         )
+
+    def _add_dimensionality_reduction_layer(self, left: Frame, right: Frame):
+        # see https://github.com/UKPLab/sentence-transformers/blob/master/examples/training/distillation/dimensionality_reduction.py
+        logger.info(
+            f"Using PCA to output embeddings with dimensionality of {self.reduce_dim_to}. Training on {self.reduce_sample_perc * 100} % of the data."
+        )
+        lt_embeddings = self._encode_side(
+            left.sample(frac=self.reduce_sample_perc), convert_to_tensor=False
+        )
+        rt_embeddings = self._encode_side(
+            right.sample(frac=self.reduce_sample_perc), convert_to_tensor=False
+        )
+        train_embeddings = np.concatenate([lt_embeddings, rt_embeddings])
+        # Compute PCA on the train embeddings matrix
+        pca = PCA(n_components=self.reduce_dim_to)
+        pca.fit(train_embeddings)
+        pca_comp = np.asarray(pca.components_)
+
+        # We add a dense layer to the model, so that it will produce directly embeddings with the new size
+        dense = models.Dense(
+            in_features=self.model.get_sentence_embedding_dimension(),
+            out_features=self.reduce_dim_to,
+            bias=False,
+            activation_function=torch.nn.Identity(),
+        )
+        dense.linear.weight = torch.nn.Parameter(torch.tensor(pca_comp))
+        self.model.add_module("dense", dense)
+        logger.info(
+            f"Done! Added a dense layer with shape ({dense.in_features}, {dense.out_features}) to the model"
+        )
+        self._added_reduce_layer = True
 
     def _encode(
         self,
@@ -202,6 +250,9 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         left_rel: Optional[Frame] = None,
         right_rel: Optional[Frame] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
+        logger.info("Started encode")
+        if self.reduce_dim_to and not self._added_reduce_layer:
+            self._add_dimensionality_reduction_layer(left, right)
         return self._encode_side(left), self._encode_side(right)
 
 
@@ -209,6 +260,7 @@ class TokenizedWordEmbedder:
     """Encode using pre-trained word embeddings.
 
     Args:
+    ----
       embedding_fn: Union[str, Callable[[str], GeneralVector]]: Either one of "fasttext","glove","word2vec" or embedding function
       tokenizer_fn: Callable[[str], List[str]]: Tokenizer function.
     """
@@ -224,7 +276,15 @@ class TokenizedWordEmbedder:
         embedding_fn: Union[str, Callable[[str], GeneralVector]] = "fasttext",
         tokenizer_fn: Callable[[str], List[str]] = word_tokenize,
     ):
-        if isinstance(embedding_fn, str):
+        # TODO delay loading, cleanup 100
+        if (isinstance(embedding_fn, str) and embedding_fn == "100wiki.en.bin") or (
+            isinstance(embedding_fn, str) and embedding_fn == "25wiki.en.bin"
+        ):
+            import fasttext
+
+            ft = fasttext.load_model(str(word_embedding_dir.joinpath(embedding_fn)))
+            self.embedding_fn = ft.get_word_vector
+        elif isinstance(embedding_fn, str):
             if embedding_fn in TokenizedWordEmbedder._gensim_mapping_download:
                 actual_name = TokenizedWordEmbedder._gensim_mapping_download[
                     embedding_fn
@@ -255,9 +315,11 @@ class TokenizedWordEmbedder:
         """Tokenizes string and returns average of token embeddings.
 
         Args:
+        ----
           values: str: string value to embed.
 
         Returns:
+        -------
             embedding
         """
         return self.weighted_embed(values, {})
@@ -268,10 +330,12 @@ class TokenizedWordEmbedder:
         """Tokenizes string and returns weighted average of token embeddings.
 
         Args:
+        ----
           values: str: string value to embed.
           weight_mapping: Dict[str, float]: weights for tokens.
 
         Returns:
+        -------
             embedding
         """
         # TODO fix code duplication across embed methods can be solved better
@@ -300,11 +364,13 @@ def encode_frame(
     """Encode Frame with tokenized word embedder.
 
     Args:
+    ----
       df: Frame:
       twe: TokenizedWordEmbedder:
       weight_dict: Dict:  (Default value = None)
 
     Returns:
+    -------
         embeddings
     """
     embeddings: np.ndarray = torch.nn.init.xavier_normal_(
@@ -312,10 +378,7 @@ def encode_frame(
     ).numpy()
     # TODO vectorize this?
     for idx, val in enumerate(df[df.columns[0]].values):
-        if weight_dict:
-            emb = twe.weighted_embed(val, weight_dict)
-        else:
-            emb = twe.embed(val)
+        emb = twe.weighted_embed(val, weight_dict) if weight_dict else twe.embed(val)
         if not any(np.isnan(emb)):
             embeddings[idx] = emb
     return embeddings
@@ -327,6 +390,7 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     """Averages embeddings of tokenized entity attribute values.
 
     Args:
+    ----
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder]: Word Embedding class,
         tokenized_word_embedder_kwargs: OptionalKwargs: Keyword arguments for initalizing word embedder
     """
@@ -364,7 +428,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
     """Use Smooth Inverse Frequency weighting scheme to aggregate token embeddings.
 
     Args:
-
+    ----
         sif_weighting_param: float: weighting parameter
         remove_pc:bool: remove first principal component
         min_freq: int: minimum frequency of occurence
@@ -382,6 +446,9 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         min_freq: int = 0,
         tokenized_word_embedder: HintOrType[TokenizedWordEmbedder] = None,
         tokenized_word_embedder_kwargs: OptionalKwargs = None,
+        reduce_dim_to: Optional[int] = None,
+        umap_n_neighbors: int = 15,
+        umap_min_dist: int = 0.1,
     ):
         self.tokenized_word_embedder = tokenized_word_embedder_resolver.make(
             tokenized_word_embedder, tokenized_word_embedder_kwargs
@@ -391,6 +458,9 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.remove_pc = remove_pc
         self.min_freq = min_freq
         self.token_weight_dict: Optional[Dict[str, float]] = None
+        self.reduce_dim_to = reduce_dim_to
+        self.umap_n_neighbors = umap_n_neighbors
+        self.umap_min_dist = umap_min_dist
 
     @property
     def tokenizer_fn(self) -> Callable[[str], List[str]]:
@@ -401,10 +471,12 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         """Prepare value counts.
 
         Args:
+        ----
           left: Frame: left attribute frame.
           right: Frame: right attribute frame.
 
         Returns:
+        -------
             left, right
         """
         left, right = super().prepare(left, right)
@@ -443,18 +515,50 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         self.token_weight_dict = token_weight_dict.to_dict()
         return left, right
 
-    def _postprocess(self, embeddings) -> GeneralVector:
+    def _postprocess(self, left, right) -> Tuple[GeneralVector, GeneralVector]:
         # From the code of the SIF paper at
         # https://github.com/PrincetonML/SIF/blob/master/src/SIF_embedding.py
         if self.remove_pc:
+            concat_fn = (
+                np.concatenate if isinstance(left, np.ndarray) else torch.concatenate
+            )
+            embeddings = concat_fn([left, right])
             svd = TruncatedSVD(n_components=1, n_iter=7, random_state=0)
             svd.fit(embeddings)
             pc = svd.components_
-
             sif_embeddings = embeddings - embeddings.dot(pc.transpose()) * pc
-        else:
-            sif_embeddings = embeddings
-        return sif_embeddings
+            return sif_embeddings[: len(left)], sif_embeddings[len(left) :]
+        return left, right
+
+    def _reduce_dim(
+        self, left_emb: GeneralVector, right_emb: GeneralVector
+    ) -> Tuple[GeneralVector, GeneralVector]:
+        if self.reduce_dim_to:
+            initial_dim = left_emb.shape[0]
+            if self.reduce_dim_to == initial_dim:
+                logger.info(
+                    f"Can't reduce to the same dimensionality ({initial_dim}) so returning"
+                )
+                return left_emb, right_emb
+            if self.reduce_dim_to > initial_dim:
+                raise ValueError(
+                    f"Cannot reduce embeddings of dimensionality {initial_dim} to higher dimensionality of {self.reduce_dim_to}!"
+                )
+            logger.info(f"Reducing embedding dim to {self.reduce_dim_to}")
+            umap = UMAP(
+                n_components=self.reduce_dim_to,
+                n_neighbors=self.umap_n_neighbors,
+                min_dist=self.umap_min_dist,
+            )
+            all_vec = (
+                np.concatenate([left_emb, right_emb])
+                if isinstance(left_emb, np.ndarray)
+                else torch.concat([left_emb, right_emb])
+            )
+            reduced_vec = umap.fit_transform(all_vec)
+            left_emb = reduced_vec[: len(left_emb)]
+            right_emb = reduced_vec[len(left_emb) :]
+        return left_emb, right_emb
 
     def _encode(
         self,
@@ -488,9 +592,8 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
                 weight_dict=self.token_weight_dict,
             )
         if self.remove_pc:
-            left_enc = self._postprocess(left_enc)
-            right_enc = self._postprocess(right_enc)
-        return left_enc, right_enc
+            left_enc, right_enc = self._postprocess(left_enc, right_enc)
+        return self._reduce_dim(left_enc, right_enc)
 
 
 tokenized_frame_encoder_resolver = ClassResolver(

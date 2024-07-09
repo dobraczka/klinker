@@ -16,6 +16,7 @@ class DeepBlocker(EmbeddingBlocker):
     """Base class for DeepBlocker strategies.
 
     Args:
+    ----
         frame_encoder: DeepBlockerFrameEncoder: DeepBlocker strategy.
         frame_encoder_kwargs: keyword arguments for initialisation of encoder
         embedding_block_builder_kwargs: keyword arguments for initalising blockbuilder.
@@ -24,6 +25,7 @@ class DeepBlocker(EmbeddingBlocker):
         force: If true, recalculate the embeddings and overwrite existing. Else use precalculated if present.
 
     Attributes:
+    ----------
         frame_encoder: DeepBlocker Encoder class to use for embedding the datasets.
         embedding_block_builder: Block building class to create blocks from embeddings.
         save: If true saves the embeddings before using blockbuilding.
@@ -32,7 +34,7 @@ class DeepBlocker(EmbeddingBlocker):
 
 
     Examples:
-
+    --------
         >>> # doctest: +SKIP
         >>> from sylloge import MovieGraphBenchmark
         >>> from klinker.data import KlinkerDataset

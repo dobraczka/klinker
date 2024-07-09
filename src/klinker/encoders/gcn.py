@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-import torch.nn as nn
 from class_resolver import HintOrType, OptionalKwargs
+from torch import nn
 
 try:
     from torch_scatter import scatter
@@ -19,10 +19,10 @@ except ImportError:
 
 from klinker.utils import resolve_device
 
-from .base import RelationFrameEncoder
-from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 from ..data import NamedVector
 from ..typing import GeneralVector
+from .base import RelationFrameEncoder
+from .pretrained import TokenizedFrameEncoder, tokenized_frame_encoder_resolver
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +164,7 @@ class GCNFrameEncoder(RelationFrameEncoder):
     """Use untrained GCN for aggregating neighboring embeddings with self.
 
     Args:
+    ----
         depth: How many hops of neighbors should be incorporated
         edge_weight: Weighting of non-self-loops
         self_loop_weight: Weighting of self-loops

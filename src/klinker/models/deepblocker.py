@@ -77,8 +77,7 @@ class AutoEncoderDeepBlockerModel(DeepBlockerModel):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.encoder(x)
-        x = self.decoder(x)
-        return x
+        return self.decoder(x)
 
     def encode_side(self, x: torch.Tensor, device: torch.device) -> np.ndarray:
         with torch.no_grad():

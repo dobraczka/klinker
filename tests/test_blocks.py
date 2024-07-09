@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import pytest
-from util import assert_block_eq
-
 from klinker.data.blocks import KlinkerBlockManager
+from util import assert_block_eq
 
 
 @dataclass
@@ -17,7 +16,7 @@ class Example:
     dataset_names: Tuple[str, str]
 
 
-@pytest.fixture
+@pytest.fixture()
 def block_example() -> Example:
     blocks_dict = {
         2: ([3], [3, 5]),
@@ -50,7 +49,7 @@ def block_example() -> Example:
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def block_combine_example(
     block_example,
 ) -> Tuple[KlinkerBlockManager, KlinkerBlockManager, KlinkerBlockManager]:

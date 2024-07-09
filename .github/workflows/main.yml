@@ -39,4 +39,3 @@ jobs:
         python -m nltk.downloader punkt
     - name: Test with nox
       run: nox -s tests
-

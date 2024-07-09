@@ -1,20 +1,25 @@
+import logging
+import time
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
 import torch
 from class_resolver import ClassResolver
-from kiez import Kiez
 from kiez.hubness_reduction import HubnessReduction
 from kiez.neighbors import NNAlgorithm
+from kiez import Kiez
 
-from ...data import KlinkerBlockManager, KlinkerFrame, NamedVector
+from ...data import KlinkerBlockManager, NamedVector, NNBasedKlinkerBlockManager
 from ...typing import GeneralVector
+from ...utils import resolve_device
 
 try:
     from cuml.cluster import HDBSCAN
 except ImportError:
     from hdbscan import HDBSCAN
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingBlockBuilder:
@@ -30,12 +35,14 @@ class EmbeddingBlockBuilder:
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
         raise NotImplementedError
@@ -48,14 +55,16 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         self,
         left: GeneralVector,
         right: GeneralVector,
-    ) -> np.ndarray:
+    ) -> GeneralVector:
         """Get nearest neighbors of of left entities in right embeddings.
 
         Args:
+        ----
           left: GeneralVector: Left embeddings.
           right: GeneralVector: Right embeddings.
 
         Returns:
+        -------
             nearest neighbors
         """
         raise NotImplementedError
@@ -70,36 +79,45 @@ class NearestNeighborEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
+        print("Started nn search")
+        start = time.time()
         neighbors = self._get_neighbors(left=left.vectors, right=right.vectors)
-        df = pd.DataFrame(neighbors)
-        df[right_name] = df.applymap(
-            lambda x, right: right.names[x],
-            right=right,
-        ).values.tolist()
-        df[left_name] = [[name] for name in left.names]
-        return KlinkerBlockManager.from_pandas(df[[left_name, right_name]])
+        if isinstance(neighbors, torch.Tensor):
+            neighbors = neighbors.detach().cpu().numpy()
+        print(f"Neighbors shape: {neighbors.shape}")
+        self._nn_search_time = time.time() - start
+        print(f"Got neighbors in {self._nn_search_time}")
+        reverse_mapping = np.vectorize(right.id_entity_mapping.get)
+        df = pd.DataFrame(reverse_mapping(neighbors), index=left.names)
+        # parquet does not like int column names
+        df.columns = df.columns.astype(str)
+        return NNBasedKlinkerBlockManager.from_pandas(df)
 
 
 class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     """Use kiez for nearest neighbor calculation.
 
     Args:
+    ----
         n_neighbors: number k nearest neighbors.
+        n_candidates: number candidates, when using hubness reduction.
         algorithm: nearest neighbor algorithm.
         algorithm_kwargs: keyword arguments for initialising nearest neighbor algorithm.
         hubness: hubness reduction method if wanted.
         hubness_kwargs: keyword arguments for initialising hubness reduction.
 
     Examples:
-
+    --------
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding import KiezEmbeddingBlockBuilder
@@ -121,40 +139,148 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
     def __init__(
         self,
         n_neighbors: int = 5,
+        n_candidates: int = 10,
         algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
         algorithm_kwargs: Optional[Dict[str, Any]] = None,
         hubness: Optional[Union[str, HubnessReduction, Type[HubnessReduction]]] = None,
         hubness_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
+        if n_neighbors > n_candidates:
+            logger.warn(
+                f"Found n_candidates < n_neighbors! Using n_candidates=n_neighbors={n_neighbors}"
+            )
+            n_candidates = n_neighbors
+        if algorithm_kwargs is None:
+            algorithm_kwargs = {}
+        if "n_candidates" in algorithm_kwargs:
+            logger.warn(
+                f"Found n_candidates in algorithm_kwargs as well! Using n_candidates={n_candidates}"
+            )
+        algorithm_kwargs["n_candidates"] = n_candidates
+        self.n_neighbors = n_neighbors
         self.kiez = Kiez(
-            n_neighbors=n_neighbors,
+            n_candidates=n_candidates,
             algorithm=algorithm,
             algorithm_kwargs=algorithm_kwargs,
             hubness=hubness,
             hubness_kwargs=hubness_kwargs,
         )
 
+    def _get_neighbors_with_distance(
+        self,
+        left: GeneralVector,
+        right: GeneralVector,
+    ) -> Tuple[GeneralVector, GeneralVector]:
+        """Get nearest neighbors (and distances) of of left entities in right embeddings.
+
+        Args:
+        ----
+          left: GeneralVector: Left embeddings.
+          right: GeneralVector: Right embeddings.
+
+        Returns:
+        -------
+            distances, nearest neighbors
+        """
+        self.kiez.fit(left, right)
+        dist, neighs = self.kiez.kneighbors(k=self.n_neighbors, return_distance=True)
+        return dist, neighs
+
+    def _get_neighbors(
+        self,
+        left: GeneralVector,
+        right: GeneralVector,
+    ) -> GeneralVector:
+        """Get nearest neighbors of of left entities in right embeddings.
+
+        Args:
+        ----
+          left: GeneralVector: Left embeddings.
+          right: GeneralVector: Right embeddings.
+
+        Returns:
+        -------
+            nearest neighbors
+        """
+        _, neighs = self._get_neighbors_with_distance(left, right)
+        return neighs
+
+
+class SparseSinkhornEmbeddingBlockBuilder(KiezEmbeddingBlockBuilder):
+    def __init__(
+        self,
+        n_neighbors: int = 5,
+        n_candidates: int = 10,
+        algorithm: Optional[Union[str, NNAlgorithm, Type[NNAlgorithm]]] = None,
+        algorithm_kwargs: Optional[Dict[str, Any]] = None,
+        iteration=10,
+        reg=0.05,
+        device=None,
+    ):
+        if n_candidates < n_neighbors:
+            logger.warn(
+                "n_candidates cannot be smaller than n_neighbors! Setting n_candidates = n_neighbors"
+            )
+            n_candidates = n_neighbors
+        self.n_neighbors = n_neighbors
+        super().__init__(
+            n_neighbors=n_candidates,
+            n_candidates=n_candidates,
+            algorithm=algorithm,
+            algorithm_kwargs=algorithm_kwargs,
+        )
+        self.n_candidates = n_candidates
+        self.iteration = iteration
+        self.reg = reg
+        self.device = device
+
     def _get_neighbors(
         self,
         left: GeneralVector,
         right: GeneralVector,
     ) -> np.ndarray:
-        """Get nearest neighbors of of left entities in right embeddings.
+        import torch_scatter
 
-        Args:
-          left: GeneralVector: Left embeddings.
-          right: GeneralVector: Right embeddings.
+        dist, neighs = self._get_neighbors_with_distance(left, right)
 
-        Returns:
-            nearest neighbors
-        """
-        if isinstance(left, torch.Tensor) and isinstance(right, torch.Tensor):
-            left = left.detach().cpu().numpy()
-            right = right.detach().cpu().numpy()
-        self.kiez.fit(left, right)
-        neighs = self.kiez.kneighbors(return_distance=False)
-        assert isinstance(neighs, np.ndarray)  # for mypy
-        return neighs
+        size = left.shape[0]
+        top_k = self.n_candidates
+        device = resolve_device(self.device)
+        x = -dist
+        # x = dist
+        sims = (x - np.min(x)) / (np.max(x) - np.min(x))
+        sims = torch.tensor(sims).to(device)
+        index = torch.tensor(neighs).to(device)
+
+        row_sims = torch.exp(sims.flatten() / self.reg)
+
+        row_index = (
+            torch.stack(
+                [
+                    torch.arange(size * top_k).to(device) // top_k,
+                    torch.flatten(index.to(torch.int64)),
+                    torch.arange(size * top_k).to(device),
+                ]
+            )
+        ).t()
+        col_index = row_index[torch.argsort(row_index[:, 1])]
+        covert_idx = torch.argsort(col_index[:, 2])
+        for _ in range(self.iteration):
+            row_sims = (
+                row_sims
+                / torch_scatter.scatter_add(row_sims, row_index[:, 0])[row_index[:, 0]]
+            )
+            col_sims = row_sims[col_index[:, 2]]
+            col_sims = (
+                col_sims
+                / torch_scatter.scatter_add(col_sims, col_index[:, 1])[col_index[:, 1]]
+            )
+            row_sims = col_sims[covert_idx]
+
+        sims = torch.reshape(row_sims, (-1, top_k))
+        ranks = np.argsort(-sims.cpu().numpy(), -1)
+        new_index = np.take_along_axis(index.cpu().numpy(), ranks, axis=-1)
+        return new_index[:, : self.n_neighbors]
 
 
 class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
@@ -168,10 +294,12 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Cluster embeddings.
 
         Args:
+        ----
           left: GeneralVector: left embeddings.
           right: GeneralVector: right embeddings.
 
         Returns:
+        -------
             cluster labels of left/right
         """
         raise NotImplementedError
@@ -183,11 +311,13 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Create blocks form cluster labels for one side.
 
         Args:
+        ----
           cluster_labels: np.ndarray: Cluster labels.
           names: List[str]: Entity names.
           data_name: str: Name of dataset.
 
         Returns:
+        -------
             Blocks for one side as pandas DataFrame
         """
         blocked = pd.DataFrame([names, cluster_labels]).transpose().groupby(1).agg(set)
@@ -205,12 +335,14 @@ class ClusteringEmbeddingBlockBuilder(EmbeddingBlockBuilder):
         """Build blocks from given embeddings.
 
         Args:
+        ----
           left: NamedVector: Left embeddings.
           right: NamedVector: Right embeddings.
           left_name: str: Name of left dataset.
           right_name: str: Name of right dataset.
 
         Returns:
+        -------
             Blocks
         """
         left_cluster_labels, right_cluster_labels = self._cluster(
@@ -233,6 +365,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
     For information about parameter selection visit <https://hdbscan.readthedocs.io/en/latest/parameter_selection.html>.
 
     Args:
+    ----
         min_cluster_size: int: The minimum size of clusters.
         min_samples: Optional[int]: The number of samples in a neighbourhood for a point to be considered a core point.
         cluster_selection_epsilon: float: A distance threshold. Clusters below this value will be merged.
@@ -243,7 +376,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         kwargs: Arguments passed to the distance metric
 
     Examples:
-
+    --------
         >>> import numpy as np
         >>> from klinker.data import NamedVector
         >>> from klinker.blockers.embedding.blockbuilder import HDBSCANEmbeddingBlockBuilder
@@ -271,7 +404,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         alpha: float = 1.0,
         p: Optional[float] = None,
         cluster_selection_method: str = "eom",
-        **kwargs
+        **kwargs,
     ):
         self.clusterer = HDBSCAN(
             min_cluster_size=min_cluster_size,
@@ -280,7 +413,7 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
             metric=metric,
             alpha=alpha,
             p=p,
-            **kwargs
+            **kwargs,
         )
 
     def _cluster(
@@ -291,10 +424,12 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
         """Cluster embeddings.
 
         Args:
+        ----
           left: GeneralVector: left embeddings.
           right: GeneralVector: right embeddings.
 
         Returns:
+        -------
             cluster labels of left/right
         """
         cluster_labels = self.clusterer.fit_predict(np.concatenate([left, right]))
@@ -302,7 +437,11 @@ class HDBSCANEmbeddingBlockBuilder(ClusteringEmbeddingBlockBuilder):
 
 
 block_builder_resolver = ClassResolver(
-    [KiezEmbeddingBlockBuilder, HDBSCANEmbeddingBlockBuilder],
+    [
+        KiezEmbeddingBlockBuilder,
+        HDBSCANEmbeddingBlockBuilder,
+        SparseSinkhornEmbeddingBlockBuilder,
+    ],
     base=EmbeddingBlockBuilder,
     default=KiezEmbeddingBlockBuilder,
 )

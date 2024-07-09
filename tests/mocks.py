@@ -18,6 +18,7 @@ class MockKeyedVector:
             return np.random.rand(self.dimension)
         else:
             self.embeddings[key]
+            return None
 
     @classmethod
     def load(cls, path, mmap):

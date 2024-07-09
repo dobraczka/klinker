@@ -1,13 +1,9 @@
 import os
-from klinker.blockers.base import postprocess
 import time
 from typing import Any, Dict, Tuple, Type, Union
 
 import click
-import numpy as np
-from klinker.trackers import WANDBResultTracker
-from sylloge import OpenEA
-
+from klinker.blockers.base import postprocess
 from klinker.blockers.embedding import KiezEmbeddingBlockBuilder
 from klinker.data import KlinkerDataset, NamedVector
 from klinker.encoders import (
@@ -18,6 +14,8 @@ from klinker.encoders import (
 )
 from klinker.encoders.deepblocker import DeepBlockerFrameEncoder
 from klinker.eval import Evaluation
+from klinker.trackers import WANDBResultTracker
+from sylloge import OpenEA
 
 
 def _load_or_create_path(
@@ -46,7 +44,11 @@ def run_experiment(
     n_neighbors: int,
     base_dir: str,
 ):
-    tracker = WANDBResultTracker(project="klinker", entity="dobraczka", config={**click.get_current_context().params, "encoder_experiment": True})
+    tracker = WANDBResultTracker(
+        project="klinker",
+        entity="dobraczka",
+        config={**click.get_current_context().params, "encoder_experiment": True},
+    )
     tracker.start_run()
     path_or_encoded = _load_or_create_path(base_dir, encoder)
     ds = KlinkerDataset.from_sylloge(
