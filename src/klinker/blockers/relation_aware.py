@@ -297,7 +297,14 @@ class BaseSimpleRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        return self._blocker.assign(left=left_conc, right=right_conc)
+        return self._blocker.assign(
+            left=left_conc,
+            right=right_conc,
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
 
 
 class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
@@ -396,11 +403,25 @@ class BaseRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
         """
         assert left_rel is not None
         assert right_rel is not None
-        attr_blocked = self._attribute_blocker.assign(left=left, right=right)
+        attr_blocked = self._attribute_blocker.assign(
+            left=left,
+            right=right,
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
         left_rel_conc, right_rel_conc = self.concat_relational_info(
             left, right, left_rel, right_rel, include_own_attributes=False
         )
-        rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
+        rel_blocked = self._relation_blocker.assign(
+            left_rel_conc,
+            right_rel_conc,
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
         return combine_blocks(attr_blocked, rel_blocked)
 
 
@@ -598,7 +619,14 @@ class RelationalTokenBlockerAttributeBlocker(BaseRelationalBlocker):
     ) -> KlinkerBlockManager:
         assert left_rel is not None
         assert right_rel is not None
-        attr_blocked = self._attribute_blocker.assign(left=left, right=right)
+        attr_blocked = self._attribute_blocker.assign(
+            left=left,
+            right=right,
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
         left_rel_conc, right_rel_conc = self.concat_relational_info(
             left,
             right,
@@ -607,17 +635,12 @@ class RelationalTokenBlockerAttributeBlocker(BaseRelationalBlocker):
             include_own_attributes=False,
             do_not_concat_values=True,
         )
-        rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
+        rel_blocked = self._relation_blocker.assign(
+            left_rel_conc,
+            right_rel_conc,
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
         return KlinkerBlockManager(dd.concat([attr_blocked.blocks, rel_blocked.blocks]))
-
-
-if __name__ == "__main__":
-    from sylloge import OpenEA
-    from klinker.data import KlinkerDataset
-    from klinker.eval import Evaluation
-
-    ds = KlinkerDataset.from_sylloge(OpenEA(), clean=True)
-    blocks = RelationalTokenBlockerAttributeBlocker().assign(
-        ds.left, ds.right, ds.left_rel, ds.right_rel
-    )
-    print(Evaluation.from_dataset(blocks, ds).to_dict())

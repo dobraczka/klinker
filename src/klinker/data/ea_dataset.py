@@ -87,7 +87,7 @@ class KlinkerDataset:
             left_id_col="head",
             right_id_col="head",
             left_table_name=dataset.dataset_names[0],
-            right_table_name=dataset.dataset_names[0],
+            right_table_name=dataset.dataset_names[1],
         )
 
     def _sample_side(

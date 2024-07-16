@@ -3,7 +3,7 @@ import pandas as pd
 import dask.dataframe as dd
 from typing import Optional
 
-from ..data import KlinkerBlockManager
+from ..data import KlinkerBlockManager, KlinkerDataset
 from .concat_utils import concat_values
 from ..typing import FrameType, SeriesType
 
@@ -36,6 +36,18 @@ class Blocker(abc.ABC):
         -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
+
+    def assign_from_dataset(self, ds: KlinkerDataset):
+        return self.assign(
+            left=ds.left,
+            right=ds.right,
+            left_rel=ds.left_rel,
+            right_rel=ds.right_rel,
+            left_id_col=ds.left_id_col,
+            right_id_col=ds.right_id_col,
+            left_table_name=ds.left_table_name,
+            right_table_name=ds.right_table_name,
+        )
 
 
 class AttributeConcatBlocker(Blocker):

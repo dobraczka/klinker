@@ -9,6 +9,7 @@ from typing import Callable, List, Optional, Tuple, Literal
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
+from .concat_utils import concat_values
 from ..typing import FrameType
 from ..data.blocks import KlinkerBlockManager
 from ..encoders import TokenizedFrameEncoder, frame_encoder_resolver
@@ -315,10 +316,10 @@ class TokenClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
         right_table_name: str = "left",
     ) -> KlinkerBlockManager:
         left_tok = self._inner_token_blocker._create_exploded_token_frame(
-            left.fillna("").concat_values()
+            concat_values(left, id_col=left_id_col)
         ).rename(columns={left_table_name: "tail"})
         right_tok = self._inner_token_blocker._create_exploded_token_frame(
-            right.fillna("").concat_values()
+            concat_values(right, id_col=right_id_col)
         ).rename(columns={right_table_name: "tail"})
         left_c, right_c = self.embed_and_cluster(
             left_tok, right_tok, left_table_name, right_table_name
@@ -386,10 +387,10 @@ class TokenClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlocker):
         right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         left_tok = self._inner_token_blocker._create_exploded_token_frame(
-            left.fillna("").concat_values()
+            concat_values(left, id_col=left_id_col)
         ).rename(columns={left_table_name: "tail"})
         right_tok = self._inner_token_blocker._create_exploded_token_frame(
-            right.fillna("").concat_values()
+            concat_values(right, id_col=right_id_col)
         ).rename(columns={right_table_name: "tail"})
         left_c, right_c = self.embed_and_cluster(
             left_tok, right_tok, left_table_name, right_table_name
