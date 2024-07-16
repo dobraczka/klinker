@@ -20,13 +20,13 @@ import dask.dataframe as dd
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
+from ..typing import FrameType
 
 from ..data import (
     KlinkerBlockManager,
-    KlinkerFrame,
     combine_blocks,
 )
-from .base import SchemaAgnosticBlocker
+from .base import Blocker
 from .token_blocking import TokenBlocker, UniqueNameBlocker
 
 logger = logging.getLogger(__name__)
@@ -52,10 +52,10 @@ def filter_with_unique(conc, unique_blocks_side):
 
 
 class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
-    _attribute_blocker: SchemaAgnosticBlocker
-    _relation_blocker: SchemaAgnosticBlocker
-    _attr_blocker_cls: Type[SchemaAgnosticBlocker]
-    _rel_blocker_cls: Type[SchemaAgnosticBlocker]
+    _attribute_blocker: Blocker
+    _relation_blocker: Blocker
+    _attr_blocker_cls: Type[Blocker]
+    _rel_blocker_cls: Type[Blocker]
 
     def __init__(
         self,
@@ -94,7 +94,14 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         return self._attribute_blocker.assign(left, right)
 
     def _compute_rel_blocks(
-        self, left, right, left_rel, right_rel, unique_blocks
+        self,
+        left,
+        right,
+        left_rel,
+        right_rel,
+        unique_blocks,
+        left_table_name,
+        right_table_name,
     ) -> Optional[KlinkerBlockManager]:
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
@@ -103,10 +110,10 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
         right_filtered = right_conc
         if self.use_unique_name:
             left_filtered = filter_with_unique(
-                left_conc, unique_blocks.blocks[left.table_name]
+                left_conc, unique_blocks.blocks[left_table_name]
             )
             right_filtered = filter_with_unique(
-                right_conc, unique_blocks.blocks[right.table_name]
+                right_conc, unique_blocks.blocks[right_table_name]
             )
             if len(left_filtered) == 0 or len(right_filtered) == 0:
                 logging.info(
@@ -117,10 +124,14 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         assert left_rel is not None
         assert right_rel is not None
@@ -131,7 +142,13 @@ class BaseCompositeUniqueNameBlocker(BaseRelationalBlocker):
 
         attr_blocks = self._compute_attr_blocks(left, right, unique_blocks)
         rel_blocks = self._compute_rel_blocks(
-            left, right, left_rel, right_rel, unique_blocks
+            left,
+            right,
+            left_rel,
+            right_rel,
+            unique_blocks,
+            left_table_name,
+            right_table_name,
         )
         if rel_blocks is None:
             return attr_blocks
@@ -179,10 +196,14 @@ class CompositeRelationalTokenBlocker(SimpleRelationalTokenBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         unique_blocks = self._unique_blocker.assign(left, right)
         unique_blocks.blocks.persist()
@@ -207,19 +228,19 @@ class BaseCompositeRelationalClusteringBlocker(BaseCompositeUniqueNameBlocker):
 
     def concat_relational_info(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: KlinkerFrame,
-        right_rel: KlinkerFrame,
+        left: FrameType,
+        right: FrameType,
+        left_rel: FrameType,
+        right_rel: FrameType,
     ) -> Tuple[SeriesType, SeriesType]:
         """Concatenate neighbor entity attribute values with own.
 
         Args:
         ----
-          left: KlinkerFrame: Frame with attribute info of left dataset.
-          right: KlinkerFrame: Frame with attribute info of right dataset.
-          left_rel: KlinkerFrame: Relation triples of left dataset.
-          right_rel: KlinkerFrame: Relation triples of right dataset.
+          left: FrameType: Frame with attribute info of left dataset.
+          right: FrameType: Frame with attribute info of right dataset.
+          left_rel: FrameType: Relation triples of left dataset.
+          right_rel: FrameType: Relation triples of right dataset.
 
         Returns:
         -------

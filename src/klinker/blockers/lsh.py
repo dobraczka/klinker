@@ -5,13 +5,10 @@ import pandas as pd
 from datasketch import LeanMinHash, MinHash, MinHashLSH
 from nltk.tokenize import word_tokenize
 
-from klinker.typing import SeriesType
+from klinker.typing import SeriesType, FrameType
 
-from ..data import (
-    KlinkerBlockManager,
-    KlinkerFrame,
-)
-from .base import SchemaAgnosticBlocker
+from ..data import KlinkerBlockManager
+from .base import AttributeConcatBlocker
 from nltk.corpus import stopwords
 
 
@@ -96,7 +93,7 @@ def _query(
     return pd.DataFrame(cur_block, index=index)
 
 
-class MinHashLSHBlocker(SchemaAgnosticBlocker):
+class MinHashLSHBlocker(AttributeConcatBlocker):
     """Blocker relying on MinHashLSH procedure.
 
     Args:
@@ -160,8 +157,12 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         self,
         left: SeriesType,
         right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
@@ -173,8 +174,8 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
         ----
           left: SeriesType: concatenated entity attribute values of left dataset as series.
           right: SeriesType: concatenated entity attribute values of left dataset as series.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left_rel: Optional[FrameType]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[FrameType]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
         -------
@@ -196,9 +197,11 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                 _query,
                 lsh=lsh,
                 encode_fn=self._inner_encode,
-                left_name=left.name,
-                right_name=right.name,
-                meta=pd.DataFrame([], columns=[left.name, right.name], dtype="O"),
+                left_name=left_table_name,
+                right_name=right_table_name,
+                meta=pd.DataFrame(
+                    [], columns=[left_table_name, right_table_name], dtype="O"
+                ),
             )
             return KlinkerBlockManager(blocks)
         else:
@@ -207,7 +210,7 @@ class MinHashLSHBlocker(SchemaAgnosticBlocker):
                 right,
                 lsh=lsh,
                 encode_fn=self._inner_encode,
-                left_name=left.name,
-                right_name=right.name,
+                left_name=left_table_name,
+                right_name=right_table_name,
             )
             return KlinkerBlockManager.from_pandas(blocks)

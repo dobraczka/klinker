@@ -1,29 +1,26 @@
 from dataclasses import dataclass
 from eche import PrefixedClusterHelper
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple
 
 import pandas as pd
 from sylloge.base import MultiSourceEADataset
 
-from ..typing import Side
-from .enhanced_df import (
-    KlinkerDaskFrame,
-    KlinkerFrame,
-    KlinkerPandasFrame,
-    KlinkerTripleDaskFrame,
-    KlinkerTriplePandasFrame,
-)
+from ..typing import Side, FrameType
 
 
 @dataclass
 class KlinkerDataset:
     """Helper class to hold info of benchmark datasets."""
 
-    left: KlinkerFrame
-    right: KlinkerFrame
+    left: FrameType
+    right: FrameType
     gold: pd.DataFrame
-    left_rel: Optional[pd.DataFrame] = None
-    right_rel: Optional[pd.DataFrame] = None
+    left_rel: Optional[FrameType] = None
+    right_rel: Optional[FrameType] = None
+    left_id_col: str = "head"
+    right_id_col: str = "head"
+    left_table_name: str = "left"
+    right_table_name: str = "right"
 
     @classmethod
     def from_sylloge(
@@ -50,40 +47,20 @@ class KlinkerDataset:
             >>> ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark())
 
         """
-        left: Union[KlinkerDaskFrame, KlinkerPandasFrame]
-        right: Union[KlinkerDaskFrame, KlinkerPandasFrame]
-        ds_names = dataset.dataset_names
-
-        attr_left = dataset.attr_triples[0]
-        attr_right = dataset.attr_triples[1]
+        if dataset.backend == "dask" and partition_size:
+            attr_left, attr_right, left_rel, right_rel = [
+                frame.repartition(partition_size=partition_size)
+                for frame in [
+                    dataset.attr_triples[0],
+                    dataset.attr_triples[1],
+                    dataset.rel_triples[0],
+                    dataset.rel_triples[1],
+                ]
+            ]
+        left = dataset.attr_triples[0]
+        right = dataset.attr_triples[1]
         left_rel = dataset.rel_triples[0]
         right_rel = dataset.rel_triples[1]
-        if dataset.backend == "pandas":
-            left = KlinkerTriplePandasFrame.from_df(
-                attr_left, table_name=ds_names[0], id_col="head"
-            )
-            right = KlinkerTriplePandasFrame.from_df(
-                attr_right, table_name=ds_names[1], id_col="head"
-            )
-        elif dataset.backend == "dask":
-            if partition_size:
-                attr_left, attr_right, left_rel, right_rel = [
-                    frame.repartition(partition_size=partition_size)
-                    for frame in [
-                        dataset.attr_triples[0],
-                        dataset.attr_triples[1],
-                        left_rel,
-                        right_rel,
-                    ]
-                ]
-            left = KlinkerTripleDaskFrame.from_dask_dataframe(
-                attr_left, table_name=ds_names[0], id_col="head"
-            )
-            right = KlinkerTripleDaskFrame.from_dask_dataframe(
-                attr_right, table_name=ds_names[1], id_col="head"
-            )
-        else:
-            raise ValueError(f"Unknown dataset backend {dataset.backend}")
 
         if clean:
             # remove datatype
@@ -107,11 +84,15 @@ class KlinkerDataset:
             left_rel=left_rel,
             right_rel=right_rel,
             gold=ent_links,
+            left_id_col="head",
+            right_id_col="head",
+            left_table_name=dataset.dataset_names[0],
+            right_table_name=dataset.dataset_names[0],
         )
 
     def _sample_side(
-        self, sample: pd.DataFrame, side: Side
-    ) -> Tuple[KlinkerFrame, Optional[pd.DataFrame]]:
+        self, sample: FrameType, side: Side, id_col: str = "head"
+    ) -> Tuple[FrameType, Optional[pd.DataFrame]]:
         if side == "left":
             rel_df = self.left_rel
             attr_df = self.left
@@ -120,7 +101,7 @@ class KlinkerDataset:
             rel_df = self.right_rel
             attr_df = self.right
             sample_col = sample.columns[1]
-        sampled_attr_df = attr_df[attr_df[attr_df.id_col].isin(sample[sample_col])]
+        sampled_attr_df = attr_df[attr_df[id_col].isin(sample[sample_col])]
         if rel_df is None:
             return sampled_attr_df, None
         return (
@@ -131,7 +112,7 @@ class KlinkerDataset:
             ],
         )
 
-    def sample(self, frac: float) -> "KlinkerDataset":
+    def sample(self, frac: float, id_col: str = "head") -> "KlinkerDataset":
         """Get a sample of the dataset.
 
         Note:
@@ -155,12 +136,20 @@ class KlinkerDataset:
         """
         # TODO actually sample
         sample_ent_links = self.gold.sample(frac=frac)
-        sample_left, sample_left_rel = self._sample_side(sample_ent_links, "left")
-        sample_right, sample_right_rel = self._sample_side(sample_ent_links, "right")
+        sample_left, sample_left_rel = self._sample_side(
+            sample_ent_links, "left", id_col
+        )
+        sample_right, sample_right_rel = self._sample_side(
+            sample_ent_links, "right", id_col
+        )
         return KlinkerDataset(
             left=sample_left,
             right=sample_right,
             left_rel=sample_left_rel,
             right_rel=sample_right_rel,
             gold=sample_ent_links,
+            left_id_col=self.left_id_col,
+            right_id_col=self.right_id_col,
+            left_table_name=self.left_table_name,
+            right_table_name=self.right_table_name,
         )

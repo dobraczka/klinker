@@ -9,14 +9,14 @@ from torch.nn.modules.loss import _Loss
 from torch.optim import Optimizer
 
 from klinker.utils import resolve_device
+import dask.dataframe as dd
 
-from ..data import KlinkerDaskFrame
 from ..models.deepblocker import (
     AutoEncoderDeepBlockerModelTrainer,
     CTTDeepBlockerModelTrainer,
     DeepBlockerModelTrainer,
 )
-from ..typing import Frame, GeneralVector
+from ..typing import FrameType, GeneralVector
 from .base import TokenizedFrameEncoder
 from .pretrained import tokenized_frame_encoder_resolver
 
@@ -75,16 +75,16 @@ class DeepBlockerFrameEncoder(Generic[FeatureType], TokenizedFrameEncoder):
         raise NotImplementedError
 
     def create_features(
-        self, left: Frame, right: Frame
+        self, left: FrameType, right: FrameType
     ) -> Tuple[FeatureType, torch.Tensor, torch.Tensor]:
         raise NotImplementedError
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         features, left_enc, right_enc = self.create_features(left, right)
         assert self.input_dimension is not None
@@ -151,7 +151,7 @@ class AutoEncoderDeepBlockerFrameEncoder(DeepBlockerFrameEncoder[torch.Tensor]):
         return AutoEncoderDeepBlockerModelTrainer
 
     def create_features(
-        self, left: Frame, right: Frame
+        self, left: FrameType, right: FrameType
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Features for AutoEncoder.
 
@@ -231,7 +231,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         self.random_seed = random_seed
 
     def create_features(
-        self, left: Frame, right: Frame
+        self, left: FrameType, right: FrameType
     ) -> Tuple[
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
     ]:
@@ -246,7 +246,7 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
         -------
             (left_training, right_training, labels), left encoded, right encoded
         """
-        if isinstance(left, KlinkerDaskFrame):
+        if isinstance(left, dd.DataFrame):
             raise NotImplementedError(
                 "CrossTupleTrainingDeepBlockerFrameEncoder has not been implemented for dask yet!"
             )
@@ -324,10 +324,10 @@ class CrossTupleTrainingDeepBlockerFrameEncoder(DeepBlockerFrameEncoder):
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         self.inner_encoder.prepare(left, right)
         (

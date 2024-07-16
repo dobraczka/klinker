@@ -1,5 +1,5 @@
 import pathlib
-from typing import Callable, List, Optional, Tuple, TypeVar, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import dask.dataframe as dd
 import pandas as pd
@@ -10,26 +10,21 @@ from klinker.typing import SeriesType
 
 from ..data import (
     KlinkerBlockManager,
-    KlinkerFrame,
-    KlinkerPandasFrame,
-    KlinkerTripleDaskFrame,
-    KlinkerTriplePandasFrame,
     combine_blocks,
 )
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
-from ..typing import Frame
+from ..typing import FrameType
 from ..utils import concat_frames
-from .base import Blocker, SchemaAgnosticBlocker
+from .base import Blocker
+from .concat_utils import concat_values
 from .embedding.blockbuilder import EmbeddingBlockBuilder
 from .embedding.deepblocker import DeepBlocker
 from .lsh import MinHashLSHBlocker
 from .token_blocking import TokenBlocker
 from .standard import StandardBlocker
 
-FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
 
-
-def reverse_rel(rel_frame: Frame, inverse_prefix: str = "") -> Frame:
+def reverse_rel(rel_frame: FrameType, inverse_prefix: str = "") -> FrameType:
     """Reverse the relations by switching first and last column.
 
     Args:
@@ -62,7 +57,7 @@ def _upgrade_to_triple(concat_attr: FrameType, conc_frame: FrameType) -> FrameTy
     return concat_attr
 
 
-def count_entities(attr_frame: Frame, rel_frame: Frame) -> int:
+def count_entities(attr_frame: FrameType, rel_frame: FrameType) -> int:
     conc = concat_frames(
         [
             attr_frame[attr_frame.columns[0]],
@@ -73,7 +68,7 @@ def count_entities(attr_frame: Frame, rel_frame: Frame) -> int:
     return conc.count().compute() if isinstance(attr_frame, dd.DataFrame) else len(conc)
 
 
-def _importance(counted: Frame) -> Frame:
+def _importance(counted: FrameType) -> FrameType:
     res = (
         2
         * (counted["support"] * counted["discriminability"])
@@ -82,7 +77,7 @@ def _importance(counted: Frame) -> Frame:
     return res.to_frame("importance")
 
 
-def relation_importance(rel_frame: Frame, num_entities: int) -> Frame:
+def relation_importance(rel_frame: FrameType, num_entities: int) -> FrameType:
     counted = rel_frame.groupby(rel_frame.columns[1]).agg(
         rel_count=(rel_frame.columns[1], "count"),
         tail_count=(rel_frame.columns[2], "count"),
@@ -92,7 +87,7 @@ def relation_importance(rel_frame: Frame, num_entities: int) -> Frame:
     return _importance(counted)
 
 
-def name_importance(attr_frame: Frame, num_entities: int) -> Frame:
+def name_importance(attr_frame: FrameType, num_entities: int) -> FrameType:
     counted = attr_frame.groupby(attr_frame.columns[1]).agg(
         head_count=(attr_frame.columns[0], "count"),
         rel_count=(attr_frame.columns[1], "count"),
@@ -104,13 +99,12 @@ def name_importance(attr_frame: Frame, num_entities: int) -> Frame:
 
 
 def filter_importance(
-    triple_frame: Frame,
-    importance: Frame,
+    triple_frame: FrameType,
+    importance: FrameType,
     top_n: int,
-    table_name: Optional[str] = None,
     id_col: Optional[str] = None,
-) -> Frame:
-    def _filter_by_n_importance(group, top_n) -> Frame:
+) -> FrameType:
+    def _filter_by_n_importance(group, top_n) -> FrameType:
         head_col = group.columns[0]
         rel_col = group.columns[1]
         tail_col = group.columns[2]
@@ -131,31 +125,17 @@ def filter_importance(
         res = joined.groupby(triple_frame.columns[0]).apply(
             _filter_by_n_importance, top_n=top_n, meta=meta_df
         )
-        if table_name is None:
-            return res
-        assert id_col
-        return KlinkerTripleDaskFrame.from_dask_dataframe(
-            res,
-            table_name=table_name,
-            id_col=id_col,
-            construction_class=KlinkerTriplePandasFrame,
-        )
+        return res
     res = joined.groupby(triple_frame.columns[0]).apply(
         _filter_by_n_importance, top_n=top_n
     )
-    if table_name is None:
-        return res
-    assert id_col
-    return KlinkerTriplePandasFrame.from_df(
-        res,
-        table_name=triple_frame.table_name,
-        id_col=triple_frame.id_col,
-    )
+    return res
 
 
 def concat_neighbor_attributes(
-    attribute_frame: KlinkerFrame,
-    rel_frame: Frame,
+    attribute_frame: FrameType,
+    rel_frame: FrameType,
+    id_col: str = "head",
     include_own_attributes: bool = True,
     top_n_a: Optional[int] = None,
     top_n_r: Optional[int] = None,
@@ -165,22 +145,17 @@ def concat_neighbor_attributes(
 
     Args:
     ----
-      attribute_frame: KlinkerFrame with entity attributes
+      attribute_frame: Frame with entity attributes
       rel_frame: Frame with relation triples
       include_own_attributes: if True also concatenates attributes of entity itself
-      attribute_frame: KlinkerFrame:
-      rel_frame: Frame:
-      include_own_attributes: bool:  (Default value = True)
-      top_n_a: Optional[int]: If set determines the number of most important properties to keep
-      top_n_r: Optional[int]: If set determines the number of most important relations to keep
+      top_n_a: If set determines the number of most important properties to keep
+      top_n_r: If set determines the number of most important relations to keep
 
     Returns:
     -------
       Series with concatenated attribute values of neighboring entities
 
     """
-    assert attribute_frame.table_name
-    table_name = attribute_frame.table_name
     num_entities = None
     rev_rel_frame = reverse_rel(rel_frame)
     with_inv = concat_frames([rel_frame, rev_rel_frame])
@@ -193,18 +168,20 @@ def concat_neighbor_attributes(
             attribute_frame,
             prop_importance,
             top_n_a,
-            table_name=table_name,
-            id_col=attribute_frame.id_col,
+            id_col=id_col,
         )
     if do_not_concat_values:
-        concat_attr = attribute_frame[
-            [attribute_frame.id_col, attribute_frame.columns[2]]
-        ]
+        concat_attr = attribute_frame[[id_col, attribute_frame.columns[2]]]
     else:
-        concat_attr = attribute_frame.concat_values().to_frame().reset_index()
+        concat_attr = (
+            concat_values(attribute_frame, id_col=id_col).to_frame().reset_index()
+        )
+
+    # needed to have relation triple schema in the end
+    concat_attr.columns = [id_col, rel_frame.columns[2]]
     if isinstance(concat_attr, dd.DataFrame):
         concat_attr._meta = pd.DataFrame(
-            [], columns=[attribute_frame.id_col, attribute_frame.table_name], dtype=str
+            [], columns=[id_col, rel_frame.columns[2]], dtype=str
         )
 
     # filter relations
@@ -219,32 +196,23 @@ def concat_neighbor_attributes(
         )
     conc_frame = (
         with_inv.set_index(with_inv.columns[2])
-        .join(concat_attr.set_index(attribute_frame.id_col), how="left")
+        .join(concat_attr.set_index(id_col), how="left")
         .dropna()
     )
 
-    if isinstance(attribute_frame, KlinkerPandasFrame):
+    if isinstance(attribute_frame, pd.DataFrame):
         if include_own_attributes:
             concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = pd.concat([conc_frame, concat_attr])
-        res = KlinkerTriplePandasFrame(
-            conc_frame,
-            table_name=attribute_frame.table_name,
-            id_col=rel_frame.columns[0],
-        )
+        res = conc_frame
     else:
         if include_own_attributes:
             concat_attr = _upgrade_to_triple(concat_attr, conc_frame)
             conc_frame = dd.concat([conc_frame, concat_attr])
-        res = KlinkerTripleDaskFrame.from_dask_dataframe(
-            conc_frame,
-            table_name=attribute_frame.table_name,
-            id_col=rel_frame.columns[0],
-            construction_class=KlinkerTriplePandasFrame,
-        )
+        res = conc_frame
     if do_not_concat_values:
         return res
-    return res.concat_values()
+    return concat_values(res, id_col=id_col)
 
 
 class ConcatRelationalInfoMixin:
@@ -254,10 +222,10 @@ class ConcatRelationalInfoMixin:
 
     def concat_relational_info(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: KlinkerFrame,
-        right_rel: KlinkerFrame,
+        left: FrameType,
+        right: FrameType,
+        left_rel: FrameType,
+        right_rel: FrameType,
         include_own_attributes: bool = True,
         do_not_concat_values: bool = False,
     ) -> Tuple[SeriesType, SeriesType]:
@@ -265,10 +233,10 @@ class ConcatRelationalInfoMixin:
 
         Args:
         ----
-          left: KlinkerFrame: Frame with attribute info of left dataset.
-          right: KlinkerFrame: Frame with attribute info of right dataset.
-          left_rel: KlinkerFrame: Relation triples of left dataset.
-          right_rel: KlinkerFrame: Relation triples of right dataset.
+          left: Frame with attribute info of left dataset.
+          right: Frame with attribute info of right dataset.
+          left_rel: Relation triples of left dataset.
+          right_rel: Relation triples of right dataset.
 
         Returns:
         -------
@@ -296,14 +264,18 @@ class ConcatRelationalInfoMixin:
 class BaseSimpleRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
     """Uses one blocking strategy on entity attribute values and concatenation of neighboring values."""
 
-    _blocker: SchemaAgnosticBlocker
+    _blocker: Blocker
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
@@ -311,10 +283,10 @@ class BaseSimpleRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
 
         Args:
         ----
-          left: KlinkerFrame: Contains entity attribute information of left dataset.
-          right: KlinkerFrame: Contains entity attribute information of right dataset.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left: Contains entity attribute information of left dataset.
+          right: Contains entity attribute information of right dataset.
+          left_rel: Contains relational information of left dataset.
+          right_rel: Contains relational information of left dataset.
 
         Returns:
         -------
@@ -325,7 +297,7 @@ class BaseSimpleRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
         left_conc, right_conc = self.concat_relational_info(
             left=left, right=right, left_rel=left_rel, right_rel=right_rel
         )
-        return self._blocker._assign(left=left_conc, right=right_conc)
+        return self._blocker.assign(left=left_conc, right=right_conc)
 
 
 class SimpleRelationalTokenBlocker(BaseSimpleRelationalBlocker):
@@ -391,15 +363,19 @@ class SimpleRelationalMinHashLSHBlocker(BaseSimpleRelationalBlocker):
 class BaseRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
     """Uses seperate blocker for entity attribute values and concatenation of neighboring entity attribute values."""
 
-    _attribute_blocker: SchemaAgnosticBlocker
-    _relation_blocker: SchemaAgnosticBlocker
+    _attribute_blocker: Blocker
+    _relation_blocker: Blocker
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
@@ -409,10 +385,10 @@ class BaseRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
 
         Args:
         ----
-          left: KlinkerFrame: Contains entity attribute information of left dataset.
-          right: KlinkerFrame: Contains entity attribute information of right dataset.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left: Contains entity attribute information of left dataset.
+          right: Contains entity attribute information of right dataset.
+          left_rel: Contains relational information of left dataset.
+          right_rel: Contains relational information of left dataset.
 
         Returns:
         -------
@@ -424,7 +400,7 @@ class BaseRelationalBlocker(ConcatRelationalInfoMixin, Blocker):
         left_rel_conc, right_rel_conc = self.concat_relational_info(
             left, right, left_rel, right_rel, include_own_attributes=False
         )
-        rel_blocked = self._relation_blocker._assign(left_rel_conc, right_rel_conc)
+        rel_blocked = self._relation_blocker.assign(left_rel_conc, right_rel_conc)
         return combine_blocks(attr_blocked, rel_blocked)
 
 
@@ -611,10 +587,14 @@ class RelationalTokenBlockerAttributeBlocker(BaseRelationalBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         assert left_rel is not None
         assert right_rel is not None
