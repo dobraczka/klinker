@@ -7,7 +7,7 @@ import pandas as pd
 import torch
 from class_resolver import ClassResolver
 from kiez.hubness_reduction import HubnessReduction
-from kiez.neighbors import NNAlgorithm
+from kiez.neighbors import NNAlgorithm, SklearnNN
 from kiez import Kiez
 
 from ...data import KlinkerBlockManager, NamedVector, NNBasedKlinkerBlockManager
@@ -182,6 +182,11 @@ class KiezEmbeddingBlockBuilder(NearestNeighborEmbeddingBlockBuilder):
         -------
             distances, nearest neighbors
         """
+        if isinstance(self.kiez.algorithm, SklearnNN) and isinstance(
+            left, torch.Tensor
+        ):
+            left = left.detach().cpu().numpy()
+            right = right.detach().cpu().numpy()
         self.kiez.fit(left, right)
         dist, neighs = self.kiez.kneighbors(k=self.n_neighbors, return_distance=True)
         return dist, neighs

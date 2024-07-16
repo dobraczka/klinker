@@ -9,14 +9,12 @@ from class_resolver import HintOrType, OptionalKwargs
 
 from klinker.data import (
     KlinkerBlockManager,
-    KlinkerFrame,
     NamedVector,
 )
 from klinker.encoders import FrameEncoder, frame_encoder_resolver
-from klinker.typing import SeriesType
+from ...typing import SeriesType, FrameType
 
-from ...data import generic_upgrade_from_series
-from ..base import SchemaAgnosticBlocker
+from ..base import AttributeConcatBlocker
 from .blockbuilder import EmbeddingBlockBuilder, block_builder_resolver
 
 ENC_PREFIX = Literal["left_", "right_"]
@@ -25,7 +23,7 @@ ENC_SUFFIX = "_enc.pkl"
 logger = logging.getLogger("klinker")
 
 
-class EmbeddingBlocker(SchemaAgnosticBlocker):
+class EmbeddingBlocker(AttributeConcatBlocker):
     """Base class for embedding-based blocking approaches.
 
     Args:
@@ -71,8 +69,10 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         self,
         left: SeriesType,
         right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left_table_name: str,
+        right_table_name: str,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[NamedVector, NamedVector]:
         print("self.save=%s" % (self.save))
         left_emb = None
@@ -81,16 +81,16 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         if self.save:
             if self.save_dir is None:
                 save_dir = pathlib.Path(".").joinpath(
-                    f"{left.table_name}_{right.table_name}_{self.frame_encoder.__class__.__name__}"
+                    f"{left_table_name}_{right_table_name}_{self.frame_encoder.__class__.__name__}"
                 )
                 self.save_dir = save_dir
             # check if loadable
             if os.path.exists(self.save_dir):
                 left_path, left_name = self._encoding_path_and_table_name_from_dir(
-                    "left_", left.table_name
+                    "left_", left_table_name
                 )
                 right_path, right_name = self._encoding_path_and_table_name_from_dir(
-                    "right_", right.table_name
+                    "right_", right_table_name
                 )
                 if left_path is not None and right_path is not None:
                     if self.force:
@@ -118,12 +118,10 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
             )
             if self.save:
                 assert self.save_dir  # for mypy
-                assert left.table_name
-                assert right.table_name
                 EmbeddingBlocker.save_encoded(
                     self.save_dir,
                     (left_emb, right_emb),
-                    (left.table_name, right.table_name),
+                    (left_table_name, right_table_name),
                 )
         assert left_emb
         assert right_emb
@@ -133,30 +131,34 @@ class EmbeddingBlocker(SchemaAgnosticBlocker):
         self,
         left: SeriesType,
         right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "left",
     ) -> KlinkerBlockManager:
         """Args:
         ----
           left: SeriesType:
           right: SeriesType:
-          left_rel: Optional[KlinkerFrame]:  (Default value = None)
-          right_rel: Optional[KlinkerFrame]:  (Default value = None)
+          left_rel: Optional[FrameType]:  (Default value = None)
+          right_rel: Optional[FrameType]:  (Default value = None)
 
         Returns
         -------
 
         """
-        left = generic_upgrade_from_series(left, reset_index=False)
-        right = generic_upgrade_from_series(right, reset_index=False)
-        left_emb, right_emb = self._handle_encode(left, right, left_rel, right_rel)
-        assert left.table_name
-        assert right.table_name
+        left = left.to_frame(name=left_table_name)
+        right = right.to_frame(name=left_table_name)
+        left_emb, right_emb = self._handle_encode(
+            left, right, left_table_name, right_table_name, left_rel, right_rel
+        )
         return self.embedding_block_builder.build_blocks(
             left=left_emb,
             right=right_emb,
-            left_name=left.table_name,
-            right_name=right.table_name,
+            left_name=left_table_name,
+            right_name=right_table_name,
         )
 
     @staticmethod

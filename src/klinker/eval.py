@@ -205,8 +205,7 @@ class Evaluation:
             else:
                 fp += 1
                 if keep_false_positive_set:
-                    assert fp_set
-                    fp_set.add((left, right))
+                    fp_set.add(pair)
         comp_without_blocking = left_data_len * right_data_len
         return cls(
             true_positive_set=tp_pairs,
@@ -509,12 +508,12 @@ def multiple_block_comparison(
 
 if __name__ == "__main__":
     from klinker.data import KlinkerDataset
+    from klinker.eval import Evaluation
+    from klinker.data import KlinkerBlockManager
     from sylloge import OpenEA
 
     ds = KlinkerDataset.from_sylloge(OpenEA())
-    blocks = KlinkerBlockManager.read_parquet(
-        "experiment_artifacts/openea_d_w_15k_v1/SimpleRelationalTokenBlocker/a3e720762d7fadd5e433b0933046c8631951e47e_blocks.parquet/",
-        partition_size="100MB",
+    comp_blocks = KlinkerBlockManager.read_parquet(
+        "experiment_artifacts/openea_d_w_15k_v1/CompositeRelationalAutoEncoderDeepBlocker/avmykybo_blocks.parquet"
     )
-    # print(Evaluation.from_dataset(blocks, ds).to_dict())
-    print(MinimalEvaluation(blocks, ds).to_dict())
+    comp_res = Evaluation.from_dataset(comp_blocks, ds, True)

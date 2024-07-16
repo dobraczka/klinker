@@ -9,7 +9,7 @@ from nltk.tokenize import word_tokenize
 
 from .typing import (
     DeviceHint,
-    Frame,
+    FrameType,
     GeneralVector,
     GeneralVectorLiteral,
     NumpyVectorLiteral,
@@ -43,7 +43,7 @@ def resolve_device(device: DeviceHint = None) -> torch.device:
     return device
 
 
-def concat_frames(frames: List[Frame]) -> Frame:
+def concat_frames(frames: List[FrameType]) -> FrameType:
     """Concatenate dask or pandas frames.
 
     Args:

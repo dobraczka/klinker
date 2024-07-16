@@ -3,7 +3,8 @@ from typing import List, Optional
 import dask.dataframe as dd
 from nltk.util import ngrams
 
-from ..data import KlinkerBlockManager, KlinkerFrame
+from ..typing import FrameType
+from ..data import KlinkerBlockManager
 from .standard import StandardBlocker
 
 
@@ -53,19 +54,23 @@ class QgramsBlocker(StandardBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
         Args:
         ----
-          left: KlinkerFrame: Contains entity attribute information of left dataset.
-          right: KlinkerFrame: Contains entity attribute information of right dataset.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left: FrameType: Contains entity attribute information of left dataset.
+          right: FrameType: Contains entity attribute information of right dataset.
+          left_rel: Optional[FrameType]:  (Default value = None) Contains relational information of left dataset.
+          right_rel: Optional[FrameType]:  (Default value = None) Contains relational information of left dataset.
 
         Returns:
         -------
@@ -73,8 +78,11 @@ class QgramsBlocker(StandardBlocker):
         """
         assert isinstance(self.blocking_key, str)
         qgramed = []
-        for tab in [left, right]:
-            reduced = tab.set_index(tab.id_col)[self.blocking_key]
+        for tab, id_col, table_name in [
+            (left, left_id_col, left_table_name),
+            (right, right_id_col, right_table_name),
+        ]:
+            reduced = tab.set_index(id_col)[self.blocking_key]
             if isinstance(left, dd.DataFrame):
                 series = reduced.apply(
                     self.qgram_tokenize, meta=(self.blocking_key, "object")
@@ -83,11 +91,13 @@ class QgramsBlocker(StandardBlocker):
                 series = reduced.apply(self.qgram_tokenize)
             series = series.explode()
 
-            kf = tab.__class__._upgrade_from_series(
-                series,
-                table_name=tab.table_name,
-                id_col=tab.id_col,
-                columns=[tab.id_col, self.blocking_key],
-            )
+            kf = series.to_frame(name=self.blocking_key).reset_index()
             qgramed.append(kf)
-        return super().assign(left=qgramed[0], right=qgramed[1])
+        return super().assign(
+            left=qgramed[0],
+            right=qgramed[1],
+            left_id_col=left_id_col,
+            right_id_col=right_id_col,
+            left_table_name=left_table_name,
+            right_table_name=right_table_name,
+        )
