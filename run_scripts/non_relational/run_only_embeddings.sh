@@ -2,22 +2,22 @@
 small_nneighbors=500
 large_nneighbors=1000
 myargs=(
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_W --size 15K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_W --size 15K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_Y --size 15K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_Y --size 15K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_DE --size 15K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_DE --size 15K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_FR --size 15K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_FR --size 15K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_W --size 100K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_W --size 100K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_Y --size 100K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair D_Y --size 100K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_DE --size 100K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_DE --size 100K --version V2 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_FR --size 100K --version V1 only-embeddings-blocker"
- "--wandb --random-seed 42 open-ea-dataset --graph-pair EN_FR --size 100K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_W --size 15K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_W --size 15K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_Y --size 15K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_Y --size 15K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_DE --size 15K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_DE --size 15K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_FR --size 15K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_FR --size 15K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_W --size 100K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_W --size 100K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_Y --size 100K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair D_Y --size 100K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_DE --size 100K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_DE --size 100K --version V2 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_FR --size 100K --version V1 only-embeddings-blocker"
+ "--random-seed 42 open-ea-dataset --graph-pair EN_FR --size 100K --version V2 only-embeddings-blocker"
 )
 
 nnargs=()
