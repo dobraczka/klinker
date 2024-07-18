@@ -21,4 +21,4 @@ myargs=(
 curr_param=$(echo ${args[$SLURM_ARRAY_TASK_ID]})
 echo $curr_param
 
-micromamba run -n klinker-conda -r y experiment.py $curr_param
+micromamba run -n klinker-conda -r y python experiment.py $curr_param

@@ -21,4 +21,4 @@ args=(
 curr_param=$(echo ${args[$1]})
 echo $curr_param
 
-micromamba run -n klinker-conda -r y experiment.py $curr_param
+micromamba run -n klinker-conda -r y python experiment.py $curr_param
