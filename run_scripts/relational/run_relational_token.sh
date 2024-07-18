@@ -1,5 +1,5 @@
 #!/bin/bash
-myargs=(
+args=(
  "open-ea-dataset --graph-pair D_W --size 15K --version V1 relational-token-blocker --top-n-r 5"
  "open-ea-dataset --graph-pair D_W --size 15K --version V2 relational-token-blocker --top-n-r 7"
  "open-ea-dataset --graph-pair D_Y --size 15K --version V1 relational-token-blocker --top-n-r 3"
