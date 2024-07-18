@@ -18,7 +18,7 @@ myargs=(
  "open-ea-dataset --graph-pair EN_FR --size 100K --version V2 relational-token-blocker --top-n-r 8"
 )
 
-curr_param=$(echo ${args[$SLURM_ARRAY_TASK_ID]})
+curr_param=$(echo ${args[$1]})
 echo $curr_param
 
 micromamba run -n klinker-conda -r y python experiment.py $curr_param
