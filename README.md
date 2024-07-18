@@ -86,5 +86,7 @@ For example if you used micromamba for installation:
 ```bash
 micromamba run -n klinker-conda python experiment.py movie-graph-benchmark-dataset --graph-pair "tmdb-tvdb" relational-token-blocker
 ```
-
 This would be similar to the steps described in the above usage section.
+
+In order to precisely reproduce the results from the paper we provide (adapted) run scripts from our SLURM batch scripts in the `run_scripts` folder.
+We recommend to `git checkout paper` to checkout out the tagged commit on which the experiments were run since future development does not aim to be backwards compatible with this state.
