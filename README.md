@@ -88,5 +88,4 @@ micromamba run -n klinker-conda python experiment.py movie-graph-benchmark-datas
 ```
 This would be similar to the steps described in the above usage section.
 
-In order to precisely reproduce the results from the paper we provide (adapted) run scripts from our SLURM batch scripts in the `run_scripts` folder.
-We recommend to `git checkout paper` to checkout out the tagged commit on which the experiments were run since future development does not aim to be backwards compatible with this state.
+In order to precisely reproduce the results from the paper we provide (adapted) run scripts from our SLURM batch scripts in the `run_scripts` folder. Please consult the `run_scripts/README.md` for further information. For archival purposes the experiment artifacts and the source code are stored in [Zenodo](https://zenodo.org/records/12774407).
