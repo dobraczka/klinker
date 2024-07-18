@@ -43,7 +43,12 @@ done
 sif_args="--inner-encoder sifembeddingtokenized --reduce-dim-to $reduce_dim_to --umap-n-neighbors $umap_n_neighbors --umap-min-dist $umap_min_dist"
 for base in "${myargs[@]}"
 do
-    args+=("$base $other_args $sif_args --embeddings $embeddings")
+	if [[ $base =~ .*15K.* ]]
+	then
+        args+=("$base $other_args $sif_args --embeddings fasttext")
+	else
+        args+=("$base $other_args $sif_args --embeddings 100wiki.en.bin")
+	fi
 done
 
 curr_param=$(echo ${args[$1]})
