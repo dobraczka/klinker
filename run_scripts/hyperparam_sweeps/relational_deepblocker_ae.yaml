@@ -1,0 +1,46 @@
+command:
+  - ${env}
+  - /home/h7/daob673c/.local/bin/micromamba
+  - run
+  - -n
+  - klinker-conda
+  - -r
+  - "y"
+  - python
+  - ${program}
+  - --random-seed
+  - "42"
+  - --wandb
+  - open-ea-dataset
+  - relational-deepblocker
+  - --encoder
+  - autoencoder
+  - --inner-encoder
+  - sentencetransformertokenized
+  - --inner-encoder-batch-size
+  - "512"
+  - --batch-size
+  - "512"
+  - --force
+  - "True"
+  - --n-neighbors
+  - "250"
+  - --rel-n-neighbors
+  - "250"
+  - ${args}
+method: bayes
+metric:
+  goal: maximize
+  name: h3r
+parameters:
+  hidden-dimension:
+    values:
+      - 48
+      - 96
+      - 192
+      - 384
+  learning-rate:
+    distribution: uniform
+    max: 0.01
+    min: 0.0001
+program: experiment.py
