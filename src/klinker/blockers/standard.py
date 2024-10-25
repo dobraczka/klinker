@@ -3,7 +3,8 @@ from typing import Optional
 import dask.dataframe as dd
 import pandas as pd
 
-from ..data import KlinkerBlockManager, KlinkerDaskFrame, KlinkerFrame
+from ..typing import FrameType
+from ..data import KlinkerBlockManager
 from .base import Blocker
 
 
@@ -27,19 +28,15 @@ class StandardBlocker(Blocker):
     def __init__(self, blocking_key: str):
         self.blocking_key = blocking_key
 
-    def _inner_assign(self, kf: KlinkerFrame) -> pd.DataFrame:
-        id_col = kf.id_col
-        table_name = kf.table_name
-        assert table_name
-
+    def _inner_assign(self, kf: FrameType, id_col: str, table_name: str) -> FrameType:
         # TODO address code duplication
-        if isinstance(kf, KlinkerDaskFrame):
+        if isinstance(kf, dd.DataFrame):
             series = (
                 kf[[id_col, self.blocking_key]]
                 .groupby(self.blocking_key)
                 .apply(
                     lambda x, id_col: list(set(x[id_col])),
-                    id_col=kf.id_col,
+                    id_col=id_col,
                     meta=pd.Series(
                         [], dtype=object, index=pd.Index([], name=self.blocking_key)
                     ),
@@ -51,39 +48,37 @@ class StandardBlocker(Blocker):
                 .groupby(self.blocking_key)
                 .apply(
                     lambda x, id_col: list(set(x[id_col])),
-                    id_col=kf.id_col,
+                    id_col=id_col,
                 )
             )
-        return kf.__class__._upgrade_from_series(
-            series,
-            columns=[table_name],
-            table_name=table_name,
-            id_col=id_col,
-            reset_index=False,
-        )
+        return series.to_frame(name=table_name)
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
         Args:
         ----
-          left: KlinkerFrame: Contains entity attribute information of left dataset.
-          right: KlinkerFrame: Contains entity attribute information of right dataset.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left: Contains entity attribute information of left dataset.
+          right: Contains entity attribute information of right dataset.
+          left_rel: Contains relational information of left dataset.
+          right_rel: Contains relational information of left dataset.
 
         Returns:
         -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
-        left_assign = self._inner_assign(left)
-        right_assign = self._inner_assign(right)
+        left_assign = self._inner_assign(left, left_id_col, left_table_name)
+        right_assign = self._inner_assign(right, right_id_col, right_table_name)
         pd_blocks = left_assign.join(right_assign, how="inner")
         if isinstance(left_assign, dd.DataFrame):
             return KlinkerBlockManager(pd_blocks)

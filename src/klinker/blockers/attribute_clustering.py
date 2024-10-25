@@ -9,9 +9,9 @@ from typing import Callable, List, Optional, Tuple, Literal
 import pandas as pd
 from nltk.tokenize import word_tokenize
 
-from ..data import KlinkerFrame
+from .concat_utils import concat_values
+from ..typing import FrameType
 from ..data.blocks import KlinkerBlockManager
-from klinker.data import KlinkerPandasFrame, KlinkerTriplePandasFrame
 from ..encoders import TokenizedFrameEncoder, frame_encoder_resolver
 from class_resolver import HintOrType, OptionalKwargs
 
@@ -68,14 +68,9 @@ class TokenClusteringMixin:
         val_col="value",
         label_col="cluster_label",
     ):
-        res = KlinkerTriplePandasFrame.from_df(
-            frame.merge(labels, left_on=frame_col, right_on=val_col)[
-                [id_col, frame_col, label_col]
-            ],
-            id_col=frame.id_col,
-            table_name=frame.table_name,
-        )
-        return res
+        return frame.merge(labels, left_on=frame_col, right_on=val_col)[
+            [id_col, frame_col, label_col]
+        ]
 
     def _get_all_embeddings(self, left, right, value_col_name):
         left_vals = left[value_col_name].unique()
@@ -116,13 +111,15 @@ class TokenClusteringMixin:
 
     def embed_and_cluster(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
+        left: FrameType,
+        right: FrameType,
+        left_table_name: str,
+        right_table_name: str,
         value_col_name: str = "tail",
-    ) -> Tuple[KlinkerFrame, KlinkerFrame]:
+    ) -> Tuple[FrameType, FrameType]:
         left_emb, right_emb = self._get_all_embeddings(left, right, value_col_name)
         self._save_embeddings_if_wanted(
-            left_emb, right_emb, left.table_name, right.table_name
+            left_emb, right_emb, left_table_name, right_table_name
         )
         all_vec = left_emb._tensor_lib.concatenate(
             [left_emb.vectors, right_emb.vectors]
@@ -190,12 +187,18 @@ class AttributeClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
-        left_c, right_c = self.embed_and_cluster(left, right)
+        left_c, right_c = self.embed_and_cluster(
+            left, right, left_table_name, right_table_name
+        )
         return super().assign(left_c, right_c)
 
 
@@ -244,12 +247,18 @@ class AttributeClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlock
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
-        left_c, right_c = self.embed_and_cluster(left, right)
+        left_c, right_c = self.embed_and_cluster(
+            left, right, left_table_name, right_table_name
+        )
         return super().assign(left_c, right_c)
 
 
@@ -297,26 +306,24 @@ class TokenClusteringTokenBlocker(TokenClusteringMixin, TokenBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "left",
     ) -> KlinkerBlockManager:
-        left_tok = KlinkerPandasFrame.from_df(
-            self._inner_token_blocker._create_exploded_token_frame(
-                left.fillna("").concat_values()
-            ).rename(columns={left.table_name: "tail"}),
-            id_col=left.id_col,
-            table_name=left.table_name,
+        left_tok = self._inner_token_blocker._create_exploded_token_frame(
+            concat_values(left, id_col=left_id_col)
+        ).rename(columns={left_table_name: "tail"})
+        right_tok = self._inner_token_blocker._create_exploded_token_frame(
+            concat_values(right, id_col=right_id_col)
+        ).rename(columns={right_table_name: "tail"})
+        left_c, right_c = self.embed_and_cluster(
+            left_tok, right_tok, left_table_name, right_table_name
         )
-        right_tok = KlinkerPandasFrame.from_df(
-            self._inner_token_blocker._create_exploded_token_frame(
-                right.fillna("").concat_values()
-            ).rename(columns={right.table_name: "tail"}),
-            id_col=right.id_col,
-            table_name=right.table_name,
-        )
-        left_c, right_c = self.embed_and_cluster(left_tok, right_tok)
         return super().assign(left_c, right_c)
 
 
@@ -370,26 +377,24 @@ class TokenClusteringMinHashLSHBlocker(TokenClusteringMixin, MinHashLSHBlocker):
 
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
-        left_tok = KlinkerPandasFrame.from_df(
-            self._inner_token_blocker._create_exploded_token_frame(
-                left.fillna("").concat_values()
-            ).rename(columns={left.table_name: "tail"}),
-            id_col=left.id_col,
-            table_name=left.table_name,
+        left_tok = self._inner_token_blocker._create_exploded_token_frame(
+            concat_values(left, id_col=left_id_col)
+        ).rename(columns={left_table_name: "tail"})
+        right_tok = self._inner_token_blocker._create_exploded_token_frame(
+            concat_values(right, id_col=right_id_col)
+        ).rename(columns={right_table_name: "tail"})
+        left_c, right_c = self.embed_and_cluster(
+            left_tok, right_tok, left_table_name, right_table_name
         )
-        right_tok = KlinkerPandasFrame.from_df(
-            self._inner_token_blocker._create_exploded_token_frame(
-                right.fillna("").concat_values()
-            ).rename(columns={right.table_name: "tail"}),
-            id_col=right.id_col,
-            table_name=right.table_name,
-        )
-        left_c, right_c = self.embed_and_cluster(left_tok, right_tok)
         return super().assign(left_c, right_c)
 
 

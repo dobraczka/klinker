@@ -8,8 +8,6 @@ from .embedding.deepblocker import DeepBlocker
 from ..encoders.deepblocker import DeepBlockerFrameEncoder
 from ..encoders import FrameEncoder
 from nltk.tokenize import word_tokenize
-from ..data.blocks import KlinkerBlockManager
-from ..data import generic_upgrade_from_series, NamedVector
 
 
 class CompositeRelationalDeepBlocker(BaseAttrTokenCompositeUniqueNameBlocker):
@@ -111,68 +109,4 @@ class CompositeEmbeddingBlocker(BaseAttrTokenCompositeUniqueNameBlocker):
                 embedding_block_builder=embedding_block_builder,
                 embedding_block_builder_kwargs=embedding_block_builder_kwargs,
             ),
-        )
-
-
-class CompositeLightEABlocker(CompositeEmbeddingBlocker):
-    def __init__(
-        self,
-        tokenize_fn: Callable[[str], List[str]] = word_tokenize,
-        min_token_length: int = 3,
-        depth: int = 2,
-        mini_dim: int = 16,
-        rel_dim: Optional[int] = None,
-        inner_encoder: HintOrType[FrameEncoder] = None,
-        inner_encoder_kwargs: OptionalKwargs = None,
-        embedding_block_builder: HintOrType[EmbeddingBlockBuilder] = None,
-        embedding_block_builder_kwargs: OptionalKwargs = None,
-        save: bool = True,
-        save_dir: Optional[Union[str, pathlib.Path]] = None,
-        force: bool = False,
-        top_n_a: Optional[int] = None,
-        top_n_r: Optional[int] = None,
-    ):
-        super().__init__(
-            top_n_a=top_n_a,
-            top_n_r=top_n_r,
-            tokenize_fn=tokenize_fn,
-            min_token_length=min_token_length,
-            frame_encoder="LightEAFrameEncoder",
-            frame_encoder_kwargs=dict(
-                depth=depth,
-                mini_dim=mini_dim,
-                rel_dim=rel_dim,
-                attribute_encoder=inner_encoder,
-                attribute_encoder_kwargs=inner_encoder_kwargs,
-                only_use_neighbor_info=True,
-            ),
-            embedding_block_builder=embedding_block_builder,
-            embedding_block_builder_kwargs=embedding_block_builder_kwargs,
-        )
-
-    def _filter_emb(self, emb, unique_block_col) -> NamedVector:
-        to_remove = unique_block_col.explode().unique().compute()
-        wanted = list(set(emb.names) - set(to_remove))
-        return emb.subset(wanted)
-
-    def _compute_rel_blocks(
-        self, left, right, left_rel, right_rel, unique_blocks
-    ) -> KlinkerBlockManager:
-        left_reduced, right_reduced = left.concat_values(), right.concat_values()
-        left_reduced = generic_upgrade_from_series(left_reduced, reset_index=False)
-        right_reduced = generic_upgrade_from_series(right_reduced, reset_index=False)
-        left_emb, right_emb = self._relation_blocker._handle_encode(
-            left_reduced, right_reduced, left_rel, right_rel
-        )
-        left_remaining = self._filter_emb(
-            left_emb, unique_blocks.blocks[unique_blocks.blocks.columns[0]]
-        )
-        right_remaining = self._filter_emb(
-            right_emb, unique_blocks.blocks[unique_blocks.blocks.columns[1]]
-        )
-        return self._relation_blocker.embedding_block_builder.build_blocks(
-            left=left_remaining,
-            right=right_remaining,
-            left_name=left.table_name,
-            right_name=right.table_name,
         )

@@ -1,19 +1,16 @@
 import logging
-from typing import Dict, Any, Type, Literal
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-import numpy as np
+from typing import Dict, Any
 from typing import Callable, List, Optional
-from ..utils import concat_frames
 
 import dask.dataframe as dd
 import pandas as pd
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 
-from ..data import KlinkerFrame
 from ..data.blocks import KlinkerBlockManager
-from ..typing import Frame, SeriesType
-from .base import SchemaAgnosticBlocker, Blocker
+from ..typing import FrameType
+from .base import Blocker
+from .concat_utils import is_triple_df, concat_values
 
 logger = logging.getLogger(__name__)
 
@@ -32,37 +29,15 @@ class FilteredTokenizer:
         tokens = filter(
             lambda tok: len(tok) >= self.min_token_length
             and tok not in self.stop_words,
-            self.tokenize_fn(str(x.lower())),
+            self.tokenize_fn(str(x).lower()),
         )
         if return_set:
             return set(tokens)
         return list(tokens)
 
 
-# def tokenize_series(x, tokenize_fn, min_token_length, stop_words):
-#     """Tokenize a series and return set.
-
-#     Args:
-#     ----
-#       x: series with values to tokenize
-#       tokenize_fn: tokenization function
-#       min_token_length: minimum length of tokens
-#       stop_words: words to ignore
-
-#     Returns:
-#     -------
-#         set of tokens
-#     """
-#     return set(
-#         filter(
-#             lambda tok: len(tok) >= min_token_length and tok not in stop_words,
-#             tokenize_fn(str(x.lower())),
-#         )
-#     )
-
-
-class TokenBlocker(SchemaAgnosticBlocker):
-    """Concatenates and tokenizes entity attribute values and blocks on tokens.
+class TokenBlocker(Blocker):
+    """Tokenizes entity attribute values and blocks on tokens.
 
     Examples
     --------
@@ -88,12 +63,12 @@ class TokenBlocker(SchemaAgnosticBlocker):
             stop_words=stop_words,
         )
 
-    def _create_exploded_token_frame(self, tab):
+    def _create_exploded_token_frame(self, tab, table_name: str):
         tok_kwargs: Dict[str, Any] = {
             "return_set": True,
         }
         if isinstance(tab, dd.Series):
-            tok_kwargs["meta"] = (tab.name, "O")
+            tok_kwargs["meta"] = (table_name, "O")
         return (
             tab.apply(self.tokenizer.tokenize, **tok_kwargs)
             .explode()
@@ -102,7 +77,9 @@ class TokenBlocker(SchemaAgnosticBlocker):
             .reset_index()
         )
 
-    def _tok_block(self, tab: SeriesType) -> Frame:
+    def _tok_block(
+        self, tab: FrameType, table_name: str, id_col: str, val_col: str = "tail"
+    ) -> FrameType:
         """Perform token blocking on this series.
 
         Args:
@@ -113,52 +90,59 @@ class TokenBlocker(SchemaAgnosticBlocker):
         -------
             token blocked series.
         """
-        name = tab.name
-        id_col_name = tab.index.name
+        if not isinstance(tab, (pd.Series, dd.Series)):
+            if is_triple_df(tab):
+                tab = tab.fillna("")
+                tab = tab.set_index(id_col)[val_col]
+            else:
+                tab = concat_values(tab, id_col=id_col)
+        tab.name = table_name
         # TODO figure out why this hack is needed
         # i.e. why does dask assume later for the join, that this is named 0
         # no matter what it is actually named
         tok_name = "tok"
-        collect_ids_kwargs = {"id_col": id_col_name}
+        collect_ids_kwargs = {"id_col": id_col}
         if isinstance(tab, dd.Series):
             collect_ids_kwargs["meta"] = pd.Series(
                 [],
-                name=tab.name,
+                name=table_name,
                 dtype="O",
                 index=pd.Series([], dtype="O", name=tok_name),
             )
         return (
-            self._create_exploded_token_frame(tab)
-            .rename(columns={name: tok_name})  # avoid same name for col and index
+            self._create_exploded_token_frame(tab, table_name)
+            .rename(columns={table_name: tok_name})  # avoid same name for col and index
             .groupby(tok_name)
             .apply(lambda x, id_col: list(set(x[id_col])), **collect_ids_kwargs)
-            .to_frame(name=name)
+            .to_frame(name=table_name)
         )
 
-    def _assign(
+    def assign(
         self,
-        left: SeriesType,
-        right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
         """Assign entity ids to blocks.
 
         Args:
         ----
-          left: KlinkerFrame: Contains entity attribute information of left dataset.
-          right: KlinkerFrame: Contains entity attribute information of right dataset.
-          left_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
-          right_rel: Optional[KlinkerFrame]:  (Default value = None) Contains relational information of left dataset.
+          left: Contains entity attribute information of left dataset.
+          right: Contains entity attribute information of right dataset.
+          left_rel: Contains relational information of left dataset.
+          right_rel: Contains relational information of left dataset.
 
         Returns:
         -------
             KlinkerBlockManager: instance holding the resulting blocks.
         """
-        left_tok = self._tok_block(left)
-        right_tok = self._tok_block(right)
-        left_tok.to_parquet("/tmp/tb_left_blocks.parquet")
-        right_tok.to_parquet("/tmp/tb_right_blocks.parquet")
+        left_tok = self._tok_block(left, left_table_name, left_id_col)
+        right_tok = self._tok_block(right, right_table_name, right_id_col)
         pd_blocks = left_tok.join(right_tok, how="inner")
         if isinstance(pd_blocks, dd.DataFrame):
             return KlinkerBlockManager(pd_blocks)
@@ -168,12 +152,16 @@ class TokenBlocker(SchemaAgnosticBlocker):
 class UniqueNameBlocker(Blocker):
     def assign(
         self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
+        left_id_col: str = "head",
+        right_id_col: str = "head",
+        left_table_name: str = "left",
+        right_table_name: str = "right",
     ) -> KlinkerBlockManager:
-        def filter_nonunique(attr_frame: KlinkerFrame, head_col, tail_col):
+        def filter_nonunique(attr_frame: FrameType, head_col, tail_col):
             if isinstance(attr_frame, pd.DataFrame):
                 return attr_frame.groupby(tail_col).filter(
                     lambda x: x[head_col].nunique() == 1
@@ -204,181 +192,9 @@ class UniqueNameBlocker(Blocker):
         return KlinkerBlockManager(res)
 
 
-class _MyVectorizerMixin:
-    vectorizer_cls: Type
+if __name__ == "__main__":
+    from klinker.data import KlinkerDataset
+    from sylloge import MovieGraphBenchmark
 
-    def __init__(self, **vectorizer_kwargs):
-        if vectorizer_kwargs == {}:
-            vectorizer_kwargs["analyzer"] = FilteredTokenizer().tokenize
-        self.vectorizer_kwargs = vectorizer_kwargs
-
-    def vectorize(self, left: KlinkerFrame, right: KlinkerFrame):
-        vec = self.__class__.vectorizer_cls(**self.vectorizer_kwargs)
-        all_conc = concat_frames([left, right])
-        return vec.fit_transform(all_conc), vec
-
-
-class PartitioningTokenBlocker(_MyVectorizerMixin, SchemaAgnosticBlocker):
-    vectorizer_cls = CountVectorizer
-
-    def _assign(
-        self,
-        left: KlinkerFrame,
-        right: KlinkerFrame,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        X, _ = super().vectorize(left, right)
-        X_left = X[: len(left)]
-        X_right = X[len(left) :]
-
-        # get overlaps via mm
-        res = X_left @ X_right.T
-
-        # get right entities by utilizing sparse matrix construction
-        # see https://stackoverflow.com/a/52299730
-        # and https://stackoverflow.com/a/24792612
-        right_val = np.split(right.index[res.indices].to_numpy(), res.indptr[1:-1])
-        blocks = (
-            pd.Series(right_val, index=left.index)
-            .to_frame(right.name)
-            .reset_index(names=["tmp"])
-        )
-        blocks[left.name] = blocks["tmp"].apply(lambda x: [x])
-        return KlinkerBlockManager.from_pandas(blocks[[left.name, right.name]])
-
-
-class TfIdfFilteredTokenBlocker(_MyVectorizerMixin, SchemaAgnosticBlocker):
-    vectorizer_cls = TfidfVectorizer
-
-    def __init__(self, threshold: float, **vectorizer_kwargs):
-        self.threshold = threshold
-        super().__init__(**vectorizer_kwargs)
-
-    def _build_side(self, X_part, conc, tokens):
-        return (
-            pd.Series(
-                np.split(tokens[X_part.indices], X_part.indptr[1:-1]), index=conc.index
-            )
-            .explode()
-            .dropna()
-            .to_frame("tok")
-            .reset_index()
-            .groupby("tok")
-            .apply(lambda x: list(set(x["head"])))
-            .to_frame(name=conc.name)
-        )
-
-    def _assign(
-        self,
-        left: SeriesType,
-        right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        X, vec = super().vectorize(left, right)
-        if self.threshold > 0.0:
-            X = X >= self.threshold
-        else:
-            logger.warn(
-                "Threshold is {self.threshold} and cannot be used! This turns this into a simple token blocker! Set threshold to > 0!"
-            )
-        tokens = vec.get_feature_names_out()
-        left_blocks = self._build_side(X[: len(left)], left, tokens)
-        right_blocks = self._build_side(X[len(left) :], right, tokens)
-        return KlinkerBlockManager.from_pandas(
-            left_blocks.join(right_blocks, how="inner")
-        )
-
-
-class DaskTfidfVectorizer:
-    def __init__(
-        self,
-        *,
-        norm: Optional[Literal["l2", "l1"]] = "l2",
-        use_idf: bool = True,
-        smooth_idf: bool = True,
-        sublinear_tf: bool = False,
-        persist_idf_array: bool = True,
-        **vectorizer_kwargs,
-    ):
-        try:
-            from dask_tfidf import DaskTfidfTransformer
-        except ImportError:
-            raise ImportError("Please install dask_tfidf!")
-        from dask_ml.feature_extraction.text import (
-            CountVectorizer as DaskCountVectorizer,
-        )
-
-        self.count_vec = DaskCountVectorizer(**vectorizer_kwargs)
-        self.tfidf_transformer = DaskTfidfTransformer(
-            norm=norm,
-            use_idf=use_idf,
-            smooth_idf=smooth_idf,
-            sublinear_tf=sublinear_tf,
-            persist_idf_array=persist_idf_array,
-        )
-
-    def fit_transform(self, x):
-        import dask.bag as db
-
-        counts = self.count_vec.fit_transform(db.from_sequence(x))
-        counts.persist()
-        return self.tfidf_transformer.fit_transform(counts).compute().tocsr()
-
-    def get_feature_names_out(self, input_features=None):
-        return self.count_vec.get_feature_names_out(input_features=input_features)
-
-
-class DaskTfIdfFilteredTokenBlocker(TfIdfFilteredTokenBlocker):
-    vectorizer_cls = DaskTfidfVectorizer
-
-    def _build_side(self, X_part, conc, tokens):
-        name = conc.name
-        id_col_name = conc.index.name
-        # TODO figure out why this hack is needed
-        # i.e. why does dask assume later for the join, that this is named 0
-        # no matter what it is actually named
-        # tok_name = "tok"
-        collect_ids_kwargs = {"id_col": id_col_name}
-        # collect_ids_kwargs["meta"] = pd.Series(
-        #     [],
-        #     name=conc.name,
-        #     dtype="O",
-        #     index=pd.Series([], dtype="O", name=tok_name),
-        # )
-        return (
-            pd.Series(
-                np.split(tokens[X_part.indices], X_part.indptr[1:-1]), index=conc.index
-            )
-            .explode()
-            .dropna()
-            .to_frame("tok")
-            .reset_index()
-            .groupby("tok")
-            .apply(lambda x, id_col: list(set(x[id_col])), **collect_ids_kwargs)
-            .to_frame(name=name)
-        )
-
-    def _assign(
-        self,
-        left: SeriesType,
-        right: SeriesType,
-        left_rel: Optional[KlinkerFrame] = None,
-        right_rel: Optional[KlinkerFrame] = None,
-    ) -> KlinkerBlockManager:
-        left = left.persist()
-        right = right.persist()
-        X, vec = super().vectorize(left, right)
-        if self.threshold > 0.0:
-            X = X >= self.threshold
-        else:
-            logger.warn(
-                "Threshold is {self.threshold} and cannot be used! This turns this into a simple token blocker! Set threshold to > 0!"
-            )
-        tokens = vec.get_feature_names_out()
-        left_blocks = self._build_side(X[: len(left)], left, tokens)
-        right_blocks = self._build_side(X[len(left) :], right, tokens)
-        return KlinkerBlockManager.from_pandas(
-            left_blocks.join(right_blocks, how="inner")
-        )
+    ds = KlinkerDataset.from_sylloge(MovieGraphBenchmark(), clean=True)
+    blocks = TokenBlocker().assign(ds.left, ds.right)

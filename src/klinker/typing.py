@@ -1,10 +1,10 @@
 from typing import Literal, TypeVar, Union
 
-import dask.dataframe as dd
 import numpy as np
-import pandas as pd
 import torch
 from class_resolver import Hint
+import dask.dataframe as dd
+import pandas as pd
 
 DeviceHint = Hint[torch.device]
 
@@ -13,5 +13,6 @@ GeneralVector = Union[np.ndarray, torch.Tensor]
 GeneralVectorLiteral = Literal["np", "pt"]
 TorchVectorLiteral: GeneralVectorLiteral = "pt"
 NumpyVectorLiteral: GeneralVectorLiteral = "np"
-Frame = TypeVar("Frame", pd.DataFrame, dd.DataFrame)
-SeriesType = Union[pd.Series, dd.Series]
+
+FrameType = TypeVar("FrameType", dd.DataFrame, pd.DataFrame)
+SeriesType = TypeVar("SeriesType", pd.Series, dd.Series)

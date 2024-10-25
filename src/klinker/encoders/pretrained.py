@@ -30,8 +30,7 @@ except ImportError:
     from sklearn.decomposition import PCA
     from umap import UMAP
 
-from ..data import KlinkerDaskFrame
-from ..typing import Frame, GeneralVector
+from ..typing import FrameType, GeneralVector
 from ..utils import concat_frames
 from .base import TokenizedFrameEncoder
 
@@ -112,7 +111,7 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.tokenizer.tokenize
 
     @torch.no_grad()
-    def _encode_side(self, df: Frame) -> GeneralVector:
+    def _encode_side(self, df: FrameType) -> GeneralVector:
         encoded = []
         for batch in _batch_generator(df, self.batch_size):
             tok = self.tokenizer(
@@ -127,10 +126,10 @@ class TransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         return self._encode_side(left), self._encode_side(right)
 
@@ -200,9 +199,11 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
         return self.model.tokenizer.tokenize
 
     @torch.no_grad()
-    def _encode_side(self, df: Frame, convert_to_tensor: bool = True) -> GeneralVector:
+    def _encode_side(
+        self, df: FrameType, convert_to_tensor: bool = True
+    ) -> GeneralVector:
         vals = df[df.columns[0]].values
-        if isinstance(df, KlinkerDaskFrame):
+        if isinstance(df, dd.DataFrame):
             vals = vals.compute()
         if convert_to_tensor:
             return self.model.encode(
@@ -212,7 +213,7 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
             vals, batch_size=self.batch_size, convert_to_numpy=True
         )
 
-    def _add_dimensionality_reduction_layer(self, left: Frame, right: Frame):
+    def _add_dimensionality_reduction_layer(self, left: FrameType, right: FrameType):
         # see https://github.com/UKPLab/sentence-transformers/blob/master/examples/training/distillation/dimensionality_reduction.py
         logger.info(
             f"Using PCA to output embeddings with dimensionality of {self.reduce_dim_to}. Training on {self.reduce_sample_perc * 100} % of the data."
@@ -245,10 +246,10 @@ class SentenceTransformerTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         logger.info("Started encode")
         if self.reduce_dim_to and not self._added_reduce_layer:
@@ -359,7 +360,7 @@ tokenized_word_embedder_resolver = ClassResolver(
 
 
 def encode_frame(
-    df: Frame, twe: TokenizedWordEmbedder, weight_dict: Optional[Dict] = None
+    df: FrameType, twe: TokenizedWordEmbedder, weight_dict: Optional[Dict] = None
 ) -> np.ndarray:
     """Encode Frame with tokenized word embedder.
 
@@ -410,10 +411,10 @@ class AverageEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         if isinstance(left, dd.DataFrame):
             left = left.compute()
@@ -467,7 +468,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
         """ """
         return self.tokenized_word_embedder.tokenizer_fn
 
-    def prepare(self, left: Frame, right: Frame) -> Tuple[Frame, Frame]:
+    def prepare(self, left: FrameType, right: FrameType) -> Tuple[FrameType, FrameType]:
         """Prepare value counts.
 
         Args:
@@ -499,7 +500,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
                 return 1.0
 
         total_tokens = value_counts.sum()
-        if isinstance(left, KlinkerDaskFrame):
+        if isinstance(left, dd.DataFrame):
             total_tokens = total_tokens.compute()
 
         token_weight_dict = value_counts.apply(
@@ -509,7 +510,7 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
             total_tokens=total_tokens,
         )
 
-        if isinstance(left, KlinkerDaskFrame):
+        if isinstance(left, dd.DataFrame):
             token_weight_dict = token_weight_dict.compute()
 
         self.token_weight_dict = token_weight_dict.to_dict()
@@ -562,14 +563,14 @@ class SIFEmbeddingTokenizedFrameEncoder(TokenizedFrameEncoder):
 
     def _encode(
         self,
-        left: Frame,
-        right: Frame,
-        left_rel: Optional[Frame] = None,
-        right_rel: Optional[Frame] = None,
+        left: FrameType,
+        right: FrameType,
+        left_rel: Optional[FrameType] = None,
+        right_rel: Optional[FrameType] = None,
     ) -> Tuple[GeneralVector, GeneralVector]:
         if self.token_weight_dict is None:
             self.prepare(left, right)
-        if isinstance(left, KlinkerDaskFrame):
+        if isinstance(left, dd.DataFrame):
             left_enc = left.map_partitions(
                 encode_frame,
                 twe=self.tokenized_word_embedder,
